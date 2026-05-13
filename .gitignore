@@ -1,0 +1,34 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+.DS_Store
+
+# Build artefacts
+*.Rcheck/
+*.tar.gz
+inst/doc
+/doc/
+/Meta/
+README.html
+pathtree_human_ai_demo.html
+
+# Session / dev / submission files (keep local)
+CHANGES.md
+CLAUDE.md
+HANDOFF.md
+LEARNINGS.md
+TODO.md
+cran-comments.md
+local_testing_and_equivalence/
+audit/
+audit.zip
+codex_docs/
+tmp/
+sidelined/
+
+# Test artefacts
+tests/testthat/Rplots.pdf
+tests/testthat/testthat-problems.rds
+tests/testthat/_problems/

@@ -1,0 +1,43 @@
+Package: pathtree
+Type: Package
+Title: Pathway Trees and Predictive Pathway Discovery in Sequence Data
+Version: 0.1.0
+Authors@R: c(
+    person(given = "Mohammed",
+           family = "Saqr",
+           email = "saqr@saqr.me",
+           role = c("aut", "cre")))
+Description: Discovers, ranks, and interprets predictive pathways in
+    categorical sequence data. Fits a variable-depth pathway tree
+    (prediction suffix tree; Ron, Singer and Tishby (1996)
+    <doi:10.1023/A:1026490906255>) and exposes a pathway-centric API:
+    most common pathways, most predictively divergent pathways,
+    sharpest pathways, modal-flip diagnostics, and next-state
+    predictions. Multiple pruning criteria (likelihood-ratio G^2,
+    Kullback-Leibler, AIC, BIC), smoothing for unseen contexts, and
+    sequence sampling are supported. Validated to machine precision
+    against the archived 'PST' package (Gabadinho and Ritschard,
+    2013).
+License: GPL-3
+URL: https://github.com/mohsaqr/pathtree
+BugReports: https://github.com/mohsaqr/pathtree/issues
+Encoding: UTF-8
+Language: en-US
+Depends: R (>= 4.1)
+Imports:
+    ggplot2,
+    stats,
+    utils
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    TraMineR,
+    Nestimate,
+    ggraph,
+    tidygraph,
+    collapsibleTree
+Additional_repositories: https://mohsaqr.r-universe.dev
+Config/testthat/edition: 3
+Roxygen: list(markdown = FALSE)
+RoxygenNote: 7.3.3

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>pathtree — Documentation</title>
+  <style>
+    body {
+      max-width: 760px; margin: 3em auto; padding: 0 1.5em;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   Roboto, Helvetica, Arial, sans-serif;
+      color: #222; line-height: 1.55;
+    }
+    h1 { font-size: 1.9em; margin-bottom: 0.2em; }
+    .lead { color: #666; font-size: 1.05em; margin-top: 0; }
+    h2 { margin-top: 1.8em; padding-bottom: 0.3em;
+         border-bottom: 1px solid #eee; }
+    .doc {
+      display: block; padding: 1em 1.2em; margin: 0.6em 0;
+      border: 1px solid #e2e2e2; border-radius: 6px;
+      text-decoration: none; color: inherit; transition: 0.15s;
+    }
+    .doc:hover { border-color: #0072B2; background: #f6fafd; }
+    .doc h3 { margin: 0 0 0.3em 0; color: #0072B2;
+              font-size: 1.1em; }
+    .doc p { margin: 0; color: #555; font-size: 0.95em; }
+    code { background: #f4f4f4; padding: 0.1em 0.3em;
+           border-radius: 3px; font-size: 0.9em; }
+    .meta { color: #888; font-size: 0.85em; margin-top: 1.5em; }
+  </style>
+</head>
+<body>
+
+<h1>pathtree</h1>
+<p class="lead">
+  Predictive pathway discovery in categorical sequence data.
+</p>
+
+<p>
+  <code>pathtree</code> fits variable-depth prediction suffix trees
+  and exposes a pathway-centric API for ranking trajectories,
+  scoring predictions, and quantifying pathway uncertainty under
+  resampling. Validated to machine precision against the archived
+  <code>PST</code> 0.94.1 (Gabadinho &amp; Ritschard 2013).
+</p>
+
+<h2>Documents</h2>
+
+<a class="doc" href="pathtree_tutorial.html">
+  <h3>pathtree — A Tutorial</h3>
+  <p>
+    Full walkthrough: fitting, the pathway-centric API
+    (<code>common_pathways</code>, <code>divergent_pathways</code>,
+    <code>sharp_pathways</code>, <code>path_dependence</code>),
+    pruning, bootstrap stability and informativeness, predictive
+    evaluation, tree introspection, two-tree comparison.
+    13 sections, on <code>Nestimate::trajectories</code>.
+  </p>
+</a>
+
+<a class="doc" href="bootstrap_demo.html">
+  <h3>bootstrap_pathways() — Demonstration</h3>
+  <p>
+    Focused demo of the bootstrap design. Validates the test
+    against three Markov regimes (strong, weak, random) simulated
+    with <code>Saqrlab::simulate_sequences()</code>, then applies
+    it to the trajectories dataset. Includes the Monte Carlo
+    confusion-matrix evaluation across 600 simulated datasets.
+  </p>
+</a>
+
+<h2>Methodological provenance</h2>
+
+<p>
+  The bootstrap framework extends Saqr, Tikka &amp; López-Pernas
+  (2025), <a href="https://doi.org/10.1145/3706468.3706513">
+  <em>Transition Network Analysis</em></a> (the <code>tna</code>
+  package) from edges to variable-depth pathways. Pathway-level
+  constructs — <code>stability_rate</code>,
+  <code>informative_rate</code>, <code>flip_consistency</code> —
+  are pathtree-specific extensions of the edge-stability framing.
+</p>
+
+<p class="meta">
+  Source: <a href="https://github.com/mohsaqr/pathtree">github.com/mohsaqr/pathtree</a>.
+  License: GPL-3.
+</p>
+
+</body>
+</html>

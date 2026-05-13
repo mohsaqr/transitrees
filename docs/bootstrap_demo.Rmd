@@ -1,0 +1,248 @@
+---
+title: "pathtree::bootstrap_pathways() — demonstration"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    theme: flatly
+    df_print: paged
+    code_folding: show
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, warning = FALSE, message = FALSE,
+  fig.width = 9, fig.height = 5, dpi = 110, out.width = "100%"
+)
+devtools::load_all(here::here())
+suppressMessages(library(Saqrlab))
+```
+
+## What `bootstrap_pathways()` reports
+
+Methodologically built on Saqr, Tikka & López-Pernas (2025)
+[**tna**](https://doi.org/10.1145/3706468.3706513), extending the
+edge-level bootstrap framework to variable-depth pathways.
+
+The bootstrap operates on **raw counts only** — no `nmin` filter,
+no smoothing inside the loop, no extra parameters. Each iteration
+resamples whole sequences, aggregates counts per depth, and reads
+each original-tree pathway's count vector directly.
+
+Two complementary measures per pathway:
+
+- **`stability_rate`** — fraction of resamples where the chosen
+  `stat` (default `count`) lands in
+  `[0.75 × observed, 1.25 × observed]`. **Value reproducibility.**
+  A pathway whose count drops to zero in a resample fails the band
+  test automatically — same mechanism `tna::bootstrap` uses for
+  edge weights.
+
+- **`informative_rate`** — fraction of resamples where the
+  pathway's empirical likelihood-ratio statistic against its parent
+  context exceeds the chi-square critical value at `alpha_g2 =
+  0.05`. **Reproducible significant divergence from the
+  shorter-history baseline.** The bootstrap analogue of
+  `prune(criterion = "G2")`.
+
+A pathway is `stable` when `stability_rate ≥ stability_threshold`
+(default 0.75) and `informative` when `informative_rate ≥
+informative_threshold` (default 0.95). The summary sorts
+**stable + informative** pathways first.
+
+---
+
+## Validation: strong, weak, random
+
+Three Markov regimes from `Saqrlab::simulate_sequences()`, same
+sample size (100 sequences × 14 length, alphabet `{A, B, C}`):
+
+```{r sim}
+P_strong <- rbind(c(0.05, 0.90, 0.05),
+                  c(0.05, 0.05, 0.90),
+                  c(0.90, 0.05, 0.05))
+P_weak   <- rbind(c(0.30, 0.50, 0.20),
+                  c(0.20, 0.30, 0.50),
+                  c(0.50, 0.20, 0.30))
+P_random <- matrix(1 / 3, 3L, 3L)
+rownames(P_strong) <- colnames(P_strong) <- c("A", "B", "C")
+rownames(P_weak)   <- colnames(P_weak)   <- c("A", "B", "C")
+rownames(P_random) <- colnames(P_random) <- c("A", "B", "C")
+init <- c(A = 1/3, B = 1/3, C = 1/3)
+
+run_scenario <- function(P, seed) {
+  seqs <- simulate_sequences(
+    n_sequences = 100L, seq_length = 14L,
+    trans_matrix = P, init_probs = init,
+    use_learning_states = FALSE, include_na = FALSE,
+    seed = seed)
+  tree <- context_tree(seqs, max_depth = 2L, nmin = 5L)
+  bootstrap_pathways(tree, iter = 300L, seed = 1L)
+}
+
+b_strong <- run_scenario(P_strong, seed = 1L)
+b_weak   <- run_scenario(P_weak,   seed = 2L)
+b_random <- run_scenario(P_random, seed = 3L)
+```
+
+### Print: STRONG (modal probability 0.90)
+
+```{r print-strong}
+b_strong
+```
+
+Three depth-1 pathways (A, B, C) have G² ~600 with tight CIs —
+their conditional distribution differs dramatically from the
+marginal, so `informative_rate = 1`. Depth-2 pathways have G² near
+zero because the data is 1st-order Markov: conditional on the most
+recent state, prior history adds nothing. The bootstrap correctly
+flags depth-1 as informative and depth-2 as not — the latter would
+be the wrong choice in a longer-memory tree.
+
+### Print: WEAK (modal probability 0.50)
+
+```{r print-weak}
+b_weak
+```
+
+Same structure, weaker signal. Depth-1 G² ~50–60: still well
+above the chi-square critical value (5.99), so depth-1 is
+reproducibly informative. Depth-2 G² ~1–4 sits below the
+critical value most of the time, so depth-2 is reproducibly not
+informative — exactly right for 1st-order Markov.
+
+### Print: RANDOM (uniform 1/3)
+
+```{r print-random}
+b_random
+```
+
+All counts are reproducible (`stable = TRUE` everywhere — counts
+of uniform random transitions reproduce just fine), but **zero
+pathways are informative** at the strict 0.95 threshold. The
+chi-square test is hovering at finite-sample chance levels (G²
+~5–14, near or just above the critical value), and the bootstrap
+correctly says it doesn't *reproducibly* clear the threshold.
+
+### Headline numbers across regimes
+
+```{r headline}
+cmp <- function(b, label) {
+  s <- b$summary
+  data.frame(
+    scenario      = label,
+    n_pathways    = nrow(s),
+    n_stable      = sum(s$stable, na.rm = TRUE),
+    n_informative = sum(s$informative, na.rm = TRUE),
+    n_both        = sum(s$stable & s$informative, na.rm = TRUE),
+    median_G2     = round(median(s$mean_G2, na.rm = TRUE), 2),
+    mean_G2       = round(mean(s$mean_G2, na.rm = TRUE), 2),
+    p95_G2        = round(quantile(s$mean_G2, 0.95,
+                                    na.rm = TRUE), 2)
+  )
+}
+rbind(
+  cmp(b_strong, "STRONG (modal=0.90)"),
+  cmp(b_weak,   "WEAK   (modal=0.50)"),
+  cmp(b_random, "RANDOM (uniform)")
+)
+```
+
+`mean_G2` orders cleanly across regimes (151 / 16 / 4) and
+`n_informative` orders the same way (3 / 3 / 0) at the strict
+threshold. `n_stable` is high in all three because counts are
+reproducible regardless of underlying structure — that's
+stability's job; informativeness is the test that distinguishes
+real signal.
+
+### Forest plots
+
+```{r forest-strong, fig.height = 4}
+plot(b_strong)
+```
+
+```{r forest-weak, fig.height = 4}
+plot(b_weak)
+```
+
+```{r forest-random, fig.height = 4}
+plot(b_random, min_stability = 0)
+```
+
+The dashed line marks the chi-square critical value. STRONG's
+depth-1 pathways sit far to the right of it; WEAK's still clear it
+comfortably; RANDOM's straddle or fall below it.
+
+### Resample distributions of G²
+
+```{r resamples-strong, fig.height = 3.6}
+plot_pathway_resamples(b_strong, stat = "G2", top = 6L)
+```
+
+```{r resamples-random, fig.height = 3.6}
+plot_pathway_resamples(b_random, stat = "G2", top = 6L)
+```
+
+STRONG's depth-1 G² distributions are tight at 500–700; depth-2
+distributions sit near zero. RANDOM shows everything piled up
+near the chi-square critical value with wide spread — exactly what
+finite-sample noise produces.
+
+---
+
+## Real data: `Nestimate::trajectories`
+
+```{r real-data}
+data("trajectories", package = "Nestimate")
+dim(trajectories)
+tree <- context_tree(trajectories, max_depth = 3L, nmin = 5L)
+boot <- bootstrap_pathways(tree, iter = 500L, seed = 1L)
+boot
+```
+
+```{r real-plot, fig.height = 6}
+plot(boot)
+```
+
+```{r real-resamples, fig.height = 4}
+plot_pathway_resamples(boot, stat = "G2", top = 6L)
+```
+
+```{r real-summary}
+summary(boot)
+```
+
+---
+
+## Design notes
+
+- **Bootstrap operates on raw counts.** No `nmin` filter, no
+  smoothing inside the loop, no extra parameters. Pathways tracked
+  are exactly the ones in the original tree; their values come
+  from per-depth count aggregation.
+- **`stable` answers "does the value reproduce?"** — tna's
+  framing. With enough data, counts reproduce regardless of
+  whether the underlying structure is informative.
+- **`informative` answers "does the LR test reproducibly clear the
+  threshold?"** — the bootstrap analogue of
+  `prune(criterion = "G2")`. This is the test that distinguishes
+  real signal from finite-sample noise.
+- **Use both flags together.** A pathway worth interpreting is
+  one where `stable AND informative`. The summary sorts those
+  first.
+- **No `prune()` inside the resample loop.** Pruning is a
+  downstream filter on the bootstrap output, not part of the fit
+  replay.
+- **Performance.** Per-sequence `(context, next_state)`
+  pair-index vectors are precomputed once per depth (Nestimate's
+  transition fast-path). Bootstrap iterations are one
+  `unlist`+`tabulate` per depth followed by per-pathway count
+  lookups, with no `data.frame` construction inside the loop.
+
+---
+
+```{r session, echo = FALSE}
+sessionInfo()
+```
