@@ -545,6 +545,18 @@
 #'   \code{group_tna}), \code{context_tree()} fits one tree per group
 #'   over a shared alphabet and returns a \code{pathtree_group} (a named
 #'   list of \code{pathtree}s). Default \code{NULL} (single tree).
+#' @param action Character. Naming a state/code column switches
+#'   \code{data} to \strong{long-format} mode: it is reshaped to a wide
+#'   sequence frame with \code{\link{prepare_input}()} before fitting.
+#'   Required to use any of \code{actor}/\code{time}/\code{order}/
+#'   \code{session}. Default \code{NULL} (data is already in sequence
+#'   shape).
+#' @param actor,time,order,session,time_threshold Passed to
+#'   \code{\link{prepare_input}()} when \code{action} is given: the unit
+#'   each sequence belongs to (\code{actor}), the timestamp column
+#'   (\code{time}), an explicit ordering (\code{order}) or session id
+#'   (\code{session}), and the gap in seconds that starts a new session
+#'   (\code{time_threshold}, default 900).
 #'
 #' @return For a single fit, a \code{pathtree} object (described below).
 #'   For a grouped fit (\code{group =} supplied, or a grouped family
@@ -606,7 +618,10 @@ context_tree <- function(data,
                          smoothing = "floor",
                          alphabet  = NULL,
                          weights   = NULL,
-                         group     = NULL) {
+                         group     = NULL,
+                         actor = NULL, time = NULL, action = NULL,
+                         order = NULL, session = NULL,
+                         time_threshold = 900) {
   if (!is.numeric(max_depth) || length(max_depth) != 1L ||
       is.na(max_depth) || max_depth < 0)
     stop("'max_depth' must be a single non-negative integer.",
@@ -614,6 +629,22 @@ context_tree <- function(data,
   if (!is.numeric(min_count) || length(min_count) != 1L ||
       is.na(min_count) || min_count < 1)
     stop("'min_count' must be a single integer >= 1.", call. = FALSE)
+
+  ## ---- Long-format input: reshape to a wide sequence frame first ------
+  ## When `action` (the state column) is named, `data` is treated as a
+  ## long, one-row-per-event table and reshaped with prepare_input() --
+  ## grouping by `actor`, ordering by `time`/`order`, and splitting an
+  ## actor's events into sessions when the time gap exceeds
+  ## `time_threshold`. Everything below then fits on the wide frame.
+  if (!is.null(action)) {
+    data <- prepare_input(data, actor = actor, time = time, action = action,
+                          order = order, session = session,
+                          time_threshold = time_threshold)
+  } else if (!is.null(actor) || !is.null(time) || !is.null(session) ||
+             !is.null(order)) {
+    stop("To fit from long-format data, name the state column via ",
+         "'action ='.", call. = FALSE)
+  }
 
   ## ---- Grouped fit -> a pathtree_group (one tree per group) ----------
   ## A grouped family object (netobject_group / group_tna / a named list

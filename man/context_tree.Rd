@@ -11,7 +11,13 @@ context_tree(
   smoothing = "floor",
   alphabet = NULL,
   weights = NULL,
-  group = NULL
+  group = NULL,
+  actor = NULL,
+  time = NULL,
+  action = NULL,
+  order = NULL,
+  session = NULL,
+  time_threshold = 900
 )
 }
 \arguments{
@@ -75,6 +81,20 @@ object such as a Nestimate \code{netobject_group} or a \pkg{tna}
 \code{group_tna}), \code{context_tree()} fits one tree per group
 over a shared alphabet and returns a \code{pathtree_group} (a named
 list of \code{pathtree}s). Default \code{NULL} (single tree).}
+
+\item{actor, time, order, session, time_threshold}{Passed to
+\code{\link{prepare_input}()} when \code{action} is given: the unit
+each sequence belongs to (\code{actor}), the timestamp column
+(\code{time}), an explicit ordering (\code{order}) or session id
+(\code{session}), and the gap in seconds that starts a new session
+(\code{time_threshold}, default 900).}
+
+\item{action}{Character. Naming a state/code column switches
+\code{data} to \strong{long-format} mode: it is reshaped to a wide
+sequence frame with \code{\link{prepare_input}()} before fitting.
+Required to use any of \code{actor}/\code{time}/\code{order}/
+\code{session}. Default \code{NULL} (data is already in sequence
+shape).}
 }
 \value{
 For a single fit, a \code{pathtree} object (described below).
