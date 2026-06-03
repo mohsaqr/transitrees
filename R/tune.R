@@ -12,11 +12,11 @@
 .pt_fit_score_fold <- function(train_seqs, test_seqs, alphabet, cfg) {
   tr <- context_tree(train_seqs,
                      max_depth = cfg$max_depth,
-                     nmin      = cfg$nmin,
+                     min_count = cfg$min_count,
                      smoothing = cfg$smoothing,
                      alphabet  = alphabet)
   if (isTRUE(cfg$prune))
-    tr <- prune_pathtree(tr, criterion = "G2", alpha = cfg$prune_alpha)
+    tr <- prune_pathtree(tr, criterion = "G2", alpha = cfg$alpha)
   ll <- logLik.pathtree(tr, newdata = test_seqs)
   list(ll = as.numeric(ll), n = attr(ll, "nobs"),
        n_nodes = length(tr$nodes))
@@ -63,7 +63,7 @@
 #' @param data Sequence data; format accepted by \code{context_tree()}.
 #' @param max_depth Integer vector. Grid values for tree depth.
 #'   Default \code{2:5}.
-#' @param nmin Integer vector. Grid for minimum-count threshold.
+#' @param min_count Integer vector. Grid for minimum-count threshold.
 #'   Default \code{c(3L, 5L, 10L)}.
 #' @param smoothing Smoothing grid. A character vector of method names
 #'   (e.g. \code{c("floor", "kneser_ney")}) — each method is tried with
@@ -72,9 +72,9 @@
 #'   for a hyperparameter sweep within one method).
 #' @param prune Logical vector. Whether to apply G^2 pruning.
 #'   Default \code{c(FALSE, TRUE)}.
-#' @param prune_alpha Numeric. Significance level for G^2 pruning when
+#' @param alpha Numeric. Significance level for G^2 pruning when
 #'   \code{prune = TRUE}. Default \code{0.05}.
-#' @param k Integer. Number of CV folds. Default 5.
+#' @param folds Integer. Number of CV folds. Default 5.
 #' @param seed Integer. RNG seed for reproducible folds. Default 1.
 #'
 #' @return A \code{pathtree_tune} object: a data.frame with one row per
@@ -90,30 +90,30 @@
 #' m <- matrix(sample(c("A","B","C"), 30 * 12, replace = TRUE), 30, 12)
 #' tune_pathtree(m, max_depth = 1:3,
 #'               smoothing = c("floor", "kneser_ney"),
-#'               prune = FALSE, k = 4)
+#'               prune = FALSE, folds = 4)
 #' }
 #' @export
 tune_pathtree <- function(data,
                           max_depth   = 2L:5L,
-                          nmin        = c(3L, 5L, 10L),
+                          min_count   = c(3L, 5L, 10L),
                           smoothing   = "floor",
                           prune       = c(FALSE, TRUE),
-                          prune_alpha = 0.05,
-                          k           = 5L,
+                          alpha       = 0.05,
+                          folds       = 5L,
                           seed        = 1L) {
   trajs <- .ct_traj(.ct_coerce(data))
-  if (length(trajs) < k)
-    stop("Not enough sequences (", length(trajs), ") for ", k, " folds.",
+  if (length(trajs) < folds)
+    stop("Not enough sequences (", length(trajs), ") for ", folds, " folds.",
          call. = FALSE)
   alphabet <- .ct_alphabet(trajs)
-  folds    <- .pt_make_folds(length(trajs), k, seed = seed)
+  fold_sets <- .pt_make_folds(length(trajs), folds, seed = seed)
 
   smoothing_grid <- .pt_smoothing_grid(smoothing)
   sm_labels      <- vapply(smoothing_grid, .pt_smoothing_label,
                             character(1))
 
   base <- expand.grid(max_depth   = as.integer(max_depth),
-                      nmin        = as.integer(nmin),
+                      nmin        = as.integer(min_count),
                       smoothing_i = seq_along(smoothing_grid),
                       prune       = as.logical(prune),
                       stringsAsFactors = FALSE)
@@ -121,11 +121,11 @@ tune_pathtree <- function(data,
   scored <- lapply(seq_len(nrow(base)), function(gi) {
     sm <- smoothing_grid[[base$smoothing_i[gi]]]
     cfg <- list(max_depth   = base$max_depth[gi],
-                nmin        = base$nmin[gi],
+                min_count   = base$nmin[gi],
                 smoothing   = sm,
                 prune       = base$prune[gi],
-                prune_alpha = prune_alpha)
-    fold_results <- lapply(folds, function(test_idx) {
+                alpha       = alpha)
+    fold_results <- lapply(fold_sets, function(test_idx) {
       train_idx <- setdiff(seq_along(trajs), test_idx)
       tryCatch(
         .pt_fit_score_fold(train_seqs = trajs[train_idx],

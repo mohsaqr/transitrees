@@ -26,7 +26,7 @@ deterministic prediction.
 \examples{
 \donttest{
 tree <- context_tree(matrix(sample(c("A","B","C"), 200, TRUE), 20),
-                     max_depth = 2, nmin = 2)
+                     max_depth = 2, min_count = 2)
 perplexity(tree)
 }
 }

@@ -15,8 +15,9 @@
 A \code{summary.pathtree} object. The \code{$table} slot is
   the canonical pathway data.frame from
   \code{\link{pathtree_pathways}} (columns \code{pathway},
-  \code{depth}, \code{count}, \code{modal_next}, \code{prob_next},
-  \code{KL}, \code{flips}), re-sorted by \code{(depth, -count)} so
+  \code{depth}, \code{count}, \code{likely_next},
+  \code{next_probability}, \code{divergence},
+  \code{changes_prediction}), re-sorted by \code{(depth, -count)} so
   the structural tree order is read top-to-bottom.
 }
 \description{

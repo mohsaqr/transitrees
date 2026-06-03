@@ -7,7 +7,7 @@
 pathtree_pathways(
   tree,
   min_count = 1L,
-  sort_by = c("count", "KL", "depth"),
+  sort_by = c("count", "divergence", "depth"),
   decreasing = TRUE,
   ...
 )
@@ -19,7 +19,8 @@ pathtree_pathways(
 occurrences. Default 1.}
 
 \item{sort_by}{Character. One of \code{"count"} (default),
-\code{"KL"}, or \code{"depth"}. Sorts the returned data.frame.}
+\code{"divergence"}, or \code{"depth"}. Sorts the returned
+data.frame.}
 
 \item{decreasing}{Logical. Default \code{TRUE}.}
 
@@ -27,13 +28,14 @@ occurrences. Default 1.}
 }
 \value{
 A data.frame with columns \code{pathway} (arrow notation,
-  e.g. \code{"A -> B -> C"}; the root is reported as \code{"(root)"}),
-  \code{depth}, \code{count}, \code{modal_next}, \code{prob_next}
-  (probability of the modal next state), \code{KL} (divergence from
+  e.g. \code{"A -> B -> C"}; the root is reported as \code{"(start)"}),
+  \code{depth} (history length), \code{count}, \code{likely_next}
+  (the most likely next state), \code{next_probability} (its
+  probability), \code{divergence} (Kullback-Leibler divergence from
   the parent context's prediction, in bits; \code{NA} for the root),
-  \code{flips} (logical, did the modal next state change vs the
-  parent context?). The empty case returns a 0-row data.frame with
-  the same schema.
+  and \code{changes_prediction} (logical, did the most likely next
+  state change vs the parent context?). The empty case returns a
+  0-row data.frame with the same schema.
 }
 \description{
 Returns a tidy data.frame with one row per pathway (= context) in the
@@ -49,10 +51,10 @@ Renamed from \code{pathways()} to avoid collision with
 }
 \details{
 Each row is a pathway -- a (possibly empty) sequence of states ending
-at the point where a prediction is made. The KL column quantifies
-how much more information the pathway carries than its
-(k-1)-suffix in bits. \code{flips = TRUE} marks pathways where the
-longer history changes which next state is most likely.
+at the point where a prediction is made. The \code{divergence} column
+quantifies how much more information the pathway carries than its
+(k-1)-suffix in bits. \code{changes_prediction = TRUE} marks pathways
+where the longer history changes which next state is most likely.
 }
 \examples{
 \donttest{

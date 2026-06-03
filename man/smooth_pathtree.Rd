@@ -37,7 +37,7 @@ discussed in Begleiter, El-Yaniv & Yona (2004), \emph{JAIR} 22, §3.
 \donttest{
 set.seed(1)
 m  <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-tr <- context_tree(m, max_depth = 2L, nmin = 3L)
+tr <- context_tree(m, max_depth = 2L, min_count = 3L)
 smooth_pathtree(tr, "kneser_ney")
 smooth_pathtree(tr, list("kneser_ney", discount = 0.5))
 }

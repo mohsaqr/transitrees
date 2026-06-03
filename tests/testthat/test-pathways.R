@@ -16,7 +16,7 @@
     }
     s
   })
-  context_tree(seqs, max_depth = 3L, nmin = 5L)
+  context_tree(seqs, max_depth = 3L, min_count = 5L)
 }
 
 # ---- structure ----
@@ -26,22 +26,23 @@ test_that("pathtree_pathways() returns the expected columns", {
   pw   <- pathtree_pathways(tree)
   expect_true(is.data.frame(pw))
   expect_named(pw, c("pathway", "depth", "count",
-                     "modal_next", "prob_next", "KL", "flips"))
+                     "likely_next", "next_probability", "divergence",
+                     "changes_prediction"))
 })
 
 test_that("pathtree_pathways() includes (root) as a pathway of length 0", {
   tree <- .three_state_tree()
   pw   <- pathtree_pathways(tree)
-  expect_true("(root)" %in% pw$pathway)
-  root_row <- pw[pw$pathway == "(root)", ]
+  expect_true("(start)" %in% pw$pathway)
+  root_row <- pw[pw$pathway == "(start)", ]
   expect_equal(root_row$depth, 0L)
-  expect_true(is.na(root_row$KL))
+  expect_true(is.na(root_row$divergence))
 })
 
 test_that("pathtree_pathways() in arrow notation, never with > separator", {
   tree <- .three_state_tree()
   pw   <- pathtree_pathways(tree)
-  non_root <- pw$pathway[pw$pathway != "(root)"]
+  non_root <- pw$pathway[pw$pathway != "(start)"]
   ## Arrow notation present in any multi-state pathway
   multi <- non_root[grepl(" ", non_root)]
   expect_true(all(grepl(" -> ", multi)))
@@ -54,13 +55,13 @@ test_that("pathtree_pathways() default sort is by count, descending", {
   expect_equal(pw$count, sort(pw$count, decreasing = TRUE))
 })
 
-test_that("pathtree_pathways(sort_by = 'KL') sorts non-NA KL descending", {
+test_that("sort_by 'divergence' sorts non-NA descending", {
   tree <- .three_state_tree()
-  pw   <- pathtree_pathways(tree, sort_by = "KL")
-  finite_kl <- pw$KL[!is.na(pw$KL)]
-  expect_equal(finite_kl, sort(finite_kl, decreasing = TRUE))
+  pw   <- pathtree_pathways(tree, sort_by = "divergence")
+  finite_div <- pw$divergence[!is.na(pw$divergence)]
+  expect_equal(finite_div, sort(finite_div, decreasing = TRUE))
   ## Any NA (only the root) should be the last row
-  na_pos <- which(is.na(pw$KL))
+  na_pos <- which(is.na(pw$divergence))
   if (length(na_pos))
     expect_true(all(na_pos >= nrow(pw) - length(na_pos) + 1L))
 })
@@ -79,48 +80,51 @@ test_that("empty pathtree_pathways() result is schema-stable", {
   expect_true(is.data.frame(empty))
   expect_equal(nrow(empty), 0L)
   expect_named(empty, c("pathway", "depth", "count",
-                        "modal_next", "prob_next", "KL", "flips"))
+                        "likely_next", "next_probability", "divergence",
+                        "changes_prediction"))
 })
 
 # ---- common_pathways ----
 
 test_that("common_pathways returns top n by count", {
   tree <- .three_state_tree()
-  cp <- common_pathways(tree, n = 5L)
+  cp <- common_pathways(tree, top = 5L)
   expect_equal(nrow(cp), 5L)
   expect_equal(cp$count, sort(cp$count, decreasing = TRUE))
 })
 
 test_that("common_pathways(depth = k) restricts to depth k", {
   tree <- .three_state_tree()
-  cp <- common_pathways(tree, n = 99L, depth = 2L)
+  cp <- common_pathways(tree, top = 99L, depth = 2L)
   expect_true(all(cp$depth == 2L))
 })
 
 # ---- divergent_pathways ----
 
-test_that("divergent_pathways returns top n by KL", {
+test_that("divergent_pathways returns top n by divergence", {
   tree <- .three_state_tree()
-  dp <- divergent_pathways(tree, n = 4L, min_count = 5L)
+  dp <- divergent_pathways(tree, top = 4L, min_count = 5L)
   expect_lte(nrow(dp), 4L)
-  expect_true(all(!is.na(dp$KL)))
-  expect_equal(dp$KL, sort(dp$KL, decreasing = TRUE))
+  expect_true(all(!is.na(dp$divergence)))
+  expect_equal(dp$divergence, sort(dp$divergence, decreasing = TRUE))
 })
 
 test_that("divergent_pathways(flips_only = TRUE) returns only flipping rows", {
   tree <- .three_state_tree()
   dp <- divergent_pathways(tree, flips_only = TRUE,
-                           min_count = 5L, n = 99L)
-  if (nrow(dp) > 0L) expect_true(all(dp$flips, na.rm = TRUE))
+                           min_count = 5L, top = 99L)
+  if (nrow(dp) > 0L)
+    expect_true(all(dp$changes_prediction, na.rm = TRUE))
 })
 
 # ---- sharp_pathways ----
 
-test_that("sharp_pathways returns top n by prob_next", {
+test_that("sharp_pathways returns top n by next_probability", {
   tree <- .three_state_tree()
-  sp <- sharp_pathways(tree, n = 5L, min_count = 5L)
+  sp <- sharp_pathways(tree, top = 5L, min_count = 5L)
   expect_lte(nrow(sp), 5L)
-  expect_equal(sp$prob_next, sort(sp$prob_next, decreasing = TRUE))
+  expect_equal(sp$next_probability,
+               sort(sp$next_probability, decreasing = TRUE))
 })
 
 # ---- pathtree_pathways is a plain function (no longer an S3 generic) ----

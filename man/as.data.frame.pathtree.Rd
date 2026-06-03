@@ -15,8 +15,9 @@
 }
 \value{
 A data.frame with columns \code{pathway}, \code{depth},
-  \code{count}, \code{modal_next}, \code{prob_next}, \code{KL},
-  \code{flips}. See \code{\link{pathtree_pathways}}.
+  \code{count}, \code{likely_next}, \code{next_probability},
+  \code{divergence}, \code{changes_prediction}. See
+  \code{\link{pathtree_pathways}}.
 }
 \description{
 Returns the canonical tidy node table — identical to

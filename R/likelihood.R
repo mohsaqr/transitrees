@@ -63,7 +63,7 @@
                      numeric(1))
     list(sequence_id     = rep.int(i, length(pos_k)),
          position        = pos_k,
-         matched_context = ifelse(ctx_k == .ROOT, "(root)", ctx_k),
+         matched_context = ifelse(ctx_k == .ROOT, .ROOT_LABEL, ctx_k),
          observed        = obs_k,
          predicted_prob  = p_k,
          log_lik         = ifelse(p_k > 0, log(p_k), -Inf))
@@ -111,7 +111,7 @@
 #' @examples
 #' \donttest{
 #' tree <- context_tree(matrix(sample(c("A","B","C"), 200, TRUE), 20),
-#'                      max_depth = 2, nmin = 2)
+#'                      max_depth = 2, min_count = 2)
 #' logLik(tree)
 #' AIC(tree); BIC(tree)
 #' }
@@ -158,7 +158,7 @@ nobs.pathtree <- function(object, ...) {
 #' @examples
 #' \donttest{
 #' tree <- context_tree(matrix(sample(c("A","B","C"), 200, TRUE), 20),
-#'                      max_depth = 2, nmin = 2)
+#'                      max_depth = 2, min_count = 2)
 #' perplexity(tree)
 #' }
 #' @export
@@ -212,11 +212,103 @@ score_sequences <- function(tree, newdata) {
 #'
 #' @param tree A \code{pathtree}.
 #' @param newdata Sequence data.
+#' @param worst Integer or \code{NULL}. If given, return only the
+#'   \code{worst} positions — those with the lowest
+#'   \code{predicted_prob} (the moves the model was most surprised by).
+#'   Default \code{NULL} (all positions, in sequence order).
 #' @return A data.frame with columns \code{sequence_id},
 #'   \code{position}, \code{matched_context}, \code{observed},
 #'   \code{predicted_prob}, \code{log_lik}.
 #' @export
-score_positions <- function(tree, newdata) {
+score_positions <- function(tree, newdata, worst = NULL) {
   stopifnot(inherits(tree, "pathtree"))
-  .pt_score_walk(tree, newdata)
+  out <- .pt_score_walk(tree, newdata)
+  if (!is.null(worst) && nrow(out) > 0L) {
+    out <- out[order(out$predicted_prob), , drop = FALSE]
+    out <- utils::head(out, n = as.integer(worst))
+    rownames(out) <- NULL
+  }
+  out
+}
+
+#' Model-Fit Scalars in One Call
+#'
+#' @description
+#' Bundles the standard goodness-of-fit scalars for a fitted tree into
+#' one tidy row: \code{logLik}, the parameter count \code{df}, the
+#' observation count \code{nobs}, \code{AIC}, \code{BIC}, and
+#' \code{perplexity}. A one-call replacement for
+#' \code{logLik(); nobs(); AIC(); BIC(); perplexity()}.
+#'
+#' @details
+#' With \code{newdata}, every scalar is computed \strong{out-of-sample}
+#' (\code{AIC}/\code{BIC} use the held-out deviance with the model's
+#' training \code{df}). A \code{pathtree_group} returns one row per
+#' group, tagged with a leading \code{group} column.
+#'
+#' @param tree A \code{pathtree} or \code{pathtree_group}.
+#' @param newdata Optional sequence data. If supplied, the scalars are
+#'   evaluated on it (held-out); if \code{NULL} (default), in-sample.
+#'
+#' @return A one-row \code{data.frame} (one row per group for a
+#'   \code{pathtree_group}) with columns \code{logLik}, \code{df},
+#'   \code{nobs}, \code{AIC}, \code{BIC}, \code{perplexity}.
+#'
+#' @examples
+#' \donttest{
+#' seqs <- replicate(60, sample(c("A","B","C"), 12, replace = TRUE),
+#'                   simplify = FALSE)
+#' tree <- context_tree(seqs, max_depth = 2L, min_count = 3L)
+#' model_fit(tree)
+#' }
+#'
+#' @seealso \code{\link{perplexity}}, \code{\link{logLik.pathtree}}.
+#' @export
+model_fit <- function(tree, newdata = NULL) {
+  if (inherits(tree, "pathtree_group")) {
+    parts <- lapply(names(tree), function(nm)
+      cbind(group = nm, model_fit(tree[[nm]], newdata = newdata),
+            stringsAsFactors = FALSE))
+    out <- do.call(rbind, parts)
+    rownames(out) <- NULL
+    return(out)
+  }
+  stopifnot(inherits(tree, "pathtree"))
+  ll  <- logLik(tree, newdata = newdata)
+  df  <- attr(ll, "df")
+  n   <- attr(ll, "nobs")
+  llv <- as.numeric(ll)
+  data.frame(
+    logLik     = llv,
+    df         = df,
+    nobs       = n,
+    AIC        = -2 * llv + 2 * df,
+    BIC        = -2 * llv + log(n) * df,
+    perplexity = perplexity(tree, newdata = newdata),
+    row.names  = NULL
+  )
+}
+
+#' Number of Contexts (Nodes) in a Tree
+#'
+#' @description
+#' The count of contexts the tree represents — an intuitive accessor for
+#' \code{length(tree$nodes)} (the number printed in the tree banner).
+#'
+#' @param tree A \code{pathtree} or \code{pathtree_group}.
+#' @return An integer. For a \code{pathtree_group}, a named integer
+#'   vector with one count per group.
+#'
+#' @examples
+#' \donttest{
+#' seqs <- replicate(50, sample(c("A","B","C"), 12, replace = TRUE),
+#'                   simplify = FALSE)
+#' n_nodes(context_tree(seqs, max_depth = 3L))
+#' }
+#' @export
+n_nodes <- function(tree) {
+  if (inherits(tree, "pathtree_group"))
+    return(vapply(tree, function(t) length(t$nodes), integer(1)))
+  stopifnot(inherits(tree, "pathtree"))
+  length(tree$nodes)
 }

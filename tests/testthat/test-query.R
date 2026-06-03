@@ -3,7 +3,7 @@
 mk_simple <- function(seed = 1L) {
   set.seed(seed)
   m <- matrix(sample(c("A","B","C"), 30 * 12, replace = TRUE), 30, 12)
-  context_tree(m, max_depth = 2L, nmin = 3L)
+  context_tree(m, max_depth = 2L, min_count = 3L)
 }
 
 test_that("query_pathway returns probability vector for existing pathway", {
@@ -44,7 +44,8 @@ test_that("query_pathway exact = FALSE falls back to suffix match", {
 
 test_that("pathway_exists returns TRUE/FALSE correctly", {
   tr <- mk_simple()
-  expect_true(pathway_exists(tr, "(root)"))
+  expect_true(pathway_exists(tr, "(start)"))   # new display label
+  expect_true(pathway_exists(tr, "(root)"))    # legacy label still accepted
   expect_true(pathway_exists(tr, names(tr$nodes)[2L]))
   expect_false(pathway_exists(tr, "Z -> Z -> Z"))
 })

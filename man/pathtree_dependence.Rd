@@ -4,32 +4,47 @@
 \alias{pathtree_dependence}
 \title{Per-Context Path Dependence of a Context Tree}
 \usage{
-pathtree_dependence(tree, base = 2)
+pathtree_dependence(
+  tree,
+  base = 2,
+  sort_by = c("divergence", "entropy_drop", "entropy", "count", "depth"),
+  top = NULL
+)
 }
 \arguments{
 \item{tree}{A \code{pathtree}.}
 
 \item{base}{Numeric. Logarithm base for the KL divergence. Default
 2 (bits). Use \code{exp(1)} for nats or \code{10} for hartleys.}
+
+\item{sort_by}{Character. Column to sort by, descending. One of
+\code{"divergence"} (default), \code{"entropy_drop"},
+\code{"entropy"}, \code{"count"}, \code{"depth"}.}
+
+\item{top}{Integer or \code{NULL}. If given, keep only the top
+\code{top} rows after sorting. Default \code{NULL} (all rows).}
 }
 \value{
 A data.frame with one row per non-root pathway, sorted by
-  KL descending. Columns: \code{pathway}, \code{depth}, \code{count},
-  \code{KL}, \code{H_node} (entropy of the pathway's next-state
-  distribution), \code{H_parent} (entropy of the parent's
-  distribution), \code{H_drop} (\code{H_parent - H_node}),
-  \code{modal_next} (this node's modal next state),
-  \code{modal_parent} (the parent context's modal next state),
-  \code{flips} (\code{modal_next != modal_parent}). The empty case
-  returns a 0-row data.frame with the same schema.
+  \code{divergence} descending. Columns: \code{pathway},
+  \code{depth}, \code{count}, \code{divergence} (Kullback-Leibler
+  divergence from the parent's prediction), \code{entropy} (Shannon
+  entropy of this pathway's next-state distribution),
+  \code{entropy_before} (entropy of the parent's distribution),
+  \code{entropy_drop} (\code{entropy_before - entropy}, the
+  uncertainty this step of history removes), \code{likely_next}
+  (this node's most likely next state), \code{likely_before} (the
+  parent context's most likely next state), \code{changes_prediction}
+  (\code{likely_next != likely_before}). The empty case returns a
+  0-row data.frame with the same schema.
 }
 \description{
 For each non-root node in the tree, reports the Kullback-Leibler
 divergence of its conditional next-state distribution against its
 parent's. Large values flag contexts where extending memory by one
-more step changes the prediction; the \code{flips} column flags
-contexts where the modal next state changes between the node and its
-parent.
+more step changes the prediction; the \code{changes_prediction}
+column flags contexts where the most likely next state changes
+between the node and its parent.
 
 Renamed from \code{path_dependence()} to avoid collision with
 \code{Nestimate::path_dependence}.

@@ -18,8 +18,8 @@
 #'
 #' @param tree A \code{pathtree}.
 #' @param top Integer. Maximum number of pathways to show. Default 20.
-#' @param sort_by Character. One of \code{"count"} (default), \code{"KL"},
-#'   or \code{"depth"}.
+#' @param sort_by Character. One of \code{"count"} (default),
+#'   \code{"divergence"}, or \code{"depth"}.
 #' @param min_count Integer. Drop pathways with fewer than this many
 #'   occurrences. Default 5.
 #' @param show_flips Logical. Mark modal-flip pathways with a leading
@@ -34,13 +34,13 @@
 #'                   simplify = FALSE)
 #' tree <- context_tree(seqs, max_depth = 3)
 #' plot_pathways(tree)
-#' plot_pathways(tree, sort_by = "KL", top = 12)
+#' plot_pathways(tree, sort_by = "divergence", top = 12)
 #' }
 #'
 #' @export
 plot_pathways <- function(tree,
                           top = 20L,
-                          sort_by = c("count", "KL", "depth"),
+                          sort_by = c("count", "divergence", "depth"),
                           min_count = 5L,
                           show_flips = TRUE,
                           title = NULL, ...) {
@@ -49,7 +49,7 @@ plot_pathways <- function(tree,
 
   pw <- pathtree_pathways(tree, min_count = min_count, sort_by = sort_by,
                           decreasing = TRUE)
-  pw <- pw[pw$pathway != "(root)", , drop = FALSE]
+  pw <- pw[pw$pathway != .ROOT_LABEL, , drop = FALSE]
   pw <- utils::head(pw, n = as.integer(top))
   if (nrow(pw) == 0L)
     stop("No pathways meet the threshold.", call. = FALSE)
@@ -68,7 +68,8 @@ plot_pathways <- function(tree,
   }))
 
   ## Display label: prefix flippers with a caret
-  pw$label <- ifelse(isTRUE(show_flips) & !is.na(pw$flips) & pw$flips,
+  pw$label <- ifelse(isTRUE(show_flips) & !is.na(pw$changes_prediction) &
+                       pw$changes_prediction,
                      sprintf("> %s", pw$pathway),
                      pw$pathway)
   ## Reverse ordering so highest-ranked appears at top of the y axis
@@ -84,9 +85,9 @@ plot_pathways <- function(tree,
 
   if (is.null(title)) {
     sort_label <- switch(sort_by,
-                         count = "by frequency",
-                         KL    = "by KL from shorter history",
-                         depth = "by length (deepest first)")
+                         count      = "by frequency",
+                         divergence = "by divergence from shorter history",
+                         depth      = "by length (deepest first)")
     title <- sprintf("Top %d pathways %s", nrow(pw), sort_label)
   }
 
@@ -112,10 +113,10 @@ plot_pathways <- function(tree,
       subtitle = sprintf(
         "%s; n_min = %d; %d flips marked with leading >",
         switch(sort_by,
-               count = "ranked by pathway frequency",
-               KL    = "ranked by KL from (k-1)-suffix",
-               depth = "ranked by depth"),
-        min_count, sum(pw$flips, na.rm = TRUE))) +
+               count      = "ranked by pathway frequency",
+               divergence = "ranked by divergence from (k-1)-suffix",
+               depth      = "ranked by depth"),
+        min_count, sum(pw$changes_prediction, na.rm = TRUE))) +
     ggplot2::theme_minimal(base_size = 11) +
     ggplot2::theme(
       panel.grid = ggplot2::element_blank(),
@@ -145,23 +146,24 @@ plot_pathways <- function(tree,
 plot_divergence <- function(tree, top = 15L, min_count = 5L,
                             title = NULL, ...) {
   stopifnot(inherits(tree, "pathtree"))
-  pw <- divergent_pathways(tree, n = top, min_count = min_count)
+  pw <- divergent_pathways(tree, top = top, min_count = min_count)
   if (nrow(pw) == 0L) stop("No pathways meet the threshold.", call. = FALSE)
   pw$pathway <- factor(pw$pathway, levels = rev(pw$pathway))
 
   if (is.null(title))
     title <- sprintf("Top %d pathways by KL divergence", nrow(pw))
 
-  ggplot2::ggplot(pw, ggplot2::aes(x = .data$KL, y = .data$pathway)) +
+  ggplot2::ggplot(pw, ggplot2::aes(x = .data$divergence,
+                                   y = .data$pathway)) +
     ggplot2::geom_segment(ggplot2::aes(xend = 0, yend = .data$pathway),
                           colour = "grey70") +
     ggplot2::geom_point(ggplot2::aes(size = .data$count,
-                                     colour = .data$flips)) +
+                                     colour = .data$changes_prediction)) +
     ggplot2::geom_text(
-      data = pw[!is.na(pw$flips) & pw$flips, ],
+      data = pw[!is.na(pw$changes_prediction) & pw$changes_prediction, ],
       ggplot2::aes(label = sprintf("%.0f%% %s",
-                                   100 * .data$prob_next,
-                                   .data$modal_next)),
+                                   100 * .data$next_probability,
+                                   .data$likely_next)),
       hjust = -0.15, size = 3.2, colour = "#D55E00") +
     ggplot2::scale_colour_manual(
       values = c(`FALSE` = "#0072B2", `TRUE` = "#D55E00"),

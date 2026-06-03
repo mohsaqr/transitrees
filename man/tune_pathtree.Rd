@@ -7,11 +7,11 @@
 tune_pathtree(
   data,
   max_depth = 2L:5L,
-  nmin = c(3L, 5L, 10L),
+  min_count = c(3L, 5L, 10L),
   smoothing = "floor",
   prune = c(FALSE, TRUE),
-  prune_alpha = 0.05,
-  k = 5L,
+  alpha = 0.05,
+  folds = 5L,
   seed = 1L
 )
 }
@@ -21,7 +21,7 @@ tune_pathtree(
 \item{max_depth}{Integer vector. Grid values for tree depth.
 Default \code{2:5}.}
 
-\item{nmin}{Integer vector. Grid for minimum-count threshold.
+\item{min_count}{Integer vector. Grid for minimum-count threshold.
 Default \code{c(3L, 5L, 10L)}.}
 
 \item{smoothing}{Smoothing grid. A character vector of method names
@@ -33,10 +33,10 @@ for a hyperparameter sweep within one method).}
 \item{prune}{Logical vector. Whether to apply G^2 pruning.
 Default \code{c(FALSE, TRUE)}.}
 
-\item{prune_alpha}{Numeric. Significance level for G^2 pruning when
+\item{alpha}{Numeric. Significance level for G^2 pruning when
 \code{prune = TRUE}. Default \code{0.05}.}
 
-\item{k}{Integer. Number of CV folds. Default 5.}
+\item{folds}{Integer. Number of CV folds. Default 5.}
 
 \item{seed}{Integer. RNG seed for reproducible folds. Default 1.}
 }
@@ -63,6 +63,6 @@ set.seed(1)
 m <- matrix(sample(c("A","B","C"), 30 * 12, replace = TRUE), 30, 12)
 tune_pathtree(m, max_depth = 1:3,
               smoothing = c("floor", "kneser_ney"),
-              prune = FALSE, k = 4)
+              prune = FALSE, folds = 4)
 }
 }

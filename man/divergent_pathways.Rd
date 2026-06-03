@@ -4,36 +4,37 @@
 \alias{divergent_pathways}
 \title{Most Predictively Divergent Pathways}
 \usage{
-divergent_pathways(tree, n = 10L, min_count = 1L, flips_only = FALSE)
+divergent_pathways(tree, top = 10L, min_count = 1L, flips_only = FALSE)
 }
 \arguments{
 \item{tree}{A \code{pathtree}.}
 
-\item{n}{Integer. Number of pathways to return. Default 10.}
+\item{top}{Integer. Number of pathways to return. Default 10.}
 
 \item{min_count}{Integer. Drop pathways with fewer than this many
 occurrences. Default 1.}
 
 \item{flips_only}{Logical. If \code{TRUE}, return only pathways
-that flip the modal next state between orders. Default \code{FALSE}.}
+that flip the most likely next state between orders. Default
+\code{FALSE}.}
 }
 \value{
 A data.frame, same columns as \code{\link{pathtree_pathways}},
-  sorted by KL descending.
+  sorted by \code{divergence} descending.
 }
 \description{
 Returns the top \code{n} pathways by Kullback-Leibler divergence
 from their (k-1)-suffix. These are the pathways whose extended
 history adds the most predictive information over the shorter one.
-Pathways whose modal next state actually flips between orders are
-marked in the \code{flips} column.
+Pathways whose most likely next state actually flips between orders
+are marked in the \code{changes_prediction} column.
 }
 \examples{
 \donttest{
 seqs <- replicate(50, sample(c("A","B","C"), 12, replace = TRUE),
                   simplify = FALSE)
 tree <- context_tree(seqs, max_depth = 3)
-divergent_pathways(tree, n = 6)
+divergent_pathways(tree, top = 6)
 divergent_pathways(tree, flips_only = TRUE)
 }
 

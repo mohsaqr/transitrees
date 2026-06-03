@@ -30,7 +30,7 @@
 
 #' @noRd
 .pt_pathway_depth <- function(p) {
-  is_root <- p == "(root)"
+  is_root <- p == .ROOT_LABEL
   out <- integer(length(p))
   if (any(!is_root)) {
     parts <- strsplit(p[!is_root], " -> ", fixed = TRUE)
@@ -243,8 +243,8 @@
 #'   Default \code{1000}.
 #' @param stat Character. Pathway statistic on which
 #'   \code{p_stability} is measured. One of \code{"count"}
-#'   (default; tna's edge-weight analogue), \code{"prob_next"} (the
-#'   modal next-state probability), or \code{"KL"}.
+#'   (default; tna's edge-weight analogue), \code{"next_probability"}
+#'   (the most-likely next-state probability), or \code{"divergence"}.
 #' @param consistency_range Numeric vector of length 2.
 #'   Multiplicative tolerance band around the observed value.
 #'   Default \code{c(0.75, 1.25)}.
@@ -257,20 +257,21 @@
 #' @param informative_threshold Numeric in \eqn{(0, 1)}. A pathway
 #'   is \code{informative = TRUE} when \code{informative_rate >=
 #'   informative_threshold}. Default \code{0.95}: at the standard
-#'   \eqn{G^2} significance level (\code{alpha_g2 = 0.05}) the
+#'   \eqn{G^2} significance level (\code{alpha = 0.05}) the
 #'   chi-square test has a 5\% Type-I rate, so requiring 95\% of
 #'   resamples to clear the critical value rules out finite-sample
 #'   chance deviations from the parent distribution.
-#' @param alpha_g2 Numeric in \eqn{(0, 1)}. Significance level for
+#' @param alpha Numeric in \eqn{(0, 1)}. Significance level for
 #'   the \eqn{G^2} test against parent. Default \code{0.05}.
 #' @param ci_level Numeric in \eqn{(0, 1)}. Tail probability for the
-#'   bootstrap CIs on \code{count}, \code{prob_next}, \code{KL},
-#'   \code{G2}. Default \code{0.05} (95\% CI).
+#'   bootstrap CIs on \code{count}, \code{next_probability},
+#'   \code{divergence}, \code{G2}. Default \code{0.05} (95\% CI).
 #' @param seed Integer or \code{NULL}. RNG seed.
 #'   Default \code{1L}.
 #' @param keep_resamples Logical. If \code{TRUE} (default), the
-#'   per-iteration resample matrices \code{M_count}, \code{M_prob_next},
-#'   \code{M_KL}, \code{M_G2}, \code{M_flips} are retained on the
+#'   per-iteration resample matrices \code{M_count},
+#'   \code{M_next_probability}, \code{M_divergence}, \code{M_G2},
+#'   \code{M_changes_prediction} are retained on the
 #'   returned object. Set to \code{FALSE} to drop them (each is
 #'   \code{iter x n_pathways}) when memory matters; the summary table
 #'   is unaffected.
@@ -284,9 +285,9 @@
 #'       \code{stability_rate} descending.}
 #'     \item{pathways_orig}{Empirical original-pathway statistics
 #'       (no smoothing) as a tidy data.frame.}
-#'     \item{M_count, M_prob_next, M_KL, M_G2, M_flips}{Raw resample
-#'       matrices: \code{iter x n_pathways}, columns named by
-#'       pathway.}
+#'     \item{M_count, M_next_probability, M_divergence, M_G2,
+#'       M_changes_prediction}{Raw resample matrices:
+#'       \code{iter x n_pathways}, columns named by pathway.}
 #'     \item{iter, stat, consistency_range, stability_threshold,
 #'       informative_threshold, alpha_g2, level, seed,
 #'       g2_critical_value}{Configuration.}
@@ -300,12 +301,12 @@
 bootstrap_pathways <- function(tree,
                                iter                  = 1000L,
                                stat                  = c("count",
-                                                         "prob_next",
-                                                         "KL"),
+                                                         "next_probability",
+                                                         "divergence"),
                                consistency_range     = c(0.75, 1.25),
                                stability_threshold   = 0.75,
                                informative_threshold = 0.95,
-                               alpha_g2              = 0.05,
+                               alpha                 = 0.05,
                                ci_level              = 0.05,
                                seed                  = 1L,
                                keep_resamples        = TRUE,
@@ -318,7 +319,7 @@ bootstrap_pathways <- function(tree,
   iter <- as.integer(iter)
   stopifnot(iter >= 2L,
             ci_level > 0, ci_level < 1,
-            alpha_g2 > 0, alpha_g2 < 1,
+            alpha > 0, alpha < 1,
             stability_threshold > 0, stability_threshold < 1,
             informative_threshold > 0, informative_threshold < 1,
             length(consistency_range) == 2L,
@@ -329,12 +330,12 @@ bootstrap_pathways <- function(tree,
 
   trajs    <- tree$data
   n        <- length(trajs)
-  alpha    <- tree$alphabet
-  na       <- length(alpha)
+  alphabet <- tree$alphabet
+  na       <- length(alphabet)
   max_depth <- tree$max_depth
-  g2_crit   <- stats::qchisq(1 - alpha_g2, df = na - 1L)
+  g2_crit   <- stats::qchisq(1 - alpha, df = na - 1L)
 
-  precomp <- .pt_precompute_for_boot(trajs, max_depth, alpha)
+  precomp <- .pt_precompute_for_boot(trajs, max_depth, alphabet)
 
   ## Pathways from the original tree (raw — no resample dependency).
   orig_path_keys <- names(tree$nodes)
@@ -343,7 +344,7 @@ bootstrap_pathways <- function(tree,
          call. = FALSE)
   layout <- .pt_resolve_pathway_layout(orig_path_keys, precomp)
   P <- length(orig_path_keys)
-  pathway_label <- ifelse(orig_path_keys == .ROOT, "(root)",
+  pathway_label <- ifelse(orig_path_keys == .ROOT, .ROOT_LABEL,
                           orig_path_keys)
 
   ## Original pathway stats — recompute empirically (no smoothing)
@@ -352,7 +353,7 @@ bootstrap_pathways <- function(tree,
   cnt_full  <- .pt_resample_count_matrices(precomp, full_idx)
   orig_stat <- .pt_pathway_stats_from_counts(cnt_full, layout)
   orig_modal_next <- ifelse(is.na(orig_stat$modal), NA_character_,
-                            alpha[orig_stat$modal])
+                            alphabet[orig_stat$modal])
   orig_flips      <- ifelse(is.na(orig_stat$flips), NA, as.logical(orig_stat$flips))
 
   ## Bootstrap loop.
@@ -402,13 +403,13 @@ bootstrap_pathways <- function(tree,
 
   ## Stability rate on the chosen stat (band test).
   M_stat_arr  <- switch(stat,
-                        count     = M_count,
-                        prob_next = M_prob,
-                        KL        = M_KL)
+                        count            = M_count,
+                        next_probability = M_prob,
+                        divergence       = M_KL)
   orig_stat_v <- switch(stat,
-                        count     = orig_stat$count,
-                        prob_next = orig_stat$prob_next,
-                        KL        = orig_stat$KL)
+                        count            = orig_stat$count,
+                        next_probability = orig_stat$prob_next,
+                        divergence       = orig_stat$KL)
   cr_lo <- pmin(orig_stat_v * consistency_range[1],
                 orig_stat_v * consistency_range[2])
   cr_hi <- pmax(orig_stat_v * consistency_range[1],
@@ -453,10 +454,10 @@ bootstrap_pathways <- function(tree,
     pathway              = pathway_label,
     depth                = layout$pw_depth,
     count                = orig_stat$count,
-    modal_next           = orig_modal_next,
-    prob_next            = orig_stat$prob_next,
-    KL                   = orig_stat$KL,
-    flips                = orig_flips,
+    likely_next          = orig_modal_next,
+    next_probability     = orig_stat$prob_next,
+    divergence           = orig_stat$KL,
+    changes_prediction   = orig_flips,
     G2                   = orig_stat$G2,
     p_stability          = p_stability,
     stability_rate       = stability_rate,
@@ -468,14 +469,14 @@ bootstrap_pathways <- function(tree,
     sd_count             = sd_count,
     ci_count_lo          = ci_count[1L, ],
     ci_count_hi          = ci_count[2L, ],
-    mean_prob_next       = mean_prob,
-    sd_prob_next         = sd_prob,
-    ci_prob_next_lo      = ci_prob[1L, ],
-    ci_prob_next_hi      = ci_prob[2L, ],
-    mean_KL              = mean_KL,
-    sd_KL                = sd_KL,
-    ci_KL_lo             = ci_KL[1L, ],
-    ci_KL_hi             = ci_KL[2L, ],
+    mean_next_probability   = mean_prob,
+    sd_next_probability     = sd_prob,
+    ci_next_probability_lo  = ci_prob[1L, ],
+    ci_next_probability_hi  = ci_prob[2L, ],
+    mean_divergence      = mean_KL,
+    sd_divergence        = sd_KL,
+    ci_divergence_lo     = ci_KL[1L, ],
+    ci_divergence_hi     = ci_KL[2L, ],
     mean_G2              = mean_G2,
     sd_G2                = sd_G2,
     ci_G2_lo             = ci_G2[1L, ],
@@ -497,15 +498,15 @@ bootstrap_pathways <- function(tree,
   rownames(summary_df) <- NULL
 
   pathways_orig <- data.frame(
-    pathway    = pathway_label,
-    depth      = layout$pw_depth,
-    count      = orig_stat$count,
-    modal_next = orig_modal_next,
-    prob_next  = orig_stat$prob_next,
-    KL         = orig_stat$KL,
-    flips      = orig_flips,
-    G2         = orig_stat$G2,
-    stringsAsFactors = FALSE
+    pathway            = pathway_label,
+    depth              = layout$pw_depth,
+    count              = orig_stat$count,
+    likely_next        = orig_modal_next,
+    next_probability   = orig_stat$prob_next,
+    divergence         = orig_stat$KL,
+    changes_prediction = orig_flips,
+    G2                 = orig_stat$G2,
+    stringsAsFactors   = FALSE
   )
 
   if (!isTRUE(keep_resamples)) {
@@ -518,16 +519,16 @@ bootstrap_pathways <- function(tree,
       pathways_orig         = pathways_orig,
       summary               = summary_df,
       M_count               = M_count,
-      M_prob_next           = M_prob,
-      M_KL                  = M_KL,
+      M_next_probability    = M_prob,
+      M_divergence          = M_KL,
       M_G2                  = M_G2,
-      M_flips               = M_flips,
+      M_changes_prediction  = M_flips,
       iter                  = iter,
       stat                  = stat,
       consistency_range     = consistency_range,
       stability_threshold   = stability_threshold,
       informative_threshold = informative_threshold,
-      alpha_g2              = alpha_g2,
+      alpha_g2              = alpha,
       ci_level              = ci_level,
       g2_critical_value     = g2_crit,
       seed                  = seed
@@ -680,22 +681,22 @@ plot.pathtree_bootstrap <- function(x, top = 25L,
 #' @param pathways Character vector of pathway names. \code{NULL}
 #'   (default) picks the top \code{top} pathways from the summary.
 #' @param stat Character. One of \code{"count"} (default),
-#'   \code{"prob_next"}, \code{"KL"}, \code{"G2"}.
+#'   \code{"next_probability"}, \code{"divergence"}, \code{"G2"}.
 #' @param top Integer. Default 6.
 #' @param bins Integer. Histogram bins. Default 30.
 #' @return A ggplot object.
 #' @export
 plot_pathway_resamples <- function(x, pathways = NULL,
-                                   stat = c("count", "prob_next",
-                                            "KL", "G2"),
+                                   stat = c("count", "next_probability",
+                                            "divergence", "G2"),
                                    top = 6L, bins = 30L) {
   stopifnot(inherits(x, "pathtree_bootstrap"))
   stat <- match.arg(stat)
   M <- switch(stat,
-              count     = x$M_count,
-              prob_next = x$M_prob_next,
-              KL        = x$M_KL,
-              G2        = x$M_G2)
+              count            = x$M_count,
+              next_probability = x$M_next_probability,
+              divergence       = x$M_divergence,
+              G2               = x$M_G2)
   if (is.null(M))
     stop("Resample matrices were not retained on this bootstrap ",
          "object. Re-run with keep_resamples = TRUE.", call. = FALSE)

@@ -29,7 +29,7 @@ log-likelihood scoring \code{newdata} under the fitted tree.
 \examples{
 \donttest{
 tree <- context_tree(matrix(sample(c("A","B","C"), 200, TRUE), 20),
-                     max_depth = 2, nmin = 2)
+                     max_depth = 2, min_count = 2)
 logLik(tree)
 AIC(tree); BIC(tree)
 }

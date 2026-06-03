@@ -4,11 +4,13 @@
 .pt_normalise_pathway <- function(pathway) {
   ## Accept either a character vector of states or a single arrow-
   ## notation string. Returns a single canonical " -> " string. The
-  ## special token "(root)" or "<root>" maps to .ROOT.
+  ## special token "(start)" (display label), legacy "(root)", or the
+  ## sentinel "<root>" all map to .ROOT.
   if (is.null(pathway) || length(pathway) == 0L) return(.ROOT)
   if (length(pathway) == 1L && is.character(pathway)) {
     p <- pathway
-    if (identical(p, "(root)") || identical(p, .ROOT)) return(.ROOT)
+    if (identical(p, .ROOT_LABEL) || identical(p, "(root)") ||
+        identical(p, .ROOT)) return(.ROOT)
     return(trimws(p))
   }
   paste(as.character(pathway), collapse = " -> ")
@@ -43,7 +45,7 @@
 #' \donttest{
 #' set.seed(1)
 #' m <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-#' tr <- context_tree(m, max_depth = 2L, nmin = 3L)
+#' tr <- context_tree(m, max_depth = 2L, min_count = 3L)
 #' query_pathway(tr, c("A","B"))
 #' query_pathway(tr, "A -> B", next_state = "C")
 #' }
@@ -85,7 +87,7 @@ query_pathway <- function(tree, pathway, next_state = NULL,
 #' @examples
 #' \donttest{
 #' tr <- context_tree(matrix(sample(c("A","B"), 50, TRUE), 5),
-#'                    max_depth = 2L, nmin = 1L)
+#'                    max_depth = 2L, min_count = 1L)
 #' pathway_exists(tr, "A")
 #' }
 #' @export
@@ -109,16 +111,16 @@ pathway_exists <- function(tree, pathway) {
 #'
 #' @return A new \code{pathtree} whose nodes and edges are restricted
 #'   to descendants of \code{pathway}. The alphabet, smoothing, and
-#'   other hyperparameters are copied unchanged. \code{attr(., "local_root")}
-#'   carries the queried pathway in canonical form.
+#'   other hyperparameters are copied unchanged. Printing the subtree
+#'   reports the context it was cut at (also stored in
+#'   \code{attr(., "local_root")} for programmatic use).
 #'
 #' @examples
 #' \donttest{
 #' set.seed(1)
 #' m <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-#' tr <- context_tree(m, max_depth = 2L, nmin = 3L)
-#' sub <- subtree(tr, "A")
-#' attr(sub, "local_root")
+#' tr <- context_tree(m, max_depth = 2L, min_count = 3L)
+#' subtree(tr, "A")   # prints "subtree of: A" in the banner
 #' }
 #' @export
 subtree <- function(tree, pathway) {

@@ -33,11 +33,11 @@
   KL_ab <- mapply(.ct_kl, p_a, p_b, USE.NAMES = FALSE)
   KL_ba <- mapply(.ct_kl, p_b, p_a, USE.NAMES = FALSE)
   data.frame(
-    pathway = ifelse(ctx_union == .ROOT, "(root)", ctx_union),
-    count_a = n_a, count_b = n_b,
-    KL_ab   = KL_ab,
-    KL_ba   = KL_ba,
-    sym_KL  = 0.5 * (KL_ab + KL_ba),
+    pathway        = ifelse(ctx_union == .ROOT, .ROOT_LABEL, ctx_union),
+    count_a        = n_a, count_b = n_b,
+    divergence_ab  = KL_ab,
+    divergence_ba  = KL_ba,
+    divergence_sym = 0.5 * (KL_ab + KL_ba),
     stringsAsFactors = FALSE
   )
 }
@@ -77,8 +77,8 @@
 #' set.seed(1)
 #' m1 <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
 #' m2 <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-#' tr1 <- context_tree(m1, max_depth = 2L, nmin = 3L)
-#' tr2 <- context_tree(m2, max_depth = 2L, nmin = 3L)
+#' tr1 <- context_tree(m1, max_depth = 2L, min_count = 3L)
+#' tr2 <- context_tree(m2, max_depth = 2L, min_count = 3L)
 #' pathtree_distance(tr1, tr2)
 #' }
 #' @export
@@ -88,7 +88,7 @@ pathtree_distance <- function(tree_a, tree_b, symmetric = TRUE) {
   .pt_check_alphabet_compatible(tree_a, tree_b)
 
   bd <- .pt_distance_breakdown(tree_a, tree_b)
-  per <- if (isTRUE(symmetric)) bd$sym_KL else bd$KL_ab
+  per <- if (isTRUE(symmetric)) bd$divergence_sym else bd$divergence_ab
   w   <- bd$count_a + bd$count_b
   total <- sum(w)
   if (total == 0) return(0)
@@ -108,14 +108,17 @@ pathtree_distance <- function(tree_a, tree_b, symmetric = TRUE) {
 #' intervention) generate significantly different pathway dynamics?
 #'
 #' @param tree_a,tree_b Pathtrees fit on data subsets A and B.
-#' @param n_perm Integer. Number of permutations. Default 200.
+#'   Alternatively, pass a two-element \code{pathtree_group} (from
+#'   \code{context_tree(..., group =)}) as \code{tree_a} and leave
+#'   \code{tree_b = NULL}; its two trees are compared in key order.
+#' @param iter Integer. Number of permutations. Default 200.
 #' @param seed Integer. RNG seed for reproducibility. Default 1.
 #' @param symmetric Logical. Default \code{TRUE}.
 #'
 #' @return A \code{pathtree_comparison} object with components:
 #' \describe{
 #'   \item{pdist}{observed scalar distance}
-#'   \item{null_dist}{numeric vector, length \code{n_perm}}
+#'   \item{null_dist}{numeric vector, length \code{iter}}
 #'   \item{p_value}{one-sided p-value (proportion of null at least as
 #'     extreme as observed)}
 #'   \item{pathways}{per-pathway breakdown data.frame}
@@ -126,15 +129,34 @@ pathtree_distance <- function(tree_a, tree_b, symmetric = TRUE) {
 #' set.seed(1)
 #' m1 <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
 #' m2 <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-#' tr1 <- context_tree(m1, max_depth = 2L, nmin = 3L)
-#' tr2 <- context_tree(m2, max_depth = 2L, nmin = 3L)
-#' compare_pathtrees(tr1, tr2, n_perm = 50)
+#' tr1 <- context_tree(m1, max_depth = 2L, min_count = 3L)
+#' tr2 <- context_tree(m2, max_depth = 2L, min_count = 3L)
+#' compare_pathtrees(tr1, tr2, iter = 50)
 #' }
 #' @export
-compare_pathtrees <- function(tree_a, tree_b, n_perm = 200L,
+compare_pathtrees <- function(tree_a, tree_b = NULL, iter = 200L,
                               seed = 1L, symmetric = TRUE) {
+  ## A 2-group pathtree_group as the sole argument -> compare its pair.
+  if (inherits(tree_a, "pathtree_group")) {
+    if (!is.null(tree_b))
+      stop("Pass a 2-group 'pathtree_group' as the only tree argument, ",
+           "not a group plus 'tree_b'.", call. = FALSE)
+    if (length(tree_a) != 2L)
+      stop("compare_pathtrees() is pairwise; the pathtree_group must ",
+           "have exactly 2 groups (got ", length(tree_a), ").",
+           call. = FALSE)
+    grp    <- tree_a
+    tree_a <- grp[[1L]]
+    tree_b <- grp[[2L]]
+  }
+  if (is.null(tree_b))
+    stop("'tree_b' is required (or pass a 2-group 'pathtree_group' as ",
+         "the first argument).", call. = FALSE)
   stopifnot(inherits(tree_a, "pathtree"),
             inherits(tree_b, "pathtree"))
+  if (!is.numeric(iter) || length(iter) != 1L ||
+      is.na(iter) || iter < 1)
+    stop("'iter' must be a single positive integer.", call. = FALSE)
   .pt_check_alphabet_compatible(tree_a, tree_b)
 
   pdist_obs <- pathtree_distance(tree_a, tree_b, symmetric = symmetric)
@@ -147,18 +169,18 @@ compare_pathtrees <- function(tree_a, tree_b, n_perm = 200L,
 
   ## Refit using each observed tree's hyperparameters and pruning state.
   set.seed(seed)
-  null_dist <- vapply(seq_len(n_perm), function(b) {
+  null_dist <- vapply(seq_len(iter), function(b) {
     perm  <- sample.int(n_total)
     a_idx <- perm[seq_len(n_a)]
     b_idx <- perm[(n_a + 1L):n_total]
     tr_a  <- context_tree(pooled[a_idx],
                           max_depth = tree_a$max_depth,
-                          nmin      = tree_a$nmin,
+                          min_count = tree_a$nmin,
                           smoothing = tree_a$smoothing,
                           alphabet  = alphabet)
     tr_b  <- context_tree(pooled[b_idx],
                           max_depth = tree_b$max_depth,
-                          nmin      = tree_b$nmin,
+                          min_count = tree_b$nmin,
                           smoothing = tree_b$smoothing,
                           alphabet  = alphabet)
     tr_a <- .pt_reapply_pruning(tr_a, tree_a)
@@ -166,13 +188,13 @@ compare_pathtrees <- function(tree_a, tree_b, n_perm = 200L,
     pathtree_distance(tr_a, tr_b, symmetric = symmetric)
   }, numeric(1))
 
-  p_value <- (1 + sum(null_dist >= pdist_obs)) / (n_perm + 1)
+  p_value <- (1 + sum(null_dist >= pdist_obs)) / (iter + 1)
 
   structure(
     list(pdist     = pdist_obs,
          null_dist = null_dist,
          p_value   = p_value,
-         pathways  = bd[order(-bd$sym_KL), , drop = FALSE]),
+         pathways  = bd[order(-bd$divergence_sym), , drop = FALSE]),
     class = "pathtree_comparison"
   )
 }
@@ -227,7 +249,8 @@ plot.pathtree_comparison <- function(x, bins = 30L, ...) {
 #' @param row.names,optional Ignored.
 #' @param ... Ignored.
 #' @return A data.frame with columns \code{pathway}, \code{count_a},
-#'   \code{count_b}, \code{KL_ab}, \code{KL_ba}, \code{sym_KL}.
+#'   \code{count_b}, \code{divergence_ab}, \code{divergence_ba},
+#'   \code{divergence_sym}.
 #' @export
 as.data.frame.pathtree_comparison <- function(x, row.names = NULL,
                                                optional = FALSE, ...) {
@@ -236,7 +259,7 @@ as.data.frame.pathtree_comparison <- function(x, row.names = NULL,
 
 #' @export
 print.pathtree_comparison <- function(x, digits = 3L, n = 6L, ...) {
-  cat(sprintf("<pathtree_comparison>  n_perm = %d\n",
+  cat(sprintf("<pathtree_comparison>  iter = %d\n",
               length(x$null_dist)))
   cat(sprintf("  observed distance : %s\n",
               format(x$pdist, digits = digits)))
@@ -246,9 +269,9 @@ print.pathtree_comparison <- function(x, digits = 3L, n = 6L, ...) {
               format(x$p_value, digits = digits)))
   cat("\ntop divergent pathways:\n")
   bd <- utils::head(x$pathways, n)
-  bd$KL_ab <- round(bd$KL_ab, digits)
-  bd$KL_ba <- round(bd$KL_ba, digits)
-  bd$sym_KL <- round(bd$sym_KL, digits)
+  bd$divergence_ab  <- round(bd$divergence_ab, digits)
+  bd$divergence_ba  <- round(bd$divergence_ba, digits)
+  bd$divergence_sym <- round(bd$divergence_sym, digits)
   print.data.frame(bd, row.names = FALSE)
   invisible(x)
 }

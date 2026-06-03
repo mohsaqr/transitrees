@@ -4,12 +4,12 @@
 \alias{common_pathways}
 \title{Most Common Pathways in a Fitted Tree}
 \usage{
-common_pathways(tree, n = 10L, depth = NULL, min_count = 1L)
+common_pathways(tree, top = 10L, depth = NULL, min_count = 1L)
 }
 \arguments{
 \item{tree}{A \code{pathtree}.}
 
-\item{n}{Integer. Number of pathways to return. Default 10.}
+\item{top}{Integer. Number of pathways to return. Default 10.}
 
 \item{depth}{Integer or NULL. Restrict to pathways of this exact
 depth. \code{NULL} (default) keeps all depths.}
@@ -29,8 +29,8 @@ trajectories the data actually contains many copies of.
 seqs <- replicate(50, sample(c("A","B","C"), 12, replace = TRUE),
                   simplify = FALSE)
 tree <- context_tree(seqs, max_depth = 3)
-common_pathways(tree, n = 8)
-common_pathways(tree, n = 8, depth = 3L)   # restrict to depth-3
+common_pathways(tree, top = 8)
+common_pathways(tree, top = 8, depth = 3L)   # restrict to depth-3
 }
 
 }

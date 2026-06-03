@@ -38,7 +38,7 @@ Returns the probability the fitted tree assigns to a given pathway
 \donttest{
 set.seed(1)
 m <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-tr <- context_tree(m, max_depth = 2L, nmin = 3L)
+tr <- context_tree(m, max_depth = 2L, min_count = 3L)
 query_pathway(tr, c("A","B"))
 query_pathway(tr, "A -> B", next_state = "C")
 }

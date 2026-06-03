@@ -7,7 +7,7 @@
 plot_pathway_resamples(
   x,
   pathways = NULL,
-  stat = c("count", "prob_next", "KL", "G2"),
+  stat = c("count", "next_probability", "divergence", "G2"),
   top = 6L,
   bins = 30L
 )
@@ -19,7 +19,7 @@ plot_pathway_resamples(
 (default) picks the top \code{top} pathways from the summary.}
 
 \item{stat}{Character. One of \code{"count"} (default),
-\code{"prob_next"}, \code{"KL"}, \code{"G2"}.}
+\code{"next_probability"}, \code{"divergence"}, \code{"G2"}.}
 
 \item{top}{Integer. Default 6.}
 

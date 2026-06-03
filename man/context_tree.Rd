@@ -7,24 +7,43 @@
 context_tree(
   data,
   max_depth = 5L,
-  nmin = 5L,
+  min_count = 5L,
   smoothing = "floor",
   alphabet = NULL,
-  weights = NULL
+  weights = NULL,
+  group = NULL
 )
 }
 \arguments{
-\item{data}{Sequence data: wide data.frame / character matrix
-(rows = trajectories, columns = time-steps), list of character
-vectors, or TraMineR \code{stslist}. Numeric matrices are
-rejected; cast to character explicitly.}
+\item{data}{Sequence data in any of these forms: a wide data.frame /
+character matrix (rows = trajectories, columns = time-steps), a
+list of character vectors, a TraMineR \code{stslist}, or a
+\strong{Dynalytics / \code{mohsaqr}-family model object}, taken
+directly: a Nestimate \code{netobject}
+(\code{Nestimate::build_network()}), a \code{cograph} network
+object (\code{cograph::cograph()} / \code{as_cograph()}), or a
+\code{tna} object (the \pkg{tna} package; also what
+\code{codyna::to_tna()} returns). Any other family object that
+follows the same convention (a \code{$data}/\code{$sequences}/
+\code{$seqdata} sequence slot) is detected structurally and works
+with no special-casing. For these objects the sequence frame is
+extracted from wherever the upstream stored it; an integer-coded
+frame (\code{tna}) is decoded through the object's label map
+(\code{$nodes} id/label table, positional \code{$labels}, or a
+\code{labels}/\code{alphabet} attribute), and that label set
+becomes the default alphabet so the tree shares the model's
+symbol space. A \emph{pure graph} object that carries no
+sequences anywhere (an aggregated transition network) is rejected
+with guidance — sequences cannot be recovered from edge weights,
+the same reason numeric transition matrices are rejected; route
+to the sequence-bearing object explicitly.}
 
 \item{max_depth}{Integer. Maximum context length the tree may
 represent. Default 5.}
 
-\item{nmin}{Integer. Minimum number of times a context must occur
+\item{min_count}{Integer. Minimum number of times a context must occur
 to receive its own node. Default 5. Contexts seen fewer than
-\code{nmin} times are absorbed into their parent.}
+\code{min_count} times are absorbed into their parent.}
 
 \item{smoothing}{Smoothing specification: a method name as a string
 (uses defaults for that method's hyperparameters) or a list of
@@ -32,7 +51,12 @@ the form \code{list(method, ...kwargs)} for explicit hyperparameters.
 Methods: \code{"floor"} (default; \code{ymin = 0.001}),
 \code{"laplace"} (\code{alpha = 1}), \code{"kneser_ney"}
 (\code{discount = 0.75}), \code{"witten_bell"},
-\code{"jelinek_mercer"} (\code{lambda = 0.5}).}
+\code{"jelinek_mercer"} (\code{lambda = 0.5}). The \code{"floor"}
+method also takes \code{rule}: \code{"interpolate"} (default, the
+PST-compatible floor — a distribution with a zero-count state is
+shifted toward uniform so each zero lands at exactly \code{ymin})
+or \code{"cap"} (clamp every probability up to \code{ymin} and
+renormalise), e.g. \code{list("floor", ymin = 0.001, rule = "cap")}.}
 
 \item{alphabet}{Character vector. Optional. Override the data-derived
 alphabet (useful when the test set may include states unseen in
@@ -42,9 +66,23 @@ training).}
 to the number of input rows / list elements. If \code{NULL}
 (default) and \code{data} is a TraMineR \code{stslist} carrying
 weights, those are auto-detected.}
+
+\item{group}{Optional grouping for a \strong{batch fit}. Either a
+character scalar naming a column of a network object's
+\code{$metadata}, or a vector with one entry per input sequence.
+When supplied (or when \code{data} is itself a grouped family
+object such as a Nestimate \code{netobject_group} or a \pkg{tna}
+\code{group_tna}), \code{context_tree()} fits one tree per group
+over a shared alphabet and returns a \code{pathtree_group} (a named
+list of \code{pathtree}s). Default \code{NULL} (single tree).}
 }
 \value{
-A \code{pathtree} object: a list with components
+For a single fit, a \code{pathtree} object (described below).
+  For a grouped fit (\code{group =} supplied, or a grouped family
+  object passed in) a \code{pathtree_group}: a named list of
+  \code{pathtree}s, one per group, in the group's key order, with its
+  own \code{print} and \code{as.data.frame} methods. A single
+  \code{pathtree} is a list with components
 \describe{
   \item{nodes}{Named list of node descriptors. Names are context
     strings (e.g. \code{"A -> B"}); the root is keyed by the literal
@@ -81,7 +119,7 @@ conditional distribution over the next state. The tree is grown to
 Construction is bottom-up via k-gram counting. The root holds the
 marginal next-state distribution; depth-k nodes hold the
 next-state distribution conditional on the most recent k states.
-Nodes whose total count falls below \code{nmin} are not created.
+Nodes whose total count falls below \code{min_count} are not created.
 All nodes start "live" and unpruned; \code{\link{prune_pathtree}()}
 decides which to retain.
 }

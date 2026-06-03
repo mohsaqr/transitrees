@@ -1,7 +1,8 @@
 # ---- Smoothing schemes for pathtrees ----
 #
 # Implements:
-#   .smooth_floor          - floor MLE at ymin and renormalise
+#   .smooth_floor          - floor MLE at ymin (PST-compatible "interpolate"
+#                            rule by default; "cap" = original renormalise)
 #   .smooth_laplace        - additive-alpha
 #   .smooth_kneser_ney     - back-off along suffix path (parent-prob
 #                            approximation; see notes)
@@ -10,15 +11,35 @@
 #   .ct_smooth_dispatch    - switch dispatcher
 #   smooth_pathtree()      - re-smooth a fitted tree without refitting
 
+#' Floor smoothing of a count vector to a probability distribution.
+#'
+#' Two rules:
+#' \itemize{
+#'   \item \code{"interpolate"} (default, PST-compatible): a distribution
+#'     that has at least one zero-count state is shifted toward uniform,
+#'     \eqn{p_i = (1 - k\,y_{min}) p_i + y_{min}} (k = alphabet size), so
+#'     each zero state lands at exactly \code{ymin}. Distributions with
+#'     every state observed are left as the raw MLE. This is the floor
+#'     used by the archived \pkg{PST} package.
+#'   \item \code{"cap"}: clamp every probability up to \code{ymin} and
+#'     renormalise (\code{pmax(p, ymin) / sum(...)}). pathtree's original
+#'     rule; kept available for back-compatibility.
+#' }
 #' @noRd
 .smooth_floor <- function(counts, parent_prob = NULL, ...,
-                          ymin = 0.001) {
+                          ymin = 0.001, rule = c("interpolate", "cap")) {
+  rule <- match.arg(rule)
   k <- length(counts); n <- sum(counts)
   if (n == 0) return(if (is.null(parent_prob)) rep(1 / k, k) else parent_prob)
   p <- counts / n
   if (ymin <= 0) return(p)
-  q <- pmax(p, ymin)
-  q / sum(q)
+  if (rule == "cap") {
+    q <- pmax(p, ymin)
+    return(q / sum(q))
+  }
+  ## "interpolate": only touch distributions that contain a zero.
+  if (any(p == 0)) p <- (1 - k * ymin) * p + ymin
+  p
 }
 
 #' @noRd
@@ -66,7 +87,8 @@
   ## `smoothing` is a resolved list from .pt_resolve_smoothing().
   switch(smoothing$method,
     floor          = .smooth_floor(counts, parent_prob,
-                                   ymin = smoothing$ymin),
+                                   ymin = smoothing$ymin,
+                                   rule = smoothing$rule),
     laplace        = .smooth_laplace(counts, parent_prob,
                                      alpha = smoothing$alpha),
     kneser_ney     = .smooth_kneser_ney(counts, parent_prob,
@@ -80,7 +102,8 @@
 
 #' @noRd
 .pt_smoothing_defaults <- list(
-  floor          = list(method = "floor",          ymin = 0.001),
+  floor          = list(method = "floor",          ymin = 0.001,
+                        rule = "interpolate"),
   laplace        = list(method = "laplace",        alpha = 1),
   kneser_ney     = list(method = "kneser_ney",     discount = 0.75),
   witten_bell    = list(method = "witten_bell"),
@@ -128,6 +151,9 @@
     floor = {
       if (!scalar_num(sm$ymin) || sm$ymin < 0)
         bad("ymin", "a finite number >= 0")
+      if (!is.null(sm$rule) && !(length(sm$rule) == 1L &&
+          sm$rule %in% c("interpolate", "cap")))
+        bad("rule", 'either "interpolate" or "cap"')
     },
     laplace = {
       if (!scalar_num(sm$alpha) || sm$alpha < 0)
@@ -148,7 +174,7 @@
 
 #' @noRd
 .pt_last_state <- function(ctx) {
-  if (identical(ctx, .ROOT)) return("(root)")
+  if (identical(ctx, .ROOT)) return(.ROOT_LABEL)
   strsplit(ctx, " -> ", fixed = TRUE)[[1L]][[1L]]
 }
 
@@ -210,12 +236,18 @@
 #' \donttest{
 #' set.seed(1)
 #' m  <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-#' tr <- context_tree(m, max_depth = 2L, nmin = 3L)
+#' tr <- context_tree(m, max_depth = 2L, min_count = 3L)
 #' smooth_pathtree(tr, "kneser_ney")
 #' smooth_pathtree(tr, list("kneser_ney", discount = 0.5))
 #' }
 #' @export
 smooth_pathtree <- function(tree, smoothing = "floor") {
+  ## A pathtree_group re-smooths each member, preserving the wrapper.
+  if (inherits(tree, "pathtree_group")) {
+    out <- lapply(tree, smooth_pathtree, smoothing = smoothing)
+    return(structure(out, class = class(tree),
+                     group = attr(tree, "group")))
+  }
   stopifnot(inherits(tree, "pathtree"))
   sm <- .pt_resolve_smoothing(smoothing)
 
@@ -232,4 +264,76 @@ smooth_pathtree <- function(tree, smoothing = "floor") {
   tree$nodes     <- new_nodes
   tree$smoothing <- sm
   tree
+}
+
+#' Compare Smoothing Schemes on One Dataset
+#'
+#' @description
+#' Fits a context tree under several smoothing schemes — holding
+#' \code{max_depth}, \code{nmin} and every other argument fixed — and
+#' returns a tidy one-row-per-scheme comparison of tree size and
+#' in-sample perplexity. A convenience wrapper over repeated
+#' \code{\link{context_tree}} calls that collapses the usual five-line
+#' \code{lapply()} loop into a single call.
+#'
+#' @details
+#' The perplexity reported is \strong{in-sample} (computed on the
+#' fitting data), so it rewards memorisation and must \emph{not} be used
+#' to pick a smoother — use \code{\link{tune_pathtree}()} for
+#' out-of-sample selection. The point of this table is the side-by-side
+#' view and the invariance of \code{n_nodes} across schemes: smoothing
+#' changes the \emph{probabilities} inside the tree, never \emph{which}
+#' contexts exist (topology is set by \code{nmin}, not by the smoother).
+#'
+#' @param data Either sequence data in any form accepted by
+#'   \code{\link{context_tree}} (wide matrix / data.frame, list of
+#'   character vectors, TraMineR \code{stslist}, or a
+#'   \code{mohsaqr}-family network object) — fitted afresh under each
+#'   scheme — \strong{or} an already-fitted \code{pathtree}, which is
+#'   \emph{re-smoothed} under each scheme (topology frozen, no
+#'   re-count; e.g. to sweep smoothers on a pruned tree).
+#' @param smoothing Character vector of smoothing-method names to
+#'   compare. Defaults to all five: \code{"floor"}, \code{"laplace"},
+#'   \code{"kneser_ney"}, \code{"witten_bell"}, \code{"jelinek_mercer"}.
+#' @param ... Further arguments passed to \code{\link{context_tree}}
+#'   (e.g. \code{max_depth}, \code{nmin}, \code{alphabet}), held fixed
+#'   across every scheme. Ignored when \code{data} is a fitted tree.
+#'
+#' @return A \code{data.frame} with one row per scheme (in the order
+#'   given by \code{smoothing}) and columns \code{smoothing} (method
+#'   name), \code{n_nodes} (tree size) and \code{perplexity} (in-sample).
+#'
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' seqs <- replicate(50, sample(c("A", "B", "C"), 12, replace = TRUE),
+#'                   simplify = FALSE)
+#' compare_smoothing(seqs, max_depth = 3L, min_count = 5L)
+#' compare_smoothing(seqs, smoothing = c("floor", "kneser_ney"),
+#'                   max_depth = 2L)
+#' }
+#'
+#' @seealso \code{\link{smooth_pathtree}} to re-smooth a fitted tree
+#'   without re-counting; \code{\link{tune_pathtree}} for
+#'   cross-validated selection.
+#' @export
+compare_smoothing <- function(data,
+                              smoothing = c("floor", "laplace", "kneser_ney",
+                                            "witten_bell", "jelinek_mercer"),
+                              ...) {
+  if (!is.character(smoothing) || length(smoothing) < 1L)
+    stop("'smoothing' must be a non-empty character vector of method names.",
+         call. = FALSE)
+  ## A fitted tree is re-smoothed (topology frozen, no re-count); raw
+  ## data is fitted afresh under each scheme.
+  fits <- if (inherits(data, "pathtree"))
+    lapply(smoothing, function(s) smooth_pathtree(data, s))
+  else
+    lapply(smoothing, function(s) context_tree(data, smoothing = s, ...))
+  data.frame(
+    smoothing  = smoothing,
+    n_nodes    = vapply(fits, n_nodes, integer(1)),
+    perplexity = vapply(fits, perplexity, numeric(1)),
+    stringsAsFactors = FALSE,
+    row.names  = NULL)
 }

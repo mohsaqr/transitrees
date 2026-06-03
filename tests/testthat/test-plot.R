@@ -3,13 +3,15 @@
 mk_plot_tree <- function() {
   set.seed(1)
   m <- matrix(sample(c("A","B","C"), 30 * 12, replace = TRUE), 30, 12)
-  context_tree(m, max_depth = 2L, nmin = 3L)
+  context_tree(m, max_depth = 2L, min_count = 3L)
 }
 
-test_that("plot.pathtree default style is dendrogram and returns a ggplot", {
+test_that("plot.pathtree default style is horizontal and returns a ggplot", {
   tr <- mk_plot_tree()
   p  <- plot(tr)
   expect_s3_class(p, "ggplot")
+  ## default == horizontal: x-axis is depth, same as style = "horizontal"
+  expect_identical(p$labels$x, plot(tr, style = "horizontal")$labels$x)
 })
 
 test_that("plot.pathtree style='dendrogram' returns a ggplot", {
@@ -62,11 +64,17 @@ test_that("plot.pathtree style='icicle' returns a ggplot when ggraph + tidygraph
   expect_s3_class(p, "ggplot")
 })
 
-test_that("plot.pathtree style='interactive' returns an htmlwidget when collapsibleTree is installed", {
-  skip_if_not_installed("collapsibleTree")
+test_that("plot.pathtree style='interactive' returns an htmlwidget with sized nodes and edges", {
+  skip_if_not_installed("visNetwork")
   tr <- mk_plot_tree()
   w  <- plot(tr, style = "interactive")
   expect_s3_class(w, "htmlwidget")
+  expect_s3_class(w, "visNetwork")
+  ## node size encodes count, edge width encodes child-count flow
+  expect_true("size"  %in% names(w$x$nodes))
+  expect_true("width" %in% names(w$x$edges))
+  expect_true(all(w$x$nodes$size  >= 10 & w$x$nodes$size  <= 45))
+  expect_true(all(w$x$edges$width >= 1  & w$x$edges$width <= 10))
 })
 
 test_that("plot.pathtree style='icicle' uses size-based abbreviation", {
@@ -84,7 +92,7 @@ test_that("plot.pathtree style='icicle' uses size-based abbreviation", {
     for (t in 2:15) s[t] <- sample(states, 1L, prob = P[s[t - 1L], ])
     s
   })
-  tr <- context_tree(seqs, max_depth = 3L, nmin = 5L)
+  tr <- context_tree(seqs, max_depth = 3L, min_count = 5L)
   ## Default mode (label_abbrev_fraction = NULL) is binary:
   ## any slice >= label_min_fraction gets the full state name; the
   ## rest get no label.
@@ -125,7 +133,7 @@ test_that("plot.pathtree style='icicle' respects override args", {
     for (t in 2:15) s[t] <- sample(states, 1L, prob = P[s[t - 1L], ])
     s
   })
-  tr <- context_tree(seqs, max_depth = 3L, nmin = 5L)
+  tr <- context_tree(seqs, max_depth = 3L, min_count = 5L)
   ## abbrev_fraction = 0 → never abbreviate (every labelled tile shows
   ## the full state name).
   p_full <- plot(tr, style = "icicle", label_abbrev_fraction = 0)
@@ -148,4 +156,45 @@ test_that("plot.pathtree errors on unrecognised style", {
   tr <- mk_plot_tree()
   expect_error(plot(tr, style = "sankey"))
   expect_error(plot(tr, style = "treemap"))
+})
+
+# ---- plot_pathways() (pathway x next-move heatmap) ----------------------
+
+test_that("plot_pathways returns a ggplot for each sort_by", {
+  tr <- mk_plot_tree()
+  for (sb in c("count", "divergence", "depth"))
+    expect_s3_class(plot_pathways(tr, sort_by = sb, min_count = 1L), "ggplot")
+})
+
+test_that("plot_pathways honours top, title, and show_flips", {
+  tr <- mk_plot_tree()
+  p  <- plot_pathways(tr, top = 4L, min_count = 1L, title = "custom")
+  expect_s3_class(p, "ggplot")
+  ## at most `top` distinct pathways on the y axis
+  expect_lte(length(unique(p$data$pathway)), 4L)
+  expect_identical(p$labels$title, "custom")
+  ## show_flips = FALSE drops the caret prefix from every label
+  p_noflip <- plot_pathways(tr, min_count = 1L, show_flips = FALSE)
+  expect_false(any(grepl("^> ", as.character(p_noflip$data$label))))
+})
+
+test_that("plot_pathways errors when no pathway clears the threshold", {
+  tr <- mk_plot_tree()
+  expect_error(plot_pathways(tr, min_count = 1e6),
+               "No pathways meet the threshold")
+})
+
+# ---- plot_divergence() (KL lollipop) ------------------------------------
+
+test_that("plot_divergence returns a ggplot and honours a custom title", {
+  tr <- mk_plot_tree()
+  p  <- plot_divergence(tr, top = 6L, min_count = 1L, title = "div")
+  expect_s3_class(p, "ggplot")
+  expect_identical(p$labels$title, "div")
+})
+
+test_that("plot_divergence errors when no pathway clears the threshold", {
+  tr <- mk_plot_tree()
+  expect_error(plot_divergence(tr, min_count = 1e6),
+               "No pathways meet the threshold")
 })

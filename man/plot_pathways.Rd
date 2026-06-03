@@ -7,7 +7,7 @@
 plot_pathways(
   tree,
   top = 20L,
-  sort_by = c("count", "KL", "depth"),
+  sort_by = c("count", "divergence", "depth"),
   min_count = 5L,
   show_flips = TRUE,
   title = NULL,
@@ -19,8 +19,8 @@ plot_pathways(
 
 \item{top}{Integer. Maximum number of pathways to show. Default 20.}
 
-\item{sort_by}{Character. One of \code{"count"} (default), \code{"KL"},
-or \code{"depth"}.}
+\item{sort_by}{Character. One of \code{"count"} (default),
+\code{"divergence"}, or \code{"depth"}.}
 
 \item{min_count}{Integer. Drop pathways with fewer than this many
 occurrences. Default 5.}
@@ -55,7 +55,7 @@ seqs <- replicate(50, sample(c("A","B","C"), 12, replace = TRUE),
                   simplify = FALSE)
 tree <- context_tree(seqs, max_depth = 3)
 plot_pathways(tree)
-plot_pathways(tree, sort_by = "KL", top = 12)
+plot_pathways(tree, sort_by = "divergence", top = 12)
 }
 
 }

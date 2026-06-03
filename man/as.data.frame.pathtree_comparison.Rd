@@ -15,7 +15,8 @@
 }
 \value{
 A data.frame with columns \code{pathway}, \code{count_a},
-  \code{count_b}, \code{KL_ab}, \code{KL_ba}, \code{sym_KL}.
+  \code{count_b}, \code{divergence_ab}, \code{divergence_ba},
+  \code{divergence_sym}.
 }
 \description{
 Uniform tidy-extract: returns the per-pathway divergence breakdown

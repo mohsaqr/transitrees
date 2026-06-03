@@ -54,7 +54,7 @@ test_that("context_tree() accepts all smoothing methods and sums to 1", {
   m <- mk_seq_data()
   for (s in c("floor", "laplace", "kneser_ney", "witten_bell",
               "jelinek_mercer")) {
-    tr <- context_tree(m, max_depth = 2L, nmin = 3L, smoothing = s)
+    tr <- context_tree(m, max_depth = 2L, min_count = 3L, smoothing = s)
     expect_s3_class(tr, "pathtree")
     sums <- vapply(tr$nodes, function(n) sum(n$prob), numeric(1))
     expect_true(all(abs(sums - 1) < 1e-9),
@@ -101,15 +101,15 @@ test_that("smoothing = 'floor' default reproduces v0.0 behaviour", {
   ## Equivalence to ymin floor: tree built with default args matches
   ## tree built with explicit smoothing = 'floor'.
   m <- mk_seq_data()
-  a <- context_tree(m, max_depth = 2L, nmin = 3L)
-  b <- context_tree(m, max_depth = 2L, nmin = 3L, smoothing = "floor")
+  a <- context_tree(m, max_depth = 2L, min_count = 3L)
+  b <- context_tree(m, max_depth = 2L, min_count = 3L, smoothing = "floor")
   for (ctx in names(a$nodes))
     expect_equal(a$nodes[[ctx]]$prob, b$nodes[[ctx]]$prob)
 })
 
 test_that("smooth_pathtree() preserves topology, swaps probs", {
   m <- mk_seq_data()
-  tr  <- context_tree(m, max_depth = 2L, nmin = 3L)
+  tr  <- context_tree(m, max_depth = 2L, min_count = 3L)
   tr2 <- smooth_pathtree(tr, "laplace")
   expect_identical(names(tr$nodes), names(tr2$nodes))
   expect_identical(tr$edges, tr2$edges)
@@ -120,7 +120,7 @@ test_that("smooth_pathtree() preserves topology, swaps probs", {
 
 test_that("smooth_pathtree() with floor reproduces tree's original probs", {
   m <- mk_seq_data()
-  tr  <- context_tree(m, max_depth = 2L, nmin = 3L,
+  tr  <- context_tree(m, max_depth = 2L, min_count = 3L,
                       smoothing = list("floor", ymin = 0.001))
   tr2 <- smooth_pathtree(tr, list("floor", ymin = 0.001))
   for (ctx in names(tr$nodes))
@@ -132,7 +132,7 @@ test_that("Kneser-Ney never produces an infinite held-out perplexity", {
   states <- c("A","B","C","D","E")
   train  <- matrix(sample(states, 30 * 8,  replace = TRUE), 30, 8)
   test   <- matrix(sample(states, 30 * 8,  replace = TRUE), 30, 8)
-  tr_kn  <- context_tree(train, max_depth = 3L, nmin = 1L,
+  tr_kn  <- context_tree(train, max_depth = 3L, min_count = 1L,
                          smoothing = "kneser_ney")
   pp_kn <- perplexity(tr_kn, newdata = test)
   expect_true(is.finite(pp_kn))
@@ -141,7 +141,7 @@ test_that("Kneser-Ney never produces an infinite held-out perplexity", {
 
 test_that("smooth_pathtree() walks top-down (parent updated before child)", {
   m <- mk_seq_data(seed = 3)
-  tr <- context_tree(m, max_depth = 2L, nmin = 3L)
+  tr <- context_tree(m, max_depth = 2L, min_count = 3L)
   tr2 <- smooth_pathtree(tr, list("jelinek_mercer", lambda = 1))
   ## With lambda = 1, every node's prob should equal its parent's
   ## smoothed prob. The root has no parent (uniform fallback).

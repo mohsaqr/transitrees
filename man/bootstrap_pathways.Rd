@@ -7,11 +7,11 @@
 bootstrap_pathways(
   tree,
   iter = 1000L,
-  stat = c("count", "prob_next", "KL"),
+  stat = c("count", "next_probability", "divergence"),
   consistency_range = c(0.75, 1.25),
   stability_threshold = 0.75,
   informative_threshold = 0.95,
-  alpha_g2 = 0.05,
+  alpha = 0.05,
   ci_level = 0.05,
   seed = 1L,
   keep_resamples = TRUE,
@@ -26,8 +26,8 @@ Default \code{1000}.}
 
 \item{stat}{Character. Pathway statistic on which
 \code{p_stability} is measured. One of \code{"count"}
-(default; tna's edge-weight analogue), \code{"prob_next"} (the
-modal next-state probability), or \code{"KL"}.}
+(default; tna's edge-weight analogue), \code{"next_probability"}
+(the most-likely next-state probability), or \code{"divergence"}.}
 
 \item{consistency_range}{Numeric vector of length 2.
 Multiplicative tolerance band around the observed value.
@@ -43,24 +43,25 @@ bootstrap +1 correction.}
 \item{informative_threshold}{Numeric in \eqn{(0, 1)}. A pathway
 is \code{informative = TRUE} when \code{informative_rate >=
 informative_threshold}. Default \code{0.95}: at the standard
-\eqn{G^2} significance level (\code{alpha_g2 = 0.05}) the
+\eqn{G^2} significance level (\code{alpha = 0.05}) the
 chi-square test has a 5\% Type-I rate, so requiring 95\% of
 resamples to clear the critical value rules out finite-sample
 chance deviations from the parent distribution.}
 
-\item{alpha_g2}{Numeric in \eqn{(0, 1)}. Significance level for
+\item{alpha}{Numeric in \eqn{(0, 1)}. Significance level for
 the \eqn{G^2} test against parent. Default \code{0.05}.}
 
 \item{ci_level}{Numeric in \eqn{(0, 1)}. Tail probability for the
-bootstrap CIs on \code{count}, \code{prob_next}, \code{KL},
-\code{G2}. Default \code{0.05} (95\% CI).}
+bootstrap CIs on \code{count}, \code{next_probability},
+\code{divergence}, \code{G2}. Default \code{0.05} (95\% CI).}
 
 \item{seed}{Integer or \code{NULL}. RNG seed.
 Default \code{1L}.}
 
 \item{keep_resamples}{Logical. If \code{TRUE} (default), the
-per-iteration resample matrices \code{M_count}, \code{M_prob_next},
-\code{M_KL}, \code{M_G2}, \code{M_flips} are retained on the
+per-iteration resample matrices \code{M_count},
+\code{M_next_probability}, \code{M_divergence}, \code{M_G2},
+\code{M_changes_prediction} are retained on the
 returned object. Set to \code{FALSE} to drop them (each is
 \code{iter x n_pathways}) when memory matters; the summary table
 is unaffected.}
@@ -76,9 +77,9 @@ A \code{pathtree_bootstrap} object: a list with
       \code{stability_rate} descending.}
     \item{pathways_orig}{Empirical original-pathway statistics
       (no smoothing) as a tidy data.frame.}
-    \item{M_count, M_prob_next, M_KL, M_G2, M_flips}{Raw resample
-      matrices: \code{iter x n_pathways}, columns named by
-      pathway.}
+    \item{M_count, M_next_probability, M_divergence, M_G2,
+      M_changes_prediction}{Raw resample matrices:
+      \code{iter x n_pathways}, columns named by pathway.}
     \item{iter, stat, consistency_range, stability_threshold,
       informative_threshold, alpha_g2, level, seed,
       g2_critical_value}{Configuration.}

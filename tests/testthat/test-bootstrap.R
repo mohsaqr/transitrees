@@ -2,10 +2,10 @@
 # reproducibility, and validation against simulated structure.
 
 mk_boot_tree <- function(n = 40L, L = 12L, alpha = c("A","B","C"),
-                         seed = 1L, max_depth = 2L, nmin = 3L) {
+                         seed = 1L, max_depth = 2L, min_count = 3L) {
   set.seed(seed)
   m <- matrix(sample(alpha, n * L, replace = TRUE), n, L)
-  context_tree(m, max_depth = max_depth, nmin = nmin)
+  context_tree(m, max_depth = max_depth, min_count = min_count)
 }
 
 test_that("bootstrap_pathways returns a pathtree_bootstrap with the expected slots", {
@@ -13,27 +13,28 @@ test_that("bootstrap_pathways returns a pathtree_bootstrap with the expected slo
   b  <- bootstrap_pathways(tr, iter = 20L, seed = 42L)
   expect_s3_class(b, "pathtree_bootstrap")
   expect_true(all(c("summary", "pathways_orig", "M_count",
-                    "M_prob_next", "M_KL", "M_flips",
+                    "M_next_probability", "M_divergence",
+                    "M_changes_prediction",
                     "iter", "stat", "consistency_range",
                     "stability_threshold") %in% names(b)))
   expect_equal(b$iter, 20L)
   expect_equal(nrow(b$M_count), 20L)
-  expect_equal(nrow(b$M_prob_next), 20L)
-  expect_equal(nrow(b$M_KL), 20L)
-  expect_equal(nrow(b$M_flips), 20L)
+  expect_equal(nrow(b$M_next_probability), 20L)
+  expect_equal(nrow(b$M_divergence), 20L)
+  expect_equal(nrow(b$M_changes_prediction), 20L)
   expect_equal(ncol(b$M_count), nrow(b$summary))
 })
 
 test_that("summary table has the canonical column vocabulary", {
   tr <- mk_boot_tree()
   b  <- bootstrap_pathways(tr, iter = 20L, seed = 42L)
-  expect_true(all(c("pathway", "depth", "count", "prob_next", "KL",
-                    "G2",
+  expect_true(all(c("pathway", "depth", "count", "next_probability",
+                    "divergence", "G2",
                     "p_stability", "stability_rate", "stable",
                     "informative_rate", "informative",
                     "flip_consistency",
                     "mean_count", "ci_count_lo", "ci_count_hi",
-                    "mean_KL", "ci_KL_lo", "ci_KL_hi",
+                    "mean_divergence", "ci_divergence_lo", "ci_divergence_hi",
                     "mean_G2", "ci_G2_lo", "ci_G2_hi") %in%
                   names(b$summary)))
   ## Generic p_value, sig, appearance_rate were removed.
@@ -45,10 +46,11 @@ test_that("summary table has the canonical column vocabulary", {
 test_that("summary table has symmetric sd_* columns (one per stat)", {
   tr <- mk_boot_tree()
   b  <- bootstrap_pathways(tr, iter = 30L, seed = 42L)
-  expect_true(all(c("sd_count", "sd_prob_next", "sd_KL", "sd_G2") %in%
-                  names(b$summary)))
+  expect_true(all(c("sd_count", "sd_next_probability", "sd_divergence",
+                    "sd_G2") %in% names(b$summary)))
   ## SDs are non-negative or NA
-  for (col in c("sd_count", "sd_prob_next", "sd_KL", "sd_G2")) {
+  for (col in c("sd_count", "sd_next_probability", "sd_divergence",
+                "sd_G2")) {
     v <- b$summary[[col]]
     v <- v[!is.na(v)]
     expect_true(all(v >= 0), info = col)
@@ -60,10 +62,10 @@ test_that("keep_resamples = FALSE drops the M_* matrices but keeps the summary",
   b  <- bootstrap_pathways(tr, iter = 30L, seed = 1L,
                            keep_resamples = FALSE)
   expect_true(is.null(b$M_count))
-  expect_true(is.null(b$M_prob_next))
-  expect_true(is.null(b$M_KL))
+  expect_true(is.null(b$M_next_probability))
+  expect_true(is.null(b$M_divergence))
   expect_true(is.null(b$M_G2))
-  expect_true(is.null(b$M_flips))
+  expect_true(is.null(b$M_changes_prediction))
   expect_s3_class(b$summary, "data.frame")
   expect_true(nrow(b$summary) > 0L)
   ## plot_pathway_resamples errors helpfully when resamples were dropped
@@ -75,7 +77,8 @@ test_that("summary + pathways_orig both lead with the canonical pathway schema",
   tr <- mk_boot_tree()
   b  <- bootstrap_pathways(tr, iter = 25L, seed = 1L)
   canonical <- c("pathway", "depth", "count",
-                 "modal_next", "prob_next", "KL", "flips")
+                 "likely_next", "next_probability", "divergence",
+                 "changes_prediction")
   ## Both tables expose the same canonical leading columns.
   expect_equal(names(b$summary)[seq_along(canonical)], canonical)
   expect_equal(names(b$pathways_orig)[seq_along(canonical)], canonical)
@@ -87,10 +90,10 @@ test_that("keep_resamples = TRUE (default) retains M_* matrices", {
   tr <- mk_boot_tree()
   b  <- bootstrap_pathways(tr, iter = 30L, seed = 1L)
   expect_true(is.matrix(b$M_count))
-  expect_true(is.matrix(b$M_prob_next))
-  expect_true(is.matrix(b$M_KL))
+  expect_true(is.matrix(b$M_next_probability))
+  expect_true(is.matrix(b$M_divergence))
   expect_true(is.matrix(b$M_G2))
-  expect_true(is.matrix(b$M_flips))
+  expect_true(is.matrix(b$M_changes_prediction))
 })
 
 test_that("p_stability and stability_rate are in [0, 1]", {
@@ -153,14 +156,14 @@ test_that("alphabet is locked across resamples", {
   ## tree's alphabet must match the input tree's, so all resamples
   ## align to the same union of pathways.
   tr <- mk_boot_tree(n = 30L, L = 8L, alpha = c("A","B","C","D"),
-                     nmin = 2L)
+                     min_count = 2L)
   b  <- bootstrap_pathways(tr, iter = 30L, seed = 1L)
   expect_true(all(c("A","B","C","D") %in% tr$alphabet))
   ## All resamples should be able to produce pathways over the locked
   ## alphabet; we verify by checking every column's name parses to
   ## states all in the original alphabet.
   parse_states <- function(p) {
-    if (p == "(root)") return(character(0))
+    if (p == "(start)") return(character(0))
     strsplit(p, " -> ", fixed = TRUE)[[1]]
   }
   used <- unique(unlist(lapply(colnames(b$M_count), parse_states)))
@@ -168,7 +171,7 @@ test_that("alphabet is locked across resamples", {
 })
 
 test_that("missing pathway in a resample contributes count = 0 / NA elsewhere", {
-  tr <- mk_boot_tree(n = 25L, L = 10L, max_depth = 3L, nmin = 4L)
+  tr <- mk_boot_tree(n = 25L, L = 10L, max_depth = 3L, min_count = 4L)
   b  <- bootstrap_pathways(tr, iter = 40L, seed = 1L)
   ## Find a pathway that did NOT appear in every resample.
   rates <- colMeans(b$M_count > 0)
@@ -176,9 +179,9 @@ test_that("missing pathway in a resample contributes count = 0 / NA elsewhere", 
   if (length(partial) > 0L) {
     j <- partial[[1L]]
     miss_rows <- which(b$M_count[, j] == 0)
-    expect_true(all(is.na(b$M_prob_next[miss_rows, j])))
-    expect_true(all(is.na(b$M_KL[miss_rows, j])))
-    expect_true(all(is.na(b$M_flips[miss_rows, j])))
+    expect_true(all(is.na(b$M_next_probability[miss_rows, j])))
+    expect_true(all(is.na(b$M_divergence[miss_rows, j])))
+    expect_true(all(is.na(b$M_changes_prediction[miss_rows, j])))
   } else {
     succeed()
   }
@@ -198,7 +201,7 @@ test_that("validation: simulated deterministic next-state is informative", {
     }
     out
   }, simplify = FALSE)
-  tr <- context_tree(trajs, max_depth = 2L, nmin = 3L,
+  tr <- context_tree(trajs, max_depth = 2L, min_count = 3L,
                      smoothing = list("floor", ymin = 0))
   b  <- bootstrap_pathways(tr, iter = 80L, seed = 1L)
   row_A <- b$summary[b$summary$pathway == "A", ]
@@ -207,8 +210,8 @@ test_that("validation: simulated deterministic next-state is informative", {
   expect_gt(row_A$stability_rate,   0.75)
   expect_gt(row_A$informative_rate, 0.95)
   expect_true(row_A$informative)
-  ## CI on prob_next should sit near 1
-  expect_gt(row_A$ci_prob_next_lo, 0.7)
+  ## CI on next_probability should sit near 1
+  expect_gt(row_A$ci_next_probability_lo, 0.7)
 })
 
 test_that("validation: random data leaves few pathways informative", {
@@ -217,11 +220,11 @@ test_that("validation: random data leaves few pathways informative", {
   trajs <- replicate(n,
     sample(c("A","B","C"), L, replace = TRUE),
     simplify = FALSE)
-  tr <- context_tree(trajs, max_depth = 1L, nmin = 3L)
+  tr <- context_tree(trajs, max_depth = 1L, min_count = 3L)
   b  <- bootstrap_pathways(tr, iter = 100L, seed = 1L)
   ## Random data should mostly be stable on count (counts reproduce)
   ## but very few pathways should be informative.
-  s <- b$summary[b$summary$pathway != "(root)", ]
+  s <- b$summary[b$summary$pathway != "(start)", ]
   expect_true(mean(s$informative, na.rm = TRUE) <= 0.5)
 })
 
@@ -230,21 +233,21 @@ test_that("stable frequent pathways in iid data are not called informative", {
   trajs <- replicate(200L,
     sample(c("A", "B", "C"), 30L, replace = TRUE),
     simplify = FALSE)
-  tr <- context_tree(trajs, max_depth = 1L, nmin = 1L,
+  tr <- context_tree(trajs, max_depth = 1L, min_count = 1L,
                      smoothing = list("floor", ymin = 0))
   b <- bootstrap_pathways(tr, iter = 100L, seed = 1L,
                           stat = "count")
-  s <- b$summary[b$summary$pathway != "(root)", ]
+  s <- b$summary[b$summary$pathway != "(start)", ]
   expect_true(all(s$stable))
   expect_true(all(!s$informative))
   expect_true(all(s$informative_rate < b$informative_threshold))
 })
 
 test_that("validation: count CI for high-frequency pathway brackets the original count", {
-  tr <- mk_boot_tree(n = 80L, L = 14L, max_depth = 1L, nmin = 5L)
+  tr <- mk_boot_tree(n = 80L, L = 14L, max_depth = 1L, min_count = 5L)
   b  <- bootstrap_pathways(tr, iter = 100L, seed = 1L)
   ## Look at the highest-count non-root pathway
-  s <- b$summary[b$summary$pathway != "(root)", ]
+  s <- b$summary[b$summary$pathway != "(start)", ]
   s <- s[order(-s$count), ]
   top <- s[1L, ]
   ## CI should bracket the original count (95% level → coverage ~95%)
@@ -273,7 +276,7 @@ test_that("simulation guards against stability false negatives and false positiv
   ## informative but unstable at the sample level.
   stable <- replicate(75L, rep(c("A", "B"), 20L), simplify = FALSE)
   carriers <- replicate(5L, rep(c("X", "Y"), 20L), simplify = FALSE)
-  tr <- context_tree(c(stable, carriers), max_depth = 1L, nmin = 1L,
+  tr <- context_tree(c(stable, carriers), max_depth = 1L, min_count = 1L,
                      smoothing = list("floor", ymin = 0))
   b <- bootstrap_pathways(tr, iter = 200L, seed = 1L, stat = "count")
 
@@ -296,7 +299,7 @@ test_that("simulation guards against stability false negatives and false positiv
   expect_true(row_X$informative)
 })
 
-test_that("stat = 'prob_next' can flag probability instability when counts are stable", {
+test_that("stat = 'next_probability' flags probability instability when counts are stable", {
   ## Every sequence contributes the same number of A contexts, so count
   ## is stable. But whole-sequence resampling changes the mix of
   ## A -> B carrier sequences and A -> C carrier sequences, so the
@@ -304,12 +307,12 @@ test_that("stat = 'prob_next' can flag probability instability when counts are s
   b_carriers <- replicate(5L, rep(c("A", "B"), 20L), simplify = FALSE)
   c_carriers <- replicate(5L, rep(c("A", "C"), 20L), simplify = FALSE)
   tr <- context_tree(c(b_carriers, c_carriers),
-                     max_depth = 1L, nmin = 1L,
+                     max_depth = 1L, min_count = 1L,
                      smoothing = list("floor", ymin = 0))
   b_count <- bootstrap_pathways(tr, iter = 200L, seed = 1L,
                                 stat = "count")
   b_prob <- bootstrap_pathways(tr, iter = 200L, seed = 1L,
-                               stat = "prob_next")
+                               stat = "next_probability")
 
   row_count <- b_count$summary[b_count$summary$pathway == "A", ]
   row_prob <- b_prob$summary[b_prob$summary$pathway == "A", ]
@@ -319,17 +322,17 @@ test_that("stat = 'prob_next' can flag probability instability when counts are s
   expect_gt(row_prob$p_stability, 0.25)
 })
 
-test_that("stat = 'KL' makes near-zero KL instability explicit", {
+test_that("stat = 'divergence' makes near-zero divergence instability explicit", {
   set.seed(2)
   trajs <- replicate(200L,
     sample(c("A", "B", "C"), 30L, replace = TRUE),
     simplify = FALSE)
-  tr <- context_tree(trajs, max_depth = 1L, nmin = 1L,
+  tr <- context_tree(trajs, max_depth = 1L, min_count = 1L,
                      smoothing = list("floor", ymin = 0))
-  b <- bootstrap_pathways(tr, iter = 100L, seed = 1L, stat = "KL")
-  s <- b$summary[b$summary$pathway != "(root)", ]
-  expect_true(all(is.finite(s$KL)))
-  expect_true(all(s$KL < 0.01))
+  b <- bootstrap_pathways(tr, iter = 100L, seed = 1L, stat = "divergence")
+  s <- b$summary[b$summary$pathway != "(start)", ]
+  expect_true(all(is.finite(s$divergence)))
+  expect_true(all(s$divergence < 0.01))
   expect_true(all(s$p_stability > 0.25))
   expect_true(all(!s$stable))
 })
@@ -339,9 +342,9 @@ test_that("changing stat changes which statistic stability is computed on", {
   b_count <- bootstrap_pathways(tr, iter = 30L, seed = 1L,
                                  stat = "count")
   b_prob  <- bootstrap_pathways(tr, iter = 30L, seed = 1L,
-                                 stat = "prob_next")
+                                 stat = "next_probability")
   expect_equal(b_count$stat, "count")
-  expect_equal(b_prob$stat,  "prob_next")
+  expect_equal(b_prob$stat,  "next_probability")
   ## Different stats produce different stability_rates in general.
   ## (Same per-pathway count/prob distributions but different
   ## tolerance bands → different rates.)
@@ -378,4 +381,18 @@ test_that("validation errors on bad arguments", {
                                    stability_threshold = 0))
   expect_error(bootstrap_pathways(tr, iter = 5L,
                                    consistency_range = c(1.5, 0.5)))
+})
+
+test_that("plot_pathway_resamples renders a ggplot for each stat", {
+  tr <- mk_boot_tree()
+  b  <- bootstrap_pathways(tr, iter = 30L, seed = 1L)  # keep_resamples = TRUE
+  for (st in c("count", "next_probability", "divergence", "G2"))
+    expect_s3_class(plot_pathway_resamples(b, stat = st, top = 3L), "ggplot")
+})
+
+test_that("plot_pathway_resamples errors on an unknown pathway", {
+  tr <- mk_boot_tree()
+  b  <- bootstrap_pathways(tr, iter = 20L, seed = 1L)
+  expect_error(plot_pathway_resamples(b, pathways = "Z -> Z -> Z"),
+               "Unknown pathway")
 })

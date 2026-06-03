@@ -6,26 +6,27 @@
 \usage{
 \method{plot}{pathtree}(
   x,
-  style = c("dendrogram", "horizontal", "icicle", "interactive"),
+  style = c("horizontal", "dendrogram", "icicle", "interactive"),
   point_size_range = NULL,
-  edge_size_range = c(0.3, 2.5),
+  edge_size_range = NULL,
   ...
 )
 }
 \arguments{
 \item{x}{A \code{pathtree}.}
 
-\item{style}{One of \code{"dendrogram"} (default),
-\code{"horizontal"}, \code{"icicle"}, or \code{"interactive"}.}
+\item{style}{One of \code{"horizontal"} (default),
+\code{"dendrogram"}, \code{"icicle"}, or \code{"interactive"}.}
 
 \item{point_size_range}{Numeric length-2 vector controlling the
 minimum and maximum node-point size. Default \code{c(5, 16)} for
-\code{"dendrogram"}, \code{c(4, 14)} for \code{"horizontal"}.
-Ignored by \code{"icicle"} and \code{"interactive"}.}
+\code{"dendrogram"}, \code{c(4, 14)} for \code{"horizontal"},
+\code{c(10, 45)} (pixels) for \code{"interactive"}. Ignored by
+\code{"icicle"}.}
 
-\item{edge_size_range}{Numeric length-2 vector for edge linewidth.
-Default \code{c(0.3, 2.5)}. Ignored by \code{"icicle"} and
-\code{"interactive"}.}
+\item{edge_size_range}{Numeric length-2 vector for edge width.
+Default \code{c(0.3, 2.5)} for the static styles, \code{c(1, 10)}
+(pixels) for \code{"interactive"}. Ignored by \code{"icicle"}.}
 
 \item{...}{Passed to the chosen backend (e.g. \code{width} /
 \code{height} for \code{"interactive"}).}
@@ -37,39 +38,40 @@ A ggplot object for the three static styles; an
 \description{
 Renders a fitted pathtree in one of four styles:
 \itemize{
-  \item \code{"dendrogram"} (default) — pure-ggplot2 radial tree:
-    root at the centre, leaves on the outer ring.
-  \item \code{"horizontal"} — pure-ggplot2 left-to-right
+  \item \code{"horizontal"} (default) — pure-ggplot2 left-to-right
     phylogram: root on the left, leaves fanned out vertically on
-    the right with full arrow-notation leaf labels.
+    the right with full arrow-notation leaf labels and smooth
+    curved branches.
+  \item \code{"dendrogram"} — pure-ggplot2 radial tree: root at the
+    centre, leaves on the outer ring.
   \item \code{"icicle"} — circular partition / sunburst via
     \code{ggraph} (Suggests); inner ring carries full state
     names, outer rings carry 3-letter abbreviations.
-  \item \code{"interactive"} — \code{collapsibleTree} htmlwidget
-    (Suggests). Click a node to collapse / expand its subtree;
-    hover for a tooltip with the full pathway, count, modal next
-    state, and the complete next-state distribution.
+  \item \code{"interactive"} — \code{visNetwork} htmlwidget
+    (Suggests). A draggable, zoomable hierarchical tree; node size
+    = context count and edge width = child's count (\dQuote{flow}),
+    the same encoding as the static styles. Hover for a tooltip
+    with the full pathway, count, modal next state, and the
+    complete next-state distribution.
 }
 
-In the three static styles: node fill = last state of the
-pathway, node size = context count, edge thickness = child's
-count (\dQuote{flow}). In the interactive style, fill encodes the
-last state and the subtree depth is the visual cue for count.
+Across all styles: node fill = last state of the pathway, node size
+= context count, edge thickness = child's count (\dQuote{flow}). The
+interactive style carries the same encoding, plus drag / zoom / hover.
 }
 \details{
 \code{"icicle"} requires \code{ggraph} + \code{tidygraph};
-\code{"interactive"} requires \code{collapsibleTree}. The
-dispatcher errors informatively if a needed Suggests dependency
-is missing.
+\code{"interactive"} requires \code{visNetwork}. The dispatcher
+errors informatively if a needed Suggests dependency is missing.
 }
 \examples{
 \donttest{
 set.seed(1)
 m <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-tr <- context_tree(m, max_depth = 2L, nmin = 3L)
-plot(tr)                           # radial dendrogram (default)
-plot(tr, style = "horizontal")     # left-to-right phylogram
+tr <- context_tree(m, max_depth = 2L, min_count = 3L)
+plot(tr)                           # left-to-right phylogram (default)
+plot(tr, style = "dendrogram")     # radial dendrogram
 plot(tr, style = "icicle")         # sunburst (needs Suggests)
-plot(tr, style = "interactive")    # collapsibleTree (needs Suggests)
+plot(tr, style = "interactive")    # visNetwork (needs Suggests)
 }
 }

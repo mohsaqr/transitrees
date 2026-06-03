@@ -4,12 +4,21 @@
 \alias{compare_pathtrees}
 \title{Compare Two Pathtrees by Symmetric Divergence with Permutation Test}
 \usage{
-compare_pathtrees(tree_a, tree_b, n_perm = 200L, seed = 1L, symmetric = TRUE)
+compare_pathtrees(
+  tree_a,
+  tree_b = NULL,
+  iter = 200L,
+  seed = 1L,
+  symmetric = TRUE
+)
 }
 \arguments{
-\item{tree_a, tree_b}{Pathtrees fit on data subsets A and B.}
+\item{tree_a, tree_b}{Pathtrees fit on data subsets A and B.
+Alternatively, pass a two-element \code{pathtree_group} (from
+\code{context_tree(..., group =)}) as \code{tree_a} and leave
+\code{tree_b = NULL}; its two trees are compared in key order.}
 
-\item{n_perm}{Integer. Number of permutations. Default 200.}
+\item{iter}{Integer. Number of permutations. Default 200.}
 
 \item{seed}{Integer. RNG seed for reproducibility. Default 1.}
 
@@ -19,7 +28,7 @@ compare_pathtrees(tree_a, tree_b, n_perm = 200L, seed = 1L, symmetric = TRUE)
 A \code{pathtree_comparison} object with components:
 \describe{
   \item{pdist}{observed scalar distance}
-  \item{null_dist}{numeric vector, length \code{n_perm}}
+  \item{null_dist}{numeric vector, length \code{iter}}
   \item{p_value}{one-sided p-value (proportion of null at least as
     extreme as observed)}
   \item{pathways}{per-pathway breakdown data.frame}
@@ -38,8 +47,8 @@ intervention) generate significantly different pathway dynamics?
 set.seed(1)
 m1 <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
 m2 <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-tr1 <- context_tree(m1, max_depth = 2L, nmin = 3L)
-tr2 <- context_tree(m2, max_depth = 2L, nmin = 3L)
-compare_pathtrees(tr1, tr2, n_perm = 50)
+tr1 <- context_tree(m1, max_depth = 2L, min_count = 3L)
+tr2 <- context_tree(m2, max_depth = 2L, min_count = 3L)
+compare_pathtrees(tr1, tr2, iter = 50)
 }
 }

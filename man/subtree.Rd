@@ -15,8 +15,9 @@ character vector). Must exist in the tree.}
 \value{
 A new \code{pathtree} whose nodes and edges are restricted
   to descendants of \code{pathway}. The alphabet, smoothing, and
-  other hyperparameters are copied unchanged. \code{attr(., "local_root")}
-  carries the queried pathway in canonical form.
+  other hyperparameters are copied unchanged. Printing the subtree
+  reports the context it was cut at (also stored in
+  \code{attr(., "local_root")} for programmatic use).
 }
 \description{
 Returns a new \code{pathtree} containing only the queried node and
@@ -28,8 +29,7 @@ pathway is preserved as a key), but the returned object has a
 \donttest{
 set.seed(1)
 m <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-tr <- context_tree(m, max_depth = 2L, nmin = 3L)
-sub <- subtree(tr, "A")
-attr(sub, "local_root")
+tr <- context_tree(m, max_depth = 2L, min_count = 3L)
+subtree(tr, "A")   # prints "subtree of: A" in the banner
 }
 }

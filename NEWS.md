@@ -16,6 +16,46 @@ Initial CRAN release.
   Kullback-Leibler, `AIC`, and `BIC`.
 * `smooth_pathtree()` re-smooths a fitted tree without refitting
   the count tensor.
+* `compare_smoothing()` fits the tree under several smoothing schemes
+  (all five by default) with `max_depth`/`nmin` held fixed and returns
+  a tidy one-row-per-scheme table of `n_nodes` and in-sample
+  `perplexity` — a one-call replacement for the manual `lapply()` loop.
+* `compare_pruning()` prunes a fitted tree under several criteria (all
+  four by default) with `alpha`/`threshold` held fixed and returns a
+  tidy one-row-per-criterion table of `n_nodes` and `reduction_pct` —
+  the pruning analogue of `compare_smoothing()`.
+* `n_nodes()` is a small accessor for the number of contexts in a tree
+  (an intuitive `length(tree$nodes)`); returns one count per group for a
+  `pathtree_group`.
+* `compare_smoothing()` now also accepts an already-fitted `pathtree`:
+  it re-smooths the tree under each scheme (topology frozen, no
+  re-count) instead of refitting from data — handy for sweeping
+  smoothers on a pruned model.
+* `model_fit()` bundles the standard fit scalars (`logLik`, `df`,
+  `nobs`, `AIC`, `BIC`, `perplexity`) into one tidy row — a one-call
+  replacement for `logLik(); nobs(); AIC(); BIC(); perplexity()`. Takes
+  optional `newdata` for held-out evaluation and returns one row per
+  group for a `pathtree_group`.
+* **Plain-English output columns.** The pathway tables, the dependence
+  table, the comparison breakdown, and the bootstrap summary now use
+  readable column names: `modal_next` -> `likely_next`, `prob_next` ->
+  `next_probability`, `KL` -> `divergence`, `flips` ->
+  `changes_prediction`; `pathtree_dependence()`'s `H_node`/`H_parent`/
+  `H_drop`/`modal_parent` -> `entropy`/`entropy_before`/`entropy_drop`/
+  `likely_before`; comparison `KL_ab`/`KL_ba`/`sym_KL` ->
+  `divergence_ab`/`divergence_ba`/`divergence_sym`; the bootstrap
+  `mean_*`/`ci_*`/`M_*` columns follow suit. Argument *values* keep
+  backward-compatible aliases: `sort_by = "KL"` and
+  `bootstrap_pathways(stat = "prob_next" / "KL")` still work.
+* `context_tree()` gains grouped fits. Pass a grouped family object
+  (Nestimate `netobject_group`, tna `group_tna`, or any named list of
+  family objects) or a single dataset plus `group =` (a `$metadata`
+  column name, or a per-sequence vector) and it fits one tree per
+  group over a shared alphabet, returning a new `pathtree_group` (named
+  list of trees, with `print` and `as.data.frame` methods).
+  `compare_pathtrees()` accepts a 2-group `pathtree_group` directly:
+  `compare_pathtrees(context_tree(net_group))`. Previously a grouped
+  object was silently mis-fitted into a meaningless tree.
 * The root context is now retained even when `nmin` exceeds all
   observed counts, producing a well-formed root-only tree instead
   of an empty object.

@@ -91,11 +91,11 @@
   ## uniqueness). Then index by state.
   state_abbrev <- as.character(.abbrev(state_levels))
   abbrev_lookup <- setNames(state_abbrev, state_levels)
-  abbreviated   <- ifelse(is.na(last_state) | last_state == "(root)",
+  abbreviated   <- ifelse(is.na(last_state) | last_state == .ROOT_LABEL,
                           NA_character_,
                           abbrev_lookup[last_state])
   label_text <- ifelse(
-    pt_depth == 0L | last_state == "(root)" | is.na(last_state) |
+    pt_depth == 0L | last_state == .ROOT_LABEL | is.na(last_state) |
       arc_fraction < label_min_fraction,
     NA_character_,
     ifelse(arc_fraction < label_abbrev_fraction,

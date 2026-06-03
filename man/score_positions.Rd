@@ -4,12 +4,17 @@
 \alias{score_positions}
 \title{Per-Position Scoring}
 \usage{
-score_positions(tree, newdata)
+score_positions(tree, newdata, worst = NULL)
 }
 \arguments{
 \item{tree}{A \code{pathtree}.}
 
 \item{newdata}{Sequence data.}
+
+\item{worst}{Integer or \code{NULL}. If given, return only the
+\code{worst} positions — those with the lowest
+\code{predicted_prob} (the moves the model was most surprised by).
+Default \code{NULL} (all positions, in sequence order).}
 }
 \value{
 A data.frame with columns \code{sequence_id},

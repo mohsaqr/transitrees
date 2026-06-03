@@ -2,10 +2,10 @@
 
 mk_tree <- function(seed = 1L, n = 40L, len = 12L,
                     states = c("A","B","C"),
-                    max_depth = 3L, nmin = 3L) {
+                    max_depth = 3L, min_count = 3L) {
   set.seed(seed)
   m <- matrix(sample(states, n * len, replace = TRUE), n, len)
-  context_tree(m, max_depth = max_depth, nmin = nmin)
+  context_tree(m, max_depth = max_depth, min_count = min_count)
 }
 
 test_that("logLik.pathtree returns a logLik object with df and nobs", {
@@ -54,7 +54,7 @@ test_that("perplexity of unsmoothed tree on i.i.d. data is near alphabet size", 
   states <- c("A","B","C","D")
   m <- matrix(sample(states, 60 * 20, replace = TRUE), 60, 20)
   ## max_depth 0 -> only root (marginal); ymin = 0 -> exact MLE.
-  tr <- context_tree(m, max_depth = 0L, nmin = 1L,
+  tr <- context_tree(m, max_depth = 0L, min_count = 1L,
                      smoothing = list("floor", ymin = 0))
   pp <- perplexity(tr)
   expect_gt(pp, 3.5); expect_lt(pp, 4.5)
@@ -67,7 +67,7 @@ test_that("held-out perplexity >= in-sample perplexity on same data", {
   states <- c("A","B","C")
   train <- matrix(sample(states, 50 * 12, replace = TRUE), 50, 12)
   test  <- matrix(sample(states, 50 * 12, replace = TRUE), 50, 12)
-  tr <- context_tree(train, max_depth = 2L, nmin = 3L)
+  tr <- context_tree(train, max_depth = 2L, min_count = 3L)
   pp_in  <- perplexity(tr)
   pp_out <- perplexity(tr, newdata = test)
   expect_gte(pp_out, pp_in - 1e-8)

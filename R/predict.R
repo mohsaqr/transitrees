@@ -47,7 +47,11 @@
 predict.pathtree <- function(object, newdata, type = c("prob", "class"),
                             ...) {
   type <- match.arg(type)
-  bare_vec <- is.character(newdata) && !is.list(newdata)
+  ## A bare character vector is the interactive shortcut; a character
+  ## *matrix* is a container (it has a dim) and must yield a matrix, so
+  ## exclude it here even though is.character() is TRUE for it.
+  bare_vec <- is.character(newdata) && !is.list(newdata) &&
+    is.null(dim(newdata))
 
   histories <- if (is.list(newdata) && !is.data.frame(newdata)) {
     lapply(newdata, as.character)
@@ -107,6 +111,12 @@ predict.pathtree <- function(object, newdata, type = c("prob", "class"),
 generate_sequences <- function(tree, n = 5L, length = 10L,
                                start = NULL) {
   stopifnot(inherits(tree, "pathtree"))
+  ## base::length() because the `length` argument shadows the function.
+  if (!is.numeric(n) || base::length(n) != 1L || is.na(n) || n < 1)
+    stop("'n' must be a single positive integer.", call. = FALSE)
+  if (!is.numeric(length) || base::length(length) != 1L ||
+      is.na(length) || length < 1)
+    stop("'length' must be a single positive integer.", call. = FALSE)
   n <- as.integer(n); length <- as.integer(length)
   alpha <- tree$alphabet
 
@@ -122,12 +132,16 @@ generate_sequences <- function(tree, n = 5L, length = 10L,
 
   out <- matrix(NA_character_, n, length)
   out[, 1L] <- start
-  for (t in seq.int(2L, length)) {
-    for (i in seq_len(n)) {
-      hist <- out[i, seq_len(t - 1L)]
-      ctx  <- .ct_match_context(tree, hist)
-      info <- tree$nodes[[ctx]]
-      out[i, t] <- draw(info$prob)
+  ## length == 1 is the start column alone; seq.int(2L, 1L) counts *down*,
+  ## so only iterate when there is a second position to fill.
+  if (length >= 2L) {
+    for (t in seq.int(2L, length)) {
+      for (i in seq_len(n)) {
+        hist <- out[i, seq_len(t - 1L)]
+        ctx  <- .ct_match_context(tree, hist)
+        info <- tree$nodes[[ctx]]
+        out[i, t] <- draw(info$prob)
+      }
     }
   }
   out

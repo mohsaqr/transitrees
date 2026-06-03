@@ -18,13 +18,16 @@ with a longer history. `pathtree` makes that variable-depth structure
 the central object and reports it as a ranked list of pathways the
 data actually supports.
 
-The canonical R implementation, `PST` 0.94.1 (Gabadinho & Ritschard
+An earlier R implementation, `PST` 0.94.1 (Gabadinho & Ritschard
 2013, *Journal of Statistical Software* **53**(3)), was archived from
-CRAN on 2025-11-27. `pathtree` is a modern replacement:
+CRAN on 2025-11-27. `pathtree` is an **independent implementation** of
+the same model — not a replacement for, or fork of, any package:
 
 - pure base R + ggplot2, no Rcpp;
 - tidy data.frame outputs by default;
-- equivalence tests at machine precision against the archived `PST`;
+- validated at machine precision against two external references —
+  `PST` (fit, `query`, `predict`, `logLik`, topology) and `markovchain`
+  (order-1); see `PARITY.md`;
 - a pathway-centric API (`pathtree_pathways()`, `common_pathways()`,
   `divergent_pathways()`, `sharp_pathways()`) that ranks trajectories
   by frequency, predictive divergence, or modal-flip — the structure

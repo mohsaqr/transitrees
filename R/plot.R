@@ -152,26 +152,29 @@
 }
 
 #' @noRd
-.ct_horizontal_edge_paths <- function(layout, edges) {
-  ## Right-angle elbow edges:
-  ##   1. vertical from (x_parent, y_parent) -> (x_parent, y_child)
-  ##   2. horizontal from (x_parent, y_child) -> (x_child, y_child)
-  ## Each edge is a 3-vertex polyline; edge_weight = child's count.
+.ct_horizontal_edge_paths <- function(layout, edges, n_pt = 40L) {
+  ## Smooth S-curve edges: a cosine smoothstep carries each branch from
+  ## (x_parent, y_parent) to (x_child, y_child), leaving the parent and
+  ## arriving at the child horizontally, so branches read as flowing
+  ## curves rather than mechanical right-angle elbows. Each edge is an
+  ## n_pt-vertex polyline; edge_weight = child's count.
   if (nrow(edges) == 0L)
     return(data.frame(edge_id = integer(0), order = integer(0),
                       x = numeric(0), y = numeric(0),
                       edge_weight = numeric(0)))
 
   by_ctx <- setNames(seq_len(nrow(layout)), layout$context)
+  t  <- seq(0, 1, length.out = n_pt)
+  sm <- (1 - cos(pi * t)) / 2          # 0 -> 1 smoothstep
   paths <- Map(function(p_ctx, c_ctx, eid) {
     xp <- layout$x[[by_ctx[[p_ctx]]]]; yp <- layout$y[[by_ctx[[p_ctx]]]]
     xc <- layout$x[[by_ctx[[c_ctx]]]]; yc <- layout$y[[by_ctx[[c_ctx]]]]
     nc <- layout$n[[by_ctx[[c_ctx]]]]
     data.frame(
       edge_id     = eid,
-      order       = 1:3,
-      x           = c(xp, xp, xc),
-      y           = c(yp, yc, yc),
+      order       = seq_len(n_pt),
+      x           = xp + t  * (xc - xp),
+      y           = yp + sm * (yc - yp),
       edge_weight = nc
     )
   }, edges$parent, edges$child, seq_len(nrow(edges)))
@@ -192,8 +195,7 @@
   state_levels   <- x$alphabet
   last_state_str <- vapply(layout$context, .pt_last_state, character(1))
   layout$state   <- factor(last_state_str, levels = state_levels)
-  layout$abbr    <- ifelse(is.na(layout$state), NA_character_,
-                            substr(as.character(layout$state), 1L, 3L))
+  layout$abbr    <- as.character(layout$state)
   pal <- .pt_state_palette(state_levels)
 
   ## Root is rendered as a separate layer (last, on top, fixed size,
@@ -264,19 +266,20 @@
   state_levels   <- x$alphabet
   last_state_str <- vapply(layout$context, .pt_last_state, character(1))
   layout$state   <- factor(last_state_str, levels = state_levels)
-  layout$abbr    <- ifelse(is.na(layout$state), NA_character_,
-                            substr(as.character(layout$state), 1L, 3L))
+  layout$abbr    <- as.character(layout$state)
   pal <- .pt_state_palette(state_levels)
 
   is_root  <- layout$context == .ROOT
   body_df  <- layout[!is_root, , drop = FALSE]
   root_df  <- layout[ is_root, , drop = FALSE]
   ## Leaf labels: the full pathway in arrow notation, drawn to the
-  ## right of each leaf node.
-  is_leaf  <- !(layout$context %in% unique(x$edges$parent))
-  leaf_df  <- layout[is_leaf & !is_root, , drop = FALSE]
-  leaf_df$label <- ifelse(leaf_df$context == .ROOT, "(root)",
-                          leaf_df$context)
+  ## right of each leaf node. Internal nodes carry the in-circle
+  ## abbreviation instead (a leaf would otherwise collide its
+  ## abbreviation with its full side-label).
+  is_leaf      <- !(layout$context %in% unique(x$edges$parent))
+  leaf_df      <- layout[is_leaf & !is_root, , drop = FALSE]
+  leaf_df$label <- leaf_df$context
+  internal_df  <- layout[!is_leaf & !is_root, , drop = FALSE]
 
   ggplot2::ggplot() +
     ggplot2::geom_path(
@@ -284,7 +287,7 @@
       ggplot2::aes(x = .data$x, y = .data$y,
                    group = .data$edge_id,
                    linewidth = .data$edge_weight),
-      colour = "grey60", lineend = "round"
+      colour = "grey60", lineend = "round", linejoin = "round"
     ) +
     ggplot2::geom_point(
       data = body_df,
@@ -293,14 +296,15 @@
       shape = 21, colour = "grey25", stroke = 0.2, na.rm = TRUE
     ) +
     ggplot2::geom_text(
-      data = body_df,
+      data = internal_df,
       ggplot2::aes(x = .data$x, y = .data$y, label = .data$abbr),
-      size = 2.6, colour = "grey15", fontface = "bold", na.rm = TRUE
+      vjust = 1, nudge_y = -0.05, size = 2.7, colour = "grey20",
+      fontface = "bold", na.rm = TRUE
     ) +
     ggplot2::geom_text(
       data = leaf_df,
       ggplot2::aes(x = .data$x, y = .data$y, label = .data$label),
-      hjust = -0.15, size = 2.8, colour = "grey25",
+      hjust = 0, nudge_x = 0.10, size = 3, colour = "grey20",
       family = "mono"
     ) +
     ggplot2::geom_point(
@@ -311,8 +315,9 @@
     ) +
     ggplot2::geom_text(
       data = root_df,
-      ggplot2::aes(x = .data$x, y = .data$y), label = "(root)",
-      hjust = 1.25, size = 3, colour = "grey25", fontface = "bold"
+      ggplot2::aes(x = .data$x, y = .data$y), label = .ROOT_LABEL,
+      hjust = 1, nudge_x = -0.14, size = 3,
+      colour = "grey25", fontface = "bold"
     ) +
     ggplot2::scale_size_continuous(range = point_size_range,
                                    name = "context count") +
@@ -323,7 +328,7 @@
                                drop = FALSE) +
     ggplot2::scale_x_continuous(
       breaks = seq.int(0L, x$max_depth, by = 1L),
-      expand = ggplot2::expansion(mult = c(0.06, 0.22))
+      expand = ggplot2::expansion(mult = c(0.17, 0.32))
     ) +
     ggplot2::theme_minimal(base_size = 11) +
     ggplot2::theme(
@@ -333,8 +338,7 @@
       axis.title.y     = ggplot2::element_blank(),
       axis.text.y      = ggplot2::element_blank(),
       axis.ticks.y     = ggplot2::element_blank(),
-      panel.grid.minor = ggplot2::element_blank(),
-      panel.grid.major.y = ggplot2::element_blank()
+      panel.grid       = ggplot2::element_blank()
     ) +
     ggplot2::labs(
       x        = "depth",
@@ -350,35 +354,38 @@
 #' @description
 #' Renders a fitted pathtree in one of four styles:
 #' \itemize{
-#'   \item \code{"dendrogram"} (default) — pure-ggplot2 radial tree:
-#'     root at the centre, leaves on the outer ring.
-#'   \item \code{"horizontal"} — pure-ggplot2 left-to-right
+#'   \item \code{"horizontal"} (default) — pure-ggplot2 left-to-right
 #'     phylogram: root on the left, leaves fanned out vertically on
-#'     the right with full arrow-notation leaf labels.
+#'     the right with full arrow-notation leaf labels and smooth
+#'     curved branches.
+#'   \item \code{"dendrogram"} — pure-ggplot2 radial tree: root at the
+#'     centre, leaves on the outer ring.
 #'   \item \code{"icicle"} — circular partition / sunburst via
 #'     \code{ggraph} (Suggests); inner ring carries full state
 #'     names, outer rings carry 3-letter abbreviations.
-#'   \item \code{"interactive"} — \code{collapsibleTree} htmlwidget
-#'     (Suggests). Click a node to collapse / expand its subtree;
-#'     hover for a tooltip with the full pathway, count, modal next
-#'     state, and the complete next-state distribution.
+#'   \item \code{"interactive"} — \code{visNetwork} htmlwidget
+#'     (Suggests). A draggable, zoomable hierarchical tree; node size
+#'     = context count and edge width = child's count (\dQuote{flow}),
+#'     the same encoding as the static styles. Hover for a tooltip
+#'     with the full pathway, count, modal next state, and the
+#'     complete next-state distribution.
 #' }
 #'
-#' In the three static styles: node fill = last state of the
-#' pathway, node size = context count, edge thickness = child's
-#' count (\dQuote{flow}). In the interactive style, fill encodes the
-#' last state and the subtree depth is the visual cue for count.
+#' Across all styles: node fill = last state of the pathway, node size
+#' = context count, edge thickness = child's count (\dQuote{flow}). The
+#' interactive style carries the same encoding, plus drag / zoom / hover.
 #'
 #' @param x A \code{pathtree}.
-#' @param style One of \code{"dendrogram"} (default),
-#'   \code{"horizontal"}, \code{"icicle"}, or \code{"interactive"}.
+#' @param style One of \code{"horizontal"} (default),
+#'   \code{"dendrogram"}, \code{"icicle"}, or \code{"interactive"}.
 #' @param point_size_range Numeric length-2 vector controlling the
 #'   minimum and maximum node-point size. Default \code{c(5, 16)} for
-#'   \code{"dendrogram"}, \code{c(4, 14)} for \code{"horizontal"}.
-#'   Ignored by \code{"icicle"} and \code{"interactive"}.
-#' @param edge_size_range Numeric length-2 vector for edge linewidth.
-#'   Default \code{c(0.3, 2.5)}. Ignored by \code{"icicle"} and
-#'   \code{"interactive"}.
+#'   \code{"dendrogram"}, \code{c(4, 14)} for \code{"horizontal"},
+#'   \code{c(10, 45)} (pixels) for \code{"interactive"}. Ignored by
+#'   \code{"icicle"}.
+#' @param edge_size_range Numeric length-2 vector for edge width.
+#'   Default \code{c(0.3, 2.5)} for the static styles, \code{c(1, 10)}
+#'   (pixels) for \code{"interactive"}. Ignored by \code{"icicle"}.
 #' @param ... Passed to the chosen backend (e.g. \code{width} /
 #'   \code{height} for \code{"interactive"}).
 #'
@@ -387,26 +394,25 @@
 #'
 #' @details
 #' \code{"icicle"} requires \code{ggraph} + \code{tidygraph};
-#' \code{"interactive"} requires \code{collapsibleTree}. The
-#' dispatcher errors informatively if a needed Suggests dependency
-#' is missing.
+#' \code{"interactive"} requires \code{visNetwork}. The dispatcher
+#' errors informatively if a needed Suggests dependency is missing.
 #'
 #' @examples
 #' \donttest{
 #' set.seed(1)
 #' m <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-#' tr <- context_tree(m, max_depth = 2L, nmin = 3L)
-#' plot(tr)                           # radial dendrogram (default)
-#' plot(tr, style = "horizontal")     # left-to-right phylogram
+#' tr <- context_tree(m, max_depth = 2L, min_count = 3L)
+#' plot(tr)                           # left-to-right phylogram (default)
+#' plot(tr, style = "dendrogram")     # radial dendrogram
 #' plot(tr, style = "icicle")         # sunburst (needs Suggests)
-#' plot(tr, style = "interactive")    # collapsibleTree (needs Suggests)
+#' plot(tr, style = "interactive")    # visNetwork (needs Suggests)
 #' }
 #' @export
 plot.pathtree <- function(x,
-                          style = c("dendrogram", "horizontal",
+                          style = c("horizontal", "dendrogram",
                                      "icicle", "interactive"),
                           point_size_range = NULL,
-                          edge_size_range  = c(0.3, 2.5),
+                          edge_size_range  = NULL,
                           ...) {
   style <- match.arg(style)
   if (style == "icicle" &&
@@ -417,20 +423,23 @@ plot.pathtree <- function(x,
          call. = FALSE)
   }
   if (style == "interactive" &&
-      !requireNamespace("collapsibleTree", quietly = TRUE)) {
-    stop("plot(style = 'interactive') requires 'collapsibleTree'. ",
+      !requireNamespace("visNetwork", quietly = TRUE)) {
+    stop("plot(style = 'interactive') requires 'visNetwork'. ",
          "Install it, or use style = 'dendrogram' / 'horizontal' / ",
          "'icicle'.", call. = FALSE)
   }
   switch(style,
     icicle      = .plot_icicle(x, ...),
-    interactive = .plot_interactive(x, ...),
+    interactive = .plot_interactive(x,
+                   point_size_range = point_size_range %||% c(10, 45),
+                   edge_size_range  = edge_size_range  %||% c(1, 10),
+                   ...),
     dendrogram  = .plot_dendrogram(x,
                    point_size_range = point_size_range %||% c(5, 16),
-                   edge_size_range  = edge_size_range,
+                   edge_size_range  = edge_size_range  %||% c(0.3, 2.5),
                    ...),
     horizontal  = .plot_horizontal(x,
                    point_size_range = point_size_range %||% c(4, 14),
-                   edge_size_range  = edge_size_range,
+                   edge_size_range  = edge_size_range  %||% c(0.3, 2.5),
                    ...))
 }

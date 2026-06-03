@@ -26,8 +26,8 @@ either tree. No null distribution.
 set.seed(1)
 m1 <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
 m2 <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
-tr1 <- context_tree(m1, max_depth = 2L, nmin = 3L)
-tr2 <- context_tree(m2, max_depth = 2L, nmin = 3L)
+tr1 <- context_tree(m1, max_depth = 2L, min_count = 3L)
+tr2 <- context_tree(m2, max_depth = 2L, min_count = 3L)
 pathtree_distance(tr1, tr2)
 }
 }

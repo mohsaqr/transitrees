@@ -28,11 +28,11 @@ test_that("compare_pathtrees detects a real difference between different generat
     s
   }, simplify = FALSE)
   
-  tr_a <- context_tree(trajs_a, max_depth = 1, nmin = 2)
-  tr_b <- context_tree(trajs_b, max_depth = 1, nmin = 2)
+  tr_a <- context_tree(trajs_a, max_depth = 1, min_count = 2)
+  tr_b <- context_tree(trajs_b, max_depth = 1, min_count = 2)
   
   # Compare them
-  cmp <- compare_pathtrees(tr_a, tr_b, n_perm = 100, seed = 1)
+  cmp <- compare_pathtrees(tr_a, tr_b, iter = 100, seed = 1)
   
   # Expect significant p-value
   expect_lt(cmp$p_value, 0.05)
@@ -53,13 +53,13 @@ test_that("bootstrap_pathways correctly identifies non-informative pathways in n
     s
   }, simplify = FALSE)
   
-  tr <- context_tree(trajs, max_depth = 1, nmin = 2)
+  tr <- context_tree(trajs, max_depth = 1, min_count = 2)
   b  <- bootstrap_pathways(tr, iter = 100, seed = 1)
   
   # Pathways should mostly NOT be informative
   # (Root is usually informative if alphabet is biased, but here it's uniform)
   # Check non-root pathways
-  s_sub <- b$summary[b$summary$pathway != "(root)", ]
+  s_sub <- b$summary[b$summary$pathway != "(start)", ]
   if (nrow(s_sub) > 0) {
     expect_true(all(s_sub$informative_rate < 0.95))
     expect_true(all(!s_sub$informative))
@@ -69,7 +69,7 @@ test_that("bootstrap_pathways correctly identifies non-informative pathways in n
 test_that("bootstrap_pathways handles very short sequences gracefully", {
   # Sequences shorter than max_depth
   trajs <- list(c("A"), c("B"), c("A", "B"))
-  tr <- context_tree(trajs, max_depth = 2, nmin = 1)
+  tr <- context_tree(trajs, max_depth = 2, min_count = 1)
   
   # This should run without error
   expect_error(b <- bootstrap_pathways(tr, iter = 20, seed = 1), NA)
