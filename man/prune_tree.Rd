@@ -46,6 +46,12 @@ criterion does not exceed its threshold, drop the leaf and revisit
 the parent. Repeat until stable. The root is never dropped.
 Surviving nodes keep their original smoothed \code{prob} vector
 (whatever smoothing scheme was applied at fit time).
+
+Note on units: the \code{"KL"} \code{threshold} is in \strong{nats}
+(natural log), whereas the \code{divergence} column reported by
+\code{\link{tree_pathways}()} / \code{\link{divergent_pathways}()} is
+in \strong{bits} (log base 2). Multiply a nats threshold by
+\code{1 / log(2)} (~1.4427) to read it on the pathway-table scale.
 }
 \examples{
 \donttest{

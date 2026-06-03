@@ -61,9 +61,15 @@
   k <- length(counts); n <- sum(counts)
   if (is.null(parent_prob)) parent_prob <- rep(1 / k, k)
   if (n == 0) return(parent_prob)
-  n_pos  <- sum(counts > 0)
   high   <- pmax(counts - discount, 0) / n
-  back_w <- (discount * n_pos) / n
+  ## Back-off weight = the probability mass removed by the absolute
+  ## discount, computed as the residual so the result sums to exactly
+  ## 1. For integer counts this equals discount * n_pos / n (every
+  ## positive count is >= 1 >= discount); for fractional (weighted)
+  ## counts a cell below `discount` removes only its own mass, which
+  ## the residual captures correctly where discount * n_pos / n would
+  ## over-count and break the sum-to-1 constraint.
+  back_w <- 1 - sum(high)
   high + back_w * parent_prob
 }
 

@@ -27,6 +27,39 @@ test_that("Kneser-Ney returns a probability vector summing to 1", {
   expect_true(all(p >= 0))
 })
 
+test_that("Kneser-Ney sums to 1 under fractional (weighted) counts", {
+  parent <- c(1 / 3, 1 / 3, 1 / 3)
+  kn <- function(counts) transitrees:::.smooth_kneser_ney(
+    counts, parent, discount = 0.75)
+  ## A cell below the discount (0.75) used to break the sum-to-1
+  ## constraint because back_w = discount * n_pos / n over-counted the
+  ## removed mass; the residual back_w = 1 - sum(high) fixes it.
+  expect_equal(sum(kn(c(0.5, 2, 1))), 1)
+  expect_equal(sum(kn(c(0.3, 0.4, 0.2))), 1)
+  expect_true(all(kn(c(0.5, 2, 1)) >= 0))
+})
+
+test_that("Kneser-Ney is unchanged on integer counts (PST-path parity)", {
+  parent <- c(0.25, 0.25, 0.25, 0.25)
+  counts <- c(5, 1, 2, 0)
+  ## Residual back_w must reproduce the closed-form discount * n_pos / n
+  ## when every positive count is >= 1 >= discount.
+  n <- sum(counts); n_pos <- sum(counts > 0)
+  ref <- pmax(counts - 0.75, 0) / n + (0.75 * n_pos) / n * parent
+  expect_equal(
+    transitrees:::.smooth_kneser_ney(counts, parent, discount = 0.75),
+    ref)
+})
+
+test_that("context_tree() with weighted Kneser-Ney sums to 1", {
+  ## Sparse low-weight cell (B -> X at weight 0.3) inside a kept node.
+  seqs <- list(c("B", "X"), c("B", "B"), c("B", "B"), c("B", "B"))
+  tr <- context_tree(seqs, max_depth = 1L, min_count = 1L,
+                     weights = c(0.3, 1, 1, 1), smoothing = "kneser_ney")
+  sums <- vapply(tr$nodes, function(nd) sum(nd$prob), numeric(1))
+  expect_true(all(abs(sums - 1) < 1e-9))
+})
+
 test_that("Kneser-Ney with discount 0 reduces to MLE", {
   counts <- c(5, 1, 2, 0)
   parent <- c(0.25, 0.25, 0.25, 0.25)

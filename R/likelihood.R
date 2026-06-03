@@ -99,6 +99,16 @@
 #' computed from the fitted node counts. Otherwise returns the held-out
 #' log-likelihood scoring \code{newdata} under the fitted tree.
 #'
+#' @details
+#' Out-of-vocabulary handling: when \code{newdata} contains a state not
+#' in the tree's alphabet, the transition \emph{into} that state is
+#' omitted from scoring (it is not penalised), and the transition
+#' \emph{out} of it is scored against the root context (the unseen
+#' state cannot extend a history). The reported \code{nobs} therefore
+#' counts only the positions actually scored. \code{perplexity()},
+#' \code{score_sequences()}, and \code{score_positions()} inherit the
+#' same behaviour.
+#'
 #' @param object A \code{transitrees}.
 #' @param newdata Optional. Sequence data in any format accepted by
 #'   \code{context_tree()}. \code{NULL} (default) returns in-sample
