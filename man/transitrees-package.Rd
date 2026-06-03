@@ -14,8 +14,8 @@ diagnostics, smoothing, prediction, and tree visualisation.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/mohsaqr/pathtree}
-  \item Report bugs at \url{https://github.com/mohsaqr/pathtree/issues}
+  \item \url{https://github.com/mohsaqr/transitrees}
+  \item Report bugs at \url{https://github.com/mohsaqr/transitrees/issues}
 }
 
 }

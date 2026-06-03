@@ -52,7 +52,7 @@ the same model — not a replacement for, or fork of, any package:
 
 ```r
 # Github (development version)
-remotes::install_github("mohsaqr/pathtree")
+remotes::install_github("mohsaqr/transitrees")
 ```
 
 ## Usage
