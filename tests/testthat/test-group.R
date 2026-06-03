@@ -1,4 +1,4 @@
-# ---- Tests for grouped fits: context_tree() -> pathtree_group ----
+# ---- Tests for grouped fits: context_tree() -> transitrees_group ----
 #
 # Objects are fabricated (class-stamped) so the suite needs neither
 # Nestimate nor tna installed, exactly like the single-object tna tests
@@ -23,16 +23,16 @@
 
 # ---- a grouped object passed directly -----------------------------------
 
-test_that("a netobject_group fits to a pathtree_group", {
+test_that("a netobject_group fits to a transitrees_group", {
   w <- .grp_wide()
   nog <- structure(
     list(x = .mk_netobj(w[1:4, ]), y = .mk_netobj(w[5:8, ])),
     class = "netobject_group")
   g <- context_tree(nog, max_depth = 2L, min_count = 1L)
-  expect_s3_class(g, "pathtree_group")
+  expect_s3_class(g, "transitrees_group")
   expect_named(g, c("x", "y"))
-  expect_s3_class(g$x, "pathtree")
-  expect_s3_class(g$y, "pathtree")
+  expect_s3_class(g$x, "transitrees")
+  expect_s3_class(g$y, "transitrees")
 })
 
 test_that("a fabricated group_tna (integer-coded) decodes and fits", {
@@ -45,7 +45,7 @@ test_that("a fabricated group_tna (integer-coded) decodes and fits", {
                             nrow = 3, byrow = TRUE))),
     class = "group_tna")
   g <- context_tree(gtna, max_depth = 1L, min_count = 1L)
-  expect_s3_class(g, "pathtree_group")
+  expect_s3_class(g, "transitrees_group")
   expect_named(g, c("g1", "g2"))
   expect_setequal(g$g1$alphabet, c("A","B"))   # decoded, not "1"/"2"
 })
@@ -57,7 +57,7 @@ test_that("group = a metadata column splits a netobject", {
                    meta = data.frame(grp = .grp_labels,
                                      stringsAsFactors = FALSE))
   g <- context_tree(no, max_depth = 2L, min_count = 1L, group = "grp")
-  expect_s3_class(g, "pathtree_group")
+  expect_s3_class(g, "transitrees_group")
   expect_named(g, c("x", "y"))
   expect_identical(attr(g, "group"), "grp")
 })
@@ -65,7 +65,7 @@ test_that("group = a metadata column splits a netobject", {
 test_that("group = a vector splits a wide frame, shared alphabet", {
   g <- context_tree(.grp_wide(), max_depth = 1L, min_count = 1L,
                     group = .grp_labels)
-  expect_s3_class(g, "pathtree_group")
+  expect_s3_class(g, "transitrees_group")
   expect_setequal(g$x$alphabet, g$y$alphabet)   # union alphabet shared
   expect_setequal(g$x$alphabet, c("A","B"))
 })
@@ -93,13 +93,13 @@ test_that("a string group on a plain frame errors with guidance", {
 test_that("a plain ragged list is NOT treated as a group", {
   lst <- list(c("A","B","A","B"), c("B","A","B","A"))
   out <- context_tree(lst, max_depth = 1L, min_count = 1L)
-  expect_s3_class(out, "pathtree")          # single tree, not a group
-  expect_false(inherits(out, "pathtree_group"))
+  expect_s3_class(out, "transitrees")          # single tree, not a group
+  expect_false(inherits(out, "transitrees_group"))
 })
 
-# ---- pathtree_group methods ---------------------------------------------
+# ---- transitrees_group methods ---------------------------------------------
 
-test_that("as.data.frame.pathtree_group tags rows with group", {
+test_that("as.data.frame.transitrees_group tags rows with group", {
   g <- context_tree(.grp_wide(), max_depth = 1L, min_count = 1L,
                     group = .grp_labels)
   df <- as.data.frame(g)
@@ -108,61 +108,61 @@ test_that("as.data.frame.pathtree_group tags rows with group", {
   expect_setequal(unique(df$group), c("x", "y"))
 })
 
-test_that("print.pathtree_group returns invisibly", {
+test_that("print.transitrees_group returns invisibly", {
   g <- context_tree(.grp_wide(), max_depth = 1L, min_count = 1L,
                     group = .grp_labels)
   expect_invisible(print(g))
 })
 
-# ---- compare_pathtrees() accepts a 2-group pathtree_group ---------------
+# ---- compare_trees() accepts a 2-group transitrees_group ---------------
 
-test_that("compare_pathtrees(group) compares the pair", {
+test_that("compare_trees(group) compares the pair", {
   g   <- context_tree(.grp_wide(), max_depth = 1L, min_count = 1L,
                       group = .grp_labels)
-  cmp <- compare_pathtrees(g, iter = 20L, seed = 1L)
-  expect_s3_class(cmp, "pathtree_comparison")
+  cmp <- compare_trees(g, iter = 20L, seed = 1L)
+  expect_s3_class(cmp, "transitrees_comparison")
   ## identical to the explicit two-tree call
-  cmp2 <- compare_pathtrees(g$x, g$y, iter = 20L, seed = 1L)
+  cmp2 <- compare_trees(g$x, g$y, iter = 20L, seed = 1L)
   expect_equal(cmp$pdist, cmp2$pdist)
 })
 
-test_that("compare_pathtrees rejects a non-pairwise group", {
+test_that("compare_trees rejects a non-pairwise group", {
   one <- structure(list(only = context_tree(.grp_wide(), max_depth = 1L,
                                             min_count = 1L)),
-                   class = c("pathtree_group", "list"))
-  expect_error(compare_pathtrees(one), "exactly 2 groups")
+                   class = c("transitrees_group", "list"))
+  expect_error(compare_trees(one), "exactly 2 groups")
 })
 
-test_that("compare_pathtrees rejects a group plus tree_b", {
+test_that("compare_trees rejects a group plus tree_b", {
   g <- context_tree(.grp_wide(), max_depth = 1L, min_count = 1L,
                     group = .grp_labels)
-  expect_error(compare_pathtrees(g, g$x), "not a group plus")
+  expect_error(compare_trees(g, g$x), "not a group plus")
 })
 
-test_that("compare_pathtrees still requires tree_b for plain trees", {
+test_that("compare_trees still requires tree_b for plain trees", {
   tr <- context_tree(.grp_wide(), max_depth = 1L, min_count = 1L)
-  expect_error(compare_pathtrees(tr), "'tree_b' is required")
+  expect_error(compare_trees(tr), "'tree_b' is required")
 })
 
 # ---- prune / smooth dispatch over a group -------------------------------
 
-test_that("prune_pathtree on a group prunes each, keeps the wrapper", {
+test_that("prune_tree on a group prunes each, keeps the wrapper", {
   g  <- context_tree(.grp_wide(), max_depth = 2L, min_count = 1L,
                      group = .grp_labels)
-  pg <- prune_pathtree(g, criterion = "G2", alpha = 0.05)
-  expect_s3_class(pg, "pathtree_group")
+  pg <- prune_tree(g, criterion = "G2", alpha = 0.05)
+  expect_s3_class(pg, "transitrees_group")
   expect_named(pg, names(g))
   expect_true(all(vapply(pg, function(t) isTRUE(t$pruned), logical(1))))
   ## identical to pruning each member by hand
   expect_equal(pg$x$nodes,
-               prune_pathtree(g$x, criterion = "G2", alpha = 0.05)$nodes)
+               prune_tree(g$x, criterion = "G2", alpha = 0.05)$nodes)
 })
 
-test_that("smooth_pathtree on a group re-smooths each, keeps the wrapper", {
+test_that("smooth_tree on a group re-smooths each, keeps the wrapper", {
   g  <- context_tree(.grp_wide(), max_depth = 2L, min_count = 1L,
                      group = .grp_labels)
-  sg <- smooth_pathtree(g, "kneser_ney")
-  expect_s3_class(sg, "pathtree_group")
+  sg <- smooth_tree(g, "kneser_ney")
+  expect_s3_class(sg, "transitrees_group")
   expect_named(sg, names(g))
   expect_equal(sg$x$smoothing$method, "kneser_ney")
 })

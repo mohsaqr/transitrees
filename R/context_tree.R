@@ -13,7 +13,7 @@
 
 #' Is this a Dynalytics / \code{mohsaqr}-family model object?
 #'
-#' pathtree is a sibling of \code{Nestimate}, \code{cograph},
+#' transitrees is a sibling of \code{Nestimate}, \code{cograph},
 #' \code{tna}, \code{codyna}, \code{temporal}, \code{Saqrlab},
 #' \code{Snakeplot}, so it takes their model objects directly. Detected
 #' by known class — \code{netobject} (Nestimate),
@@ -131,7 +131,7 @@
           stop("Integer-coded sequence frame has positional state ",
                "code(s) outside 1..", length(lk$labels), " (the ",
                "label set): ", paste(sort(unique(codes[bad])),
-                                      collapse = ", "), ". pathtree ",
+                                      collapse = ", "), ". transitrees ",
                "reads positional $labels as 1-based (code k = state ",
                "k); recode to 1-based or supply a $nodes id/label ",
                "table.", call. = FALSE)
@@ -175,7 +175,7 @@
     stop("This ", cls, " object carries no sequence data anywhere ",
          "(no usable $data / $sequences / $seqdata / embedded ",
          "netobject). It looks like a pure graph - an aggregated ",
-         "transition network - and pathtree fits on raw sequences, ",
+         "transition network - and transitrees fits on raw sequences, ",
          "not on aggregated transitions: the original sequences ",
          "cannot be recovered from edge weights (the same reason ",
          "numeric transition matrices are rejected). Pass the ",
@@ -201,7 +201,7 @@
 #' single network object is not a group (it is detected as a single).
 #' @noRd
 .ct_is_group <- function(x) {
-  if (inherits(x, c("netobject_group", "group_tna", "pathtree_group")))
+  if (inherits(x, c("netobject_group", "group_tna", "transitrees_group")))
     return(TRUE)
   if (is.list(x) && !is.data.frame(x) && !.ct_is_netobject(x) &&
       length(x) > 0L) {
@@ -306,10 +306,10 @@
   lapply(parts$idx, function(ix) weights[ix])
 }
 
-#' Assemble a list of fitted trees into a \code{pathtree_group}.
+#' Assemble a list of fitted trees into a \code{transitrees_group}.
 #' @noRd
 .ct_as_group <- function(trees, group_var) {
-  structure(trees, class = c("pathtree_group", "list"),
+  structure(trees, class = c("transitrees_group", "list"),
             group = if (is.null(group_var)) NA_character_ else group_var)
 }
 
@@ -489,7 +489,7 @@
 #' a context (string of recent states); each leaf carries a smoothed
 #' conditional distribution over the next state. The tree is grown to
 #' \code{max_depth}, then optionally pruned via
-#' \code{\link{prune_pathtree}()}.
+#' \code{\link{prune_tree}()}.
 #'
 #' @param data Sequence data in any of these forms: a wide data.frame /
 #'   character matrix (rows = trajectories, columns = time-steps), a
@@ -543,8 +543,8 @@
 #'   When supplied (or when \code{data} is itself a grouped family
 #'   object such as a Nestimate \code{netobject_group} or a \pkg{tna}
 #'   \code{group_tna}), \code{context_tree()} fits one tree per group
-#'   over a shared alphabet and returns a \code{pathtree_group} (a named
-#'   list of \code{pathtree}s). Default \code{NULL} (single tree).
+#'   over a shared alphabet and returns a \code{transitrees_group} (a named
+#'   list of \code{transitrees}s). Default \code{NULL} (single tree).
 #' @param action Character. Naming a state/code column switches
 #'   \code{data} to \strong{long-format} mode: it is reshaped to a wide
 #'   sequence frame with \code{\link{prepare_input}()} before fitting.
@@ -558,12 +558,12 @@
 #'   (\code{session}), and the gap in seconds that starts a new session
 #'   (\code{time_threshold}, default 900).
 #'
-#' @return For a single fit, a \code{pathtree} object (described below).
+#' @return For a single fit, a \code{transitrees} object (described below).
 #'   For a grouped fit (\code{group =} supplied, or a grouped family
-#'   object passed in) a \code{pathtree_group}: a named list of
-#'   \code{pathtree}s, one per group, in the group's key order, with its
+#'   object passed in) a \code{transitrees_group}: a named list of
+#'   \code{transitrees}s, one per group, in the group's key order, with its
 #'   own \code{print} and \code{as.data.frame} methods. A single
-#'   \code{pathtree} is a list with components
+#'   \code{transitrees} is a list with components
 #' \describe{
 #'   \item{nodes}{Named list of node descriptors. Names are context
 #'     strings (e.g. \code{"A -> B"}); the root is keyed by the literal
@@ -581,7 +581,7 @@
 #'     hyperparameters).}
 #'   \item{n_seq, n_obs}{number of sequences and observations.}
 #'   \item{pruned}{Logical. \code{TRUE} after
-#'     \code{\link{prune_pathtree}()} has been applied.}
+#'     \code{\link{prune_tree}()} has been applied.}
 #'   \item{pruning}{When \code{pruned} is \code{TRUE}, a list capturing
 #'     the criterion / alpha / threshold used; otherwise \code{NULL}.}
 #'   \item{data}{The cleaned trajectories (a list of character vectors)
@@ -593,7 +593,7 @@
 #' marginal next-state distribution; depth-k nodes hold the
 #' next-state distribution conditional on the most recent k states.
 #' Nodes whose total count falls below \code{min_count} are not created.
-#' All nodes start "live" and unpruned; \code{\link{prune_pathtree}()}
+#' All nodes start "live" and unpruned; \code{\link{prune_tree}()}
 #' decides which to retain.
 #'
 #' @examples
@@ -636,22 +636,15 @@ context_tree <- function(data,
   ## grouping by `actor`, ordering by `time`/`order`, and splitting an
   ## actor's events into sessions when the time gap exceeds
   ## `time_threshold`. Everything below then fits on the wide frame.
-  if (!is.null(action)) {
-    data <- prepare_input(data, actor = actor, time = time, action = action,
-                          order = order, session = session,
-                          time_threshold = time_threshold)
-  } else if (!is.null(actor) || !is.null(time) || !is.null(session) ||
-             !is.null(order)) {
-    stop("To fit from long-format data, name the state column via ",
-         "'action ='.", call. = FALSE)
-  }
+  data <- .ct_maybe_reshape(data, actor, time, action, order, session,
+                            time_threshold)
 
-  ## ---- Grouped fit -> a pathtree_group (one tree per group) ----------
+  ## ---- Grouped fit -> a transitrees_group (one tree per group) ----------
   ## A grouped family object (netobject_group / group_tna / a named list
   ## of family objects) dispatches over its elements; an explicit
   ## group = (a metadata column name or a per-sequence vector) splits a
   ## single dataset. Both share one alphabet so the trees are
-  ## comparable, and return a pathtree_group.
+  ## comparable, and return a transitrees_group.
   if (.ct_is_group(data)) {
     if (!is.null(group))
       stop("Pass either a grouped object or 'group =', not both.",
@@ -774,7 +767,7 @@ context_tree <- function(data,
       pruning    = NULL,
       data       = trajs
     ),
-    class = "pathtree"
+    class = "transitrees"
   )
 }
 
@@ -782,34 +775,34 @@ context_tree <- function(data,
 #'
 #' @description
 #' Returns the canonical tidy node table — identical to
-#' \code{pathtree_pathways(tree)}. Lets users do
+#' \code{tree_pathways(tree)}. Lets users do
 #' \code{as.data.frame(tree)} and immediately filter, sort, or export
 #' with base-R idioms.
 #'
-#' @param x A \code{pathtree}.
+#' @param x A \code{transitrees}.
 #' @param row.names,optional Ignored.
-#' @param ... Forwarded to \code{\link{pathtree_pathways}()}.
+#' @param ... Forwarded to \code{\link{tree_pathways}()}.
 #'
 #' @return A data.frame with columns \code{pathway}, \code{depth},
 #'   \code{count}, \code{likely_next}, \code{next_probability},
 #'   \code{divergence}, \code{changes_prediction}. See
-#'   \code{\link{pathtree_pathways}}.
+#'   \code{\link{tree_pathways}}.
 #' @export
-as.data.frame.pathtree <- function(x, row.names = NULL,
+as.data.frame.transitrees <- function(x, row.names = NULL,
                                     optional = FALSE, ...) {
-  pathtree_pathways(x, ...)
+  tree_pathways(x, ...)
 }
 
 #' Print a Group of Context Trees
 #'
-#' @param x A \code{pathtree_group} (named list of \code{pathtree}s).
+#' @param x A \code{transitrees_group} (named list of \code{transitrees}s).
 #' @param ... Ignored.
 #' @return \code{x} invisibly.
 #' @export
-print.pathtree_group <- function(x, ...) {
+print.transitrees_group <- function(x, ...) {
   gv <- attr(x, "group")
   by <- if (!is.null(gv) && !is.na(gv)) sprintf(" by '%s'", gv) else ""
-  cat(sprintf("<pathtree_group>  %d groups%s\n", length(x), by))
+  cat(sprintf("<transitrees_group>  %d groups%s\n", length(x), by))
   for (nm in names(x)) {
     t <- x[[nm]]
     cat(sprintf("  %-14s %3d nodes, depth <= %d, %d seq, %d obs%s\n",
@@ -822,21 +815,21 @@ print.pathtree_group <- function(x, ...) {
 #' Coerce a Group of Trees to One Tidy Data Frame
 #'
 #' @description
-#' Row-binds each group's \code{\link{pathtree_pathways}} table, tagged
+#' Row-binds each group's \code{\link{tree_pathways}} table, tagged
 #' with a leading \code{group} column, so the whole batch is one tidy
 #' frame ready to filter, facet, or join.
 #'
-#' @param x A \code{pathtree_group}.
+#' @param x A \code{transitrees_group}.
 #' @param row.names,optional Ignored.
-#' @param ... Forwarded to \code{\link{pathtree_pathways}()}.
+#' @param ... Forwarded to \code{\link{tree_pathways}()}.
 #'
 #' @return A data.frame: the canonical pathway columns with a leading
 #'   \code{group} column identifying the source tree.
 #' @export
-as.data.frame.pathtree_group <- function(x, row.names = NULL,
+as.data.frame.transitrees_group <- function(x, row.names = NULL,
                                          optional = FALSE, ...) {
   parts <- lapply(names(x), function(nm) {
-    d <- pathtree_pathways(x[[nm]], ...)
+    d <- tree_pathways(x[[nm]], ...)
     if (nrow(d) == 0L) return(NULL)
     cbind(group = nm, d, stringsAsFactors = FALSE)
   })
@@ -850,17 +843,17 @@ as.data.frame.pathtree_group <- function(x, row.names = NULL,
 
 #' Print a Context Tree
 #'
-#' @param x A \code{pathtree}.
+#' @param x A \code{transitrees}.
 #' @param max_lines Integer. Maximum tree-rendering lines. Default 25.
 #' @param digits Integer. Probability digits. Default 2.
 #' @param ... Ignored.
 #' @return \code{x} invisibly.
 #' @export
-print.pathtree <- function(x, max_lines = 25L, digits = 2L, ...) {
+print.transitrees <- function(x, max_lines = 25L, digits = 2L, ...) {
   alpha <- x$alphabet
   sm_label <- .pt_smoothing_label(x$smoothing)
   cat(sprintf(
-    "<pathtree>  %d nodes, depth <= %d, %d states  [%s]\n",
+    "<transitrees>  %d nodes, depth <= %d, %d states  [%s]\n",
     length(x$nodes), x$max_depth, length(alpha),
     if (isTRUE(x$pruned)) "pruned" else "unpruned"
   ))
@@ -913,18 +906,18 @@ print.pathtree <- function(x, max_lines = 25L, digits = 2L, ...) {
 
 #' Summary of a Context Tree
 #'
-#' @param object A \code{pathtree}.
+#' @param object A \code{transitrees}.
 #' @param ... Ignored.
-#' @return A \code{summary.pathtree} object. The \code{$table} slot is
+#' @return A \code{summary.transitrees} object. The \code{$table} slot is
 #'   the canonical pathway data.frame from
-#'   \code{\link{pathtree_pathways}} (columns \code{pathway},
+#'   \code{\link{tree_pathways}} (columns \code{pathway},
 #'   \code{depth}, \code{count}, \code{likely_next},
 #'   \code{next_probability}, \code{divergence},
 #'   \code{changes_prediction}), re-sorted by \code{(depth, -count)} so
 #'   the structural tree order is read top-to-bottom.
 #' @export
-summary.pathtree <- function(object, ...) {
-  tbl <- pathtree_pathways(object, min_count = 1L)
+summary.transitrees <- function(object, ...) {
+  tbl <- tree_pathways(object, min_count = 1L)
   if (nrow(tbl) > 0L) {
     tbl <- tbl[order(tbl$depth, -tbl$count), , drop = FALSE]
     rownames(tbl) <- NULL
@@ -933,13 +926,13 @@ summary.pathtree <- function(object, ...) {
     list(table = tbl, n_states = length(object$alphabet),
          max_depth = object$max_depth, n_nodes = length(object$nodes),
          pruned = isTRUE(object$pruned)),
-    class = "summary.pathtree"
+    class = "summary.transitrees"
   )
 }
 
 #' @export
-print.summary.pathtree <- function(x, n = 10L, ...) {
-  cat(sprintf("<pathtree summary>  %d nodes, depth <= %d, %d states  [%s]\n\n",
+print.summary.transitrees <- function(x, n = 10L, ...) {
+  cat(sprintf("<transitrees summary>  %d nodes, depth <= %d, %d states  [%s]\n\n",
               x$n_nodes, x$max_depth, x$n_states,
               if (x$pruned) "pruned" else "unpruned"))
   tbl <- x$table

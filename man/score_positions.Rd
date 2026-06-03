@@ -7,7 +7,7 @@
 score_positions(tree, newdata, worst = NULL)
 }
 \arguments{
-\item{tree}{A \code{pathtree}.}
+\item{tree}{A \code{transitrees}.}
 
 \item{newdata}{Sequence data.}
 

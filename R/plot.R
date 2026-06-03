@@ -1,4 +1,4 @@
-# ---- plot.pathtree() dispatcher + dendrogram + horizontal phylogram ----
+# ---- plot.transitrees() dispatcher + dendrogram + horizontal phylogram ----
 
 #' @noRd
 .pt_state_palette <- function(state_levels) {
@@ -352,7 +352,7 @@
 #' Plot a Context Tree
 #'
 #' @description
-#' Renders a fitted pathtree in one of four styles:
+#' Renders a fitted transitrees in one of four styles:
 #' \itemize{
 #'   \item \code{"horizontal"} (default) — pure-ggplot2 left-to-right
 #'     phylogram: root on the left, leaves fanned out vertically on
@@ -375,7 +375,7 @@
 #' = context count, edge thickness = child's count (\dQuote{flow}). The
 #' interactive style carries the same encoding, plus drag / zoom / hover.
 #'
-#' @param x A \code{pathtree}.
+#' @param x A \code{transitrees}.
 #' @param style One of \code{"horizontal"} (default),
 #'   \code{"dendrogram"}, \code{"icicle"}, or \code{"interactive"}.
 #' @param point_size_range Numeric length-2 vector controlling the
@@ -408,7 +408,7 @@
 #' plot(tr, style = "interactive")    # visNetwork (needs Suggests)
 #' }
 #' @export
-plot.pathtree <- function(x,
+plot.transitrees <- function(x,
                           style = c("horizontal", "dendrogram",
                                      "icicle", "interactive"),
                           point_size_range = NULL,

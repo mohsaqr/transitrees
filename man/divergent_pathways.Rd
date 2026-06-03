@@ -7,7 +7,7 @@
 divergent_pathways(tree, top = 10L, min_count = 1L, flips_only = FALSE)
 }
 \arguments{
-\item{tree}{A \code{pathtree}.}
+\item{tree}{A \code{transitrees}.}
 
 \item{top}{Integer. Number of pathways to return. Default 10.}
 
@@ -19,7 +19,7 @@ that flip the most likely next state between orders. Default
 \code{FALSE}.}
 }
 \value{
-A data.frame, same columns as \code{\link{pathtree_pathways}},
+A data.frame, same columns as \code{\link{tree_pathways}},
   sorted by \code{divergence} descending.
 }
 \description{

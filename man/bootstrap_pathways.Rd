@@ -8,9 +8,9 @@ bootstrap_pathways(
   tree,
   iter = 1000L,
   stat = c("count", "next_probability", "divergence"),
-  consistency_range = c(0.75, 1.25),
-  stability_threshold = 0.75,
-  informative_threshold = 0.95,
+  consistency_range = c(0.5, 1.5),
+  stability_threshold = 0.95,
+  informative_threshold = 0.8,
   alpha = 0.05,
   ci_level = 0.05,
   seed = 1L,
@@ -19,7 +19,7 @@ bootstrap_pathways(
 )
 }
 \arguments{
-\item{tree}{A fitted \code{pathtree} carrying \code{tree$data}.}
+\item{tree}{A fitted \code{transitrees} carrying \code{tree$data}.}
 
 \item{iter}{Integer. Number of bootstrap iterations.
 Default \code{1000}.}
@@ -31,22 +31,23 @@ Default \code{1000}.}
 
 \item{consistency_range}{Numeric vector of length 2.
 Multiplicative tolerance band around the observed value.
-Default \code{c(0.75, 1.25)}.}
+Default \code{c(0.5, 1.5)}: a resample counts as consistent when
+its statistic stays within half-to-one-and-a-half times the
+observed value.}
 
 \item{stability_threshold}{Numeric in \eqn{(0, 1)}. Backward-
 compatible stability-rate threshold. A pathway is
 \code{stable = TRUE} when
 \code{p_stability < 1 - stability_threshold}. Default
-\code{0.75}, equivalent to a 0.25 instability tolerance with the
-bootstrap +1 correction.}
+\code{0.95}: at least 95\% of resamples must fall inside the
+(wide) \code{consistency_range} band.}
 
 \item{informative_threshold}{Numeric in \eqn{(0, 1)}. A pathway
 is \code{informative = TRUE} when \code{informative_rate >=
-informative_threshold}. Default \code{0.95}: at the standard
-\eqn{G^2} significance level (\code{alpha = 0.05}) the
-chi-square test has a 5\% Type-I rate, so requiring 95\% of
-resamples to clear the critical value rules out finite-sample
-chance deviations from the parent distribution.}
+informative_threshold}. Default \code{0.80}: a pathway must
+clear the \eqn{G^2} critical value in at least 80\% of resamples
+to be called informative, relaxing the earlier 0.95 gate that
+suppressed many genuinely informative deeper pathways.}
 
 \item{alpha}{Numeric in \eqn{(0, 1)}. Significance level for
 the \eqn{G^2} test against parent. Default \code{0.05}.}
@@ -70,7 +71,7 @@ is unaffected.}
 Default \code{FALSE}.}
 }
 \value{
-A \code{pathtree_bootstrap} object: a list with
+A \code{transitrees_bootstrap} object: a list with
   \describe{
     \item{summary}{Per-pathway data.frame, sorted so that
       \code{stable & informative} pathways come first then by
@@ -86,7 +87,7 @@ A \code{pathtree_bootstrap} object: a list with
   }
 }
 \description{
-Non-parametric sequence bootstrap for a fitted \code{pathtree}.
+Non-parametric sequence bootstrap for a fitted \code{transitrees}.
 Methodologically built on Saqr, Tikka & López-Pernas (2025),
 \code{tna}, extending the edge-level bootstrap framework to
 variable-depth pathways.

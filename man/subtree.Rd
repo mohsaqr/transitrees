@@ -7,20 +7,20 @@
 subtree(tree, pathway)
 }
 \arguments{
-\item{tree}{A \code{pathtree}.}
+\item{tree}{A \code{transitrees}.}
 
 \item{pathway}{Character. The root pathway (arrow-notation or
 character vector). Must exist in the tree.}
 }
 \value{
-A new \code{pathtree} whose nodes and edges are restricted
+A new \code{transitrees} whose nodes and edges are restricted
   to descendants of \code{pathway}. The alphabet, smoothing, and
   other hyperparameters are copied unchanged. Printing the subtree
   reports the context it was cut at (also stored in
   \code{attr(., "local_root")} for programmatic use).
 }
 \description{
-Returns a new \code{pathtree} containing only the queried node and
+Returns a new \code{transitrees} containing only the queried node and
 its descendants. Node names are kept absolute (so the original
 pathway is preserved as a key), but the returned object has a
 \code{local_root} attribute pointing at the queried pathway.

@@ -7,7 +7,7 @@
 query_pathway(tree, pathway, next_state = NULL, exact = FALSE)
 }
 \arguments{
-\item{tree}{A \code{pathtree}.}
+\item{tree}{A \code{transitrees}.}
 
 \item{pathway}{Character. The conditioning pathway, either as a
 single arrow-notation string ("A -> B -> C") or as a character
@@ -31,7 +31,7 @@ Returns the probability the fitted tree assigns to a given pathway
     otherwise returns \code{NA}.
   \item \code{exact = FALSE} (default): if the pathway is missing,
     falls back to the longest matching suffix that *is* in the tree
-    (mirrors \code{predict.pathtree()}).
+    (mirrors \code{predict.transitrees()}).
 }
 }
 \examples{

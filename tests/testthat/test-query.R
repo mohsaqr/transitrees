@@ -56,7 +56,7 @@ test_that("subtree() returns a strict descendant of the original tree", {
   d1 <- vapply(tr$nodes, function(n) n$depth, integer(1)) == 1L
   pathway <- names(tr$nodes)[d1][1L]
   sub <- subtree(tr, pathway)
-  expect_s3_class(sub, "pathtree")
+  expect_s3_class(sub, "transitrees")
   expect_true(all(names(sub$nodes) %in% names(tr$nodes)))
   expect_true(pathway %in% names(sub$nodes))
   expect_identical(attr(sub, "local_root"), pathway)

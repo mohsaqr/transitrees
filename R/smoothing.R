@@ -1,4 +1,4 @@
-# ---- Smoothing schemes for pathtrees ----
+# ---- Smoothing schemes for transitreess ----
 #
 # Implements:
 #   .smooth_floor          - floor MLE at ymin (PST-compatible "interpolate"
@@ -9,7 +9,7 @@
 #   .smooth_witten_bell    - novelty-weighted interpolation
 #   .smooth_jelinek_mercer - fixed-lambda interpolation
 #   .ct_smooth_dispatch    - switch dispatcher
-#   smooth_pathtree()      - re-smooth a fitted tree without refitting
+#   smooth_tree()      - re-smooth a fitted tree without refitting
 
 #' Floor smoothing of a count vector to a probability distribution.
 #'
@@ -22,7 +22,7 @@
 #'     every state observed are left as the raw MLE. This is the floor
 #'     used by the archived \pkg{PST} package.
 #'   \item \code{"cap"}: clamp every probability up to \code{ymin} and
-#'     renormalise (\code{pmax(p, ymin) / sum(...)}). pathtree's original
+#'     renormalise (\code{pmax(p, ymin) / sum(...)}). transitrees's original
 #'     rule; kept available for back-compatibility.
 #' }
 #' @noRd
@@ -37,7 +37,13 @@
     q <- pmax(p, ymin)
     return(q / sum(q))
   }
-  ## "interpolate": only touch distributions that contain a zero.
+  ## "interpolate": shift a zero-containing distribution toward uniform.
+  ## The coefficient (1 - k*ymin) must stay positive, else probabilities
+  ## go negative; require ymin < 1/k.
+  if (k * ymin >= 1)
+    stop("floor smoothing with rule = \"interpolate\" needs ymin < 1/k ",
+         "(k = alphabet size = ", k, "); got ymin = ", ymin,
+         ". Lower ymin, or use rule = \"cap\".", call. = FALSE)
   if (any(p == 0)) p <- (1 - k * ymin) * p + ymin
   p
 }
@@ -213,7 +219,7 @@
 #' scheme without refitting the tree. Walks nodes top-down by depth so
 #' each node's parent is re-smoothed before its children read it.
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param smoothing Smoothing specification: either a method name as a
 #'   string (uses defaults for that method's hyperparameters) or a list
 #'   of the form \code{list(method, ...kwargs)} for explicit
@@ -222,12 +228,12 @@
 #'   (\code{discount = 0.75}), \code{"witten_bell"},
 #'   \code{"jelinek_mercer"} (\code{lambda = 0.5}).
 #'
-#' @return A new \code{pathtree} with re-smoothed probabilities. Counts
+#' @return A new \code{transitrees} with re-smoothed probabilities. Counts
 #'   and topology are unchanged.
 #'
 #' @details
 #' For \code{"kneser_ney"} the canonical continuation-distribution
-#' formulation requires per-state \emph{type counts}. pathtree does
+#' formulation requires per-state \emph{type counts}. transitrees does
 #' not track these; the implementation uses the parent's smoothed
 #' probability as the back-off distribution, an approximation
 #' discussed in Begleiter, El-Yaniv & Yona (2004), \emph{JAIR} 22, §3.
@@ -237,18 +243,18 @@
 #' set.seed(1)
 #' m  <- matrix(sample(c("A","B","C"), 200, TRUE), 20)
 #' tr <- context_tree(m, max_depth = 2L, min_count = 3L)
-#' smooth_pathtree(tr, "kneser_ney")
-#' smooth_pathtree(tr, list("kneser_ney", discount = 0.5))
+#' smooth_tree(tr, "kneser_ney")
+#' smooth_tree(tr, list("kneser_ney", discount = 0.5))
 #' }
 #' @export
-smooth_pathtree <- function(tree, smoothing = "floor") {
-  ## A pathtree_group re-smooths each member, preserving the wrapper.
-  if (inherits(tree, "pathtree_group")) {
-    out <- lapply(tree, smooth_pathtree, smoothing = smoothing)
+smooth_tree <- function(tree, smoothing = "floor") {
+  ## A transitrees_group re-smooths each member, preserving the wrapper.
+  if (inherits(tree, "transitrees_group")) {
+    out <- lapply(tree, smooth_tree, smoothing = smoothing)
     return(structure(out, class = class(tree),
                      group = attr(tree, "group")))
   }
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   sm <- .pt_resolve_smoothing(smoothing)
 
   ord <- order(vapply(tree$nodes, function(x) x$depth, integer(1)))
@@ -279,7 +285,7 @@ smooth_pathtree <- function(tree, smoothing = "floor") {
 #' @details
 #' The perplexity reported is \strong{in-sample} (computed on the
 #' fitting data), so it rewards memorisation and must \emph{not} be used
-#' to pick a smoother — use \code{\link{tune_pathtree}()} for
+#' to pick a smoother — use \code{\link{tune_tree}()} for
 #' out-of-sample selection. The point of this table is the side-by-side
 #' view and the invariance of \code{n_nodes} across schemes: smoothing
 #' changes the \emph{probabilities} inside the tree, never \emph{which}
@@ -289,7 +295,7 @@ smooth_pathtree <- function(tree, smoothing = "floor") {
 #'   \code{\link{context_tree}} (wide matrix / data.frame, list of
 #'   character vectors, TraMineR \code{stslist}, or a
 #'   \code{mohsaqr}-family network object) — fitted afresh under each
-#'   scheme — \strong{or} an already-fitted \code{pathtree}, which is
+#'   scheme — \strong{or} an already-fitted \code{transitrees}, which is
 #'   \emph{re-smoothed} under each scheme (topology frozen, no
 #'   re-count; e.g. to sweep smoothers on a pruned tree).
 #' @param smoothing Character vector of smoothing-method names to
@@ -313,8 +319,8 @@ smooth_pathtree <- function(tree, smoothing = "floor") {
 #'                   max_depth = 2L)
 #' }
 #'
-#' @seealso \code{\link{smooth_pathtree}} to re-smooth a fitted tree
-#'   without re-counting; \code{\link{tune_pathtree}} for
+#' @seealso \code{\link{smooth_tree}} to re-smooth a fitted tree
+#'   without re-counting; \code{\link{tune_tree}} for
 #'   cross-validated selection.
 #' @export
 compare_smoothing <- function(data,
@@ -326,8 +332,8 @@ compare_smoothing <- function(data,
          call. = FALSE)
   ## A fitted tree is re-smoothed (topology frozen, no re-count); raw
   ## data is fitted afresh under each scheme.
-  fits <- if (inherits(data, "pathtree"))
-    lapply(smoothing, function(s) smooth_pathtree(data, s))
+  fits <- if (inherits(data, "transitrees"))
+    lapply(smoothing, function(s) smooth_tree(data, s))
   else
     lapply(smoothing, function(s) context_tree(data, smoothing = s, ...))
   data.frame(

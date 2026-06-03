@@ -8,16 +8,21 @@ mk_boot_tree <- function(n = 40L, L = 12L, alpha = c("A","B","C"),
   context_tree(m, max_depth = max_depth, min_count = min_count)
 }
 
-test_that("bootstrap_pathways returns a pathtree_bootstrap with the expected slots", {
+test_that("bootstrap_pathways returns a transitrees_bootstrap with the expected slots", {
   tr <- mk_boot_tree()
   b  <- bootstrap_pathways(tr, iter = 20L, seed = 42L)
-  expect_s3_class(b, "pathtree_bootstrap")
+  expect_s3_class(b, "transitrees_bootstrap")
   expect_true(all(c("summary", "pathways_orig", "M_count",
                     "M_next_probability", "M_divergence",
                     "M_changes_prediction",
                     "iter", "stat", "consistency_range",
                     "stability_threshold") %in% names(b)))
   expect_equal(b$iter, 20L)
+  ## Lock the loosened defaults (wide band, high stability rate,
+  ## relaxed informativeness gate).
+  expect_equal(b$consistency_range, c(0.5, 1.5))
+  expect_equal(b$stability_threshold, 0.95)
+  expect_equal(b$informative_threshold, 0.80)
   expect_equal(nrow(b$M_count), 20L)
   expect_equal(nrow(b$M_next_probability), 20L)
   expect_equal(nrow(b$M_divergence), 20L)
@@ -278,7 +283,10 @@ test_that("simulation guards against stability false negatives and false positiv
   carriers <- replicate(5L, rep(c("X", "Y"), 20L), simplify = FALSE)
   tr <- context_tree(c(stable, carriers), max_depth = 1L, min_count = 1L,
                      smoothing = list("floor", ymin = 0))
-  b <- bootstrap_pathways(tr, iter = 200L, seed = 1L, stat = "count")
+  ## Pin the tolerance band so this mechanism test (stable vs
+  ## carrier-driven) is decoupled from the package default band.
+  b <- bootstrap_pathways(tr, iter = 200L, seed = 1L, stat = "count",
+                          consistency_range = c(0.75, 1.25))
 
   row_A <- b$summary[b$summary$pathway == "A", ]
   row_X <- b$summary[b$summary$pathway == "X", ]
@@ -309,10 +317,14 @@ test_that("stat = 'next_probability' flags probability instability when counts a
   tr <- context_tree(c(b_carriers, c_carriers),
                      max_depth = 1L, min_count = 1L,
                      smoothing = list("floor", ymin = 0))
+  ## Pin the tolerance band so the count-stable / prob-unstable
+  ## contrast is decoupled from the package default band.
   b_count <- bootstrap_pathways(tr, iter = 200L, seed = 1L,
-                                stat = "count")
+                                stat = "count",
+                                consistency_range = c(0.75, 1.25))
   b_prob <- bootstrap_pathways(tr, iter = 200L, seed = 1L,
-                               stat = "next_probability")
+                               stat = "next_probability",
+                               consistency_range = c(0.75, 1.25))
 
   row_count <- b_count$summary[b_count$summary$pathway == "A", ]
   row_prob <- b_prob$summary[b_prob$summary$pathway == "A", ]
@@ -360,7 +372,7 @@ test_that("as.data.frame(boot) returns the summary table (uniform tidy-extract)"
   expect_identical(df, b$summary)
 })
 
-test_that("plot.pathtree_bootstrap returns a ggplot", {
+test_that("plot.transitrees_bootstrap returns a ggplot", {
   tr <- mk_boot_tree()
   b  <- bootstrap_pathways(tr, iter = 30L, seed = 1L)
   p  <- plot(b, min_stability = 0)

@@ -1,4 +1,4 @@
-Package: pathtree
+Package: transitrees
 Type: Package
 Title: Pathway Trees and Predictive Pathway Discovery in Sequence Data
 Version: 0.1.0

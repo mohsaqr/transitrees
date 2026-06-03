@@ -1,7 +1,7 @@
 library(testthat)
-library(pathtree)
+library(transitrees)
 
-test_that("compare_pathtrees detects a real difference between different generators", {
+test_that("compare_trees detects a real difference between different generators", {
   ## Create two different Markov chains
   set.seed(42)
   states <- c("A", "B")
@@ -32,7 +32,7 @@ test_that("compare_pathtrees detects a real difference between different generat
   tr_b <- context_tree(trajs_b, max_depth = 1, min_count = 2)
   
   # Compare them
-  cmp <- compare_pathtrees(tr_a, tr_b, iter = 100, seed = 1)
+  cmp <- compare_trees(tr_a, tr_b, iter = 100, seed = 1)
   
   # Expect significant p-value
   expect_lt(cmp$p_value, 0.05)
@@ -73,5 +73,5 @@ test_that("bootstrap_pathways handles very short sequences gracefully", {
   
   # This should run without error
   expect_error(b <- bootstrap_pathways(tr, iter = 20, seed = 1), NA)
-  expect_s3_class(b, "pathtree_bootstrap")
+  expect_s3_class(b, "transitrees_bootstrap")
 })

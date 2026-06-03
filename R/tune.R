@@ -1,4 +1,4 @@
-# ---- tune_pathtree(): k-fold cross-validated hyperparameter selection ----
+# ---- tune_tree(): k-fold cross-validated hyperparameter selection ----
 
 #' @noRd
 .pt_make_folds <- function(n, k, seed = 1L) {
@@ -16,8 +16,8 @@
                      smoothing = cfg$smoothing,
                      alphabet  = alphabet)
   if (isTRUE(cfg$prune))
-    tr <- prune_pathtree(tr, criterion = "G2", alpha = cfg$alpha)
-  ll <- logLik.pathtree(tr, newdata = test_seqs)
+    tr <- prune_tree(tr, criterion = "G2", alpha = cfg$alpha)
+  ll <- logLik.transitrees(tr, newdata = test_seqs)
   list(ll = as.numeric(ll), n = attr(ll, "nobs"),
        n_nodes = length(tr$nodes))
 }
@@ -76,8 +76,14 @@
 #'   \code{prune = TRUE}. Default \code{0.05}.
 #' @param folds Integer. Number of CV folds. Default 5.
 #' @param seed Integer. RNG seed for reproducible folds. Default 1.
+#' @param actor,time,action,order,session,time_threshold Long-format
+#'   reshaping, forwarded to \code{\link{prepare_input}()} when
+#'   \code{action} is named (exactly as in \code{\link{context_tree}()}),
+#'   so a long event log is reshaped before tuning rather than read as
+#'   one row per sequence. Default \code{NULL}/900 (data already in
+#'   sequence shape).
 #'
-#' @return A \code{pathtree_tune} object: a data.frame with one row per
+#' @return A \code{transitrees_tune} object: a data.frame with one row per
 #'   grid point and columns \code{max_depth}, \code{nmin},
 #'   \code{smoothing}, \code{prune}, \code{logLik}, \code{n_scored},
 #'   \code{perplexity}, \code{n_nodes_avg}, sorted by \code{perplexity}
@@ -88,19 +94,26 @@
 #' \donttest{
 #' set.seed(1)
 #' m <- matrix(sample(c("A","B","C"), 30 * 12, replace = TRUE), 30, 12)
-#' tune_pathtree(m, max_depth = 1:3,
+#' tune_tree(m, max_depth = 1:3,
 #'               smoothing = c("floor", "kneser_ney"),
 #'               prune = FALSE, folds = 4)
 #' }
 #' @export
-tune_pathtree <- function(data,
+tune_tree <- function(data,
                           max_depth   = 2L:5L,
                           min_count   = c(3L, 5L, 10L),
                           smoothing   = "floor",
                           prune       = c(FALSE, TRUE),
                           alpha       = 0.05,
                           folds       = 5L,
-                          seed        = 1L) {
+                          seed        = 1L,
+                          actor = NULL, time = NULL, action = NULL,
+                          order = NULL, session = NULL,
+                          time_threshold = 900) {
+  ## Long-format data is reshaped first (same as context_tree), so a
+  ## long event log is never silently mis-read as one row per sequence.
+  data  <- .ct_maybe_reshape(data, actor, time, action, order, session,
+                             time_threshold)
   trajs <- .ct_traj(.ct_coerce(data))
   if (length(trajs) < folds)
     stop("Not enough sequences (", length(trajs), ") for ", folds, " folds.",
@@ -164,23 +177,23 @@ tune_pathtree <- function(data,
   rownames(out) <- NULL
 
   best <- out[1L, , drop = FALSE]
-  structure(out, best = best, class = c("pathtree_tune", "data.frame"))
+  structure(out, best = best, class = c("transitrees_tune", "data.frame"))
 }
 
 #' Plot a Pathtree CV Grid
 #'
 #' @description
 #' Visualises the held-out perplexity surface returned by
-#' \code{tune_pathtree()}. Lines track perplexity vs. \code{max_depth};
+#' \code{tune_tree()}. Lines track perplexity vs. \code{max_depth};
 #' facets split by smoothing scheme and \code{prune}; colour encodes
 #' \code{nmin}. The minimum-perplexity configuration is highlighted
 #' with a star.
 #'
-#' @param x A \code{pathtree_tune} object.
+#' @param x A \code{transitrees_tune} object.
 #' @param ... Ignored.
 #' @return A ggplot object.
 #' @export
-plot.pathtree_tune <- function(x, ...) {
+plot.transitrees_tune <- function(x, ...) {
   best <- attr(x, "best")
   df   <- as.data.frame(unclass(x), stringsAsFactors = FALSE)
   df$prune_label <- ifelse(df$prune, "pruned", "unpruned")
@@ -217,8 +230,8 @@ plot.pathtree_tune <- function(x, ...) {
 }
 
 #' @export
-print.pathtree_tune <- function(x, n = 10L, ...) {
-  cat(sprintf("<pathtree_tune>  %d configurations\n", nrow(x)))
+print.transitrees_tune <- function(x, n = 10L, ...) {
+  cat(sprintf("<transitrees_tune>  %d configurations\n", nrow(x)))
   print.data.frame(utils::head(x, n), row.names = FALSE)
   best <- attr(x, "best")
   if (!is.null(best)) {

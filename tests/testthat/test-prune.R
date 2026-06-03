@@ -1,4 +1,4 @@
-# ---- Tests for prune_pathtree() ----
+# ---- Tests for prune_tree() ----
 
 .medium_seqs <- function(seed = 1) {
   set.seed(seed)
@@ -20,9 +20,9 @@
   })
 }
 
-test_that("prune_pathtree marks the tree as pruned", {
+test_that("prune_tree marks the tree as pruned", {
   tree <- context_tree(.medium_seqs(), max_depth = 3L, min_count = 5L)
-  pr   <- prune_pathtree(tree, criterion = "G2", alpha = 0.05)
+  pr   <- prune_tree(tree, criterion = "G2", alpha = 0.05)
   expect_true(isTRUE(pr$pruned))
   expect_equal(pr$pruning$criterion, "G2")
 })
@@ -30,21 +30,21 @@ test_that("prune_pathtree marks the tree as pruned", {
 test_that("pruning never exceeds the unpruned node count", {
   tree <- context_tree(.medium_seqs(), max_depth = 3L, min_count = 5L)
   for (crit in c("G2", "KL", "AIC", "BIC")) {
-    pr <- prune_pathtree(tree, criterion = crit)
+    pr <- prune_tree(tree, criterion = crit)
     expect_lte(length(pr$nodes), length(tree$nodes), label = crit)
   }
 })
 
 test_that("pruning preserves the root", {
   tree <- context_tree(.medium_seqs(), max_depth = 3L, min_count = 5L)
-  pr   <- prune_pathtree(tree, criterion = "G2", alpha = 0.001)
+  pr   <- prune_tree(tree, criterion = "G2", alpha = 0.001)
   expect_true("<root>" %in% names(pr$nodes))
 })
 
 test_that("aggressive pruning of an order-1 process collapses to depth 1", {
   tree <- context_tree(.medium_seqs(), max_depth = 3L, min_count = 5L)
   ## alpha = 0.001 -> critical value = qchisq(0.999, 2) ~ 13.8, very strict
-  pr   <- prune_pathtree(tree, criterion = "G2", alpha = 0.001)
+  pr   <- prune_tree(tree, criterion = "G2", alpha = 0.001)
   depths <- vapply(pr$nodes, function(x) x$depth, integer(1))
   ## On a pure order-1 generator, depth >= 2 contexts carry no genuine
   ## signal; strict pruning should leave the tree dominated by depths 0-1.
@@ -55,12 +55,12 @@ test_that("aggressive pruning of an order-1 process collapses to depth 1", {
 
 test_that("invalid criterion errors", {
   tree <- context_tree(.medium_seqs(), max_depth = 2L, min_count = 5L)
-  expect_error(prune_pathtree(tree, criterion = "invalid"),
+  expect_error(prune_tree(tree, criterion = "invalid"),
                regexp = "should be one of")
 })
 
 test_that("lowercase criterion is rejected (case-sensitive match.arg)", {
   tree <- context_tree(.medium_seqs(), max_depth = 2L, min_count = 5L)
-  expect_error(prune_pathtree(tree, criterion = "g2"),
+  expect_error(prune_tree(tree, criterion = "g2"),
                regexp = "should be one of")
 })

@@ -51,6 +51,6 @@ test_that("compare_smoothing on a fitted tree re-smooths (frozen topology)", {
   ## topology frozen: every n_nodes equals the fitted tree's
   expect_true(all(res$n_nodes == n_nodes(tr)))
   ## perplexity matches a hand re-smooth
-  ref <- perplexity(smooth_pathtree(tr, "kneser_ney"))
+  ref <- perplexity(smooth_tree(tr, "kneser_ney"))
   expect_equal(res$perplexity[res$smoothing == "kneser_ney"], ref)
 })

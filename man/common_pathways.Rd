@@ -7,7 +7,7 @@
 common_pathways(tree, top = 10L, depth = NULL, min_count = 1L)
 }
 \arguments{
-\item{tree}{A \code{pathtree}.}
+\item{tree}{A \code{transitrees}.}
 
 \item{top}{Integer. Number of pathways to return. Default 10.}
 
@@ -17,7 +17,7 @@ depth. \code{NULL} (default) keeps all depths.}
 \item{min_count}{Integer. Minimum count cut-off. Default 1.}
 }
 \value{
-A data.frame, same columns as \code{\link{pathtree_pathways}},
+A data.frame, same columns as \code{\link{tree_pathways}},
   sorted by count descending.
 }
 \description{

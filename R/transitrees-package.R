@@ -1,4 +1,4 @@
-#' pathtree: Context Trees and Variable-Order Markov Models
+#' transitrees: Context Trees and Variable-Order Markov Models
 #'
 #' Fits prediction suffix trees (Ron, Singer & Tishby 1996) and
 #' variable-order Markov models from categorical sequence data.

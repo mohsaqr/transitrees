@@ -20,7 +20,7 @@
 #   the pathway's empirical likelihood-ratio statistic G^2 against
 #   its parent context exceeds the chi-square critical value at
 #   level `alpha_g2` (df = |alphabet| - 1). Parallels the
-#   parametric `prune_pathtree(criterion = "G2")` decision, but reproducibly
+#   parametric `prune_tree(criterion = "G2")` decision, but reproducibly
 #   across resamples.
 # - Performance: per-sequence (context, next_state) pair-index
 #   vectors are precomputed once per depth. Each bootstrap
@@ -193,7 +193,7 @@
 #' Bootstrap Pathway Stability and Informativeness
 #'
 #' @description
-#' Non-parametric sequence bootstrap for a fitted \code{pathtree}.
+#' Non-parametric sequence bootstrap for a fitted \code{transitrees}.
 #' Methodologically built on Saqr, Tikka & López-Pernas (2025),
 #' \code{tna}, extending the edge-level bootstrap framework to
 #' variable-depth pathways.
@@ -238,7 +238,7 @@
 #'     pathway.
 #' }
 #'
-#' @param tree A fitted \code{pathtree} carrying \code{tree$data}.
+#' @param tree A fitted \code{transitrees} carrying \code{tree$data}.
 #' @param iter Integer. Number of bootstrap iterations.
 #'   Default \code{1000}.
 #' @param stat Character. Pathway statistic on which
@@ -247,20 +247,21 @@
 #'   (the most-likely next-state probability), or \code{"divergence"}.
 #' @param consistency_range Numeric vector of length 2.
 #'   Multiplicative tolerance band around the observed value.
-#'   Default \code{c(0.75, 1.25)}.
+#'   Default \code{c(0.5, 1.5)}: a resample counts as consistent when
+#'   its statistic stays within half-to-one-and-a-half times the
+#'   observed value.
 #' @param stability_threshold Numeric in \eqn{(0, 1)}. Backward-
 #'   compatible stability-rate threshold. A pathway is
 #'   \code{stable = TRUE} when
 #'   \code{p_stability < 1 - stability_threshold}. Default
-#'   \code{0.75}, equivalent to a 0.25 instability tolerance with the
-#'   bootstrap +1 correction.
+#'   \code{0.95}: at least 95\% of resamples must fall inside the
+#'   (wide) \code{consistency_range} band.
 #' @param informative_threshold Numeric in \eqn{(0, 1)}. A pathway
 #'   is \code{informative = TRUE} when \code{informative_rate >=
-#'   informative_threshold}. Default \code{0.95}: at the standard
-#'   \eqn{G^2} significance level (\code{alpha = 0.05}) the
-#'   chi-square test has a 5\% Type-I rate, so requiring 95\% of
-#'   resamples to clear the critical value rules out finite-sample
-#'   chance deviations from the parent distribution.
+#'   informative_threshold}. Default \code{0.80}: a pathway must
+#'   clear the \eqn{G^2} critical value in at least 80\% of resamples
+#'   to be called informative, relaxing the earlier 0.95 gate that
+#'   suppressed many genuinely informative deeper pathways.
 #' @param alpha Numeric in \eqn{(0, 1)}. Significance level for
 #'   the \eqn{G^2} test against parent. Default \code{0.05}.
 #' @param ci_level Numeric in \eqn{(0, 1)}. Tail probability for the
@@ -278,7 +279,7 @@
 #' @param progress Logical. Show a progress bar.
 #'   Default \code{FALSE}.
 #'
-#' @return A \code{pathtree_bootstrap} object: a list with
+#' @return A \code{transitrees_bootstrap} object: a list with
 #'   \describe{
 #'     \item{summary}{Per-pathway data.frame, sorted so that
 #'       \code{stable & informative} pathways come first then by
@@ -303,15 +304,15 @@ bootstrap_pathways <- function(tree,
                                stat                  = c("count",
                                                          "next_probability",
                                                          "divergence"),
-                               consistency_range     = c(0.75, 1.25),
-                               stability_threshold   = 0.75,
-                               informative_threshold = 0.95,
+                               consistency_range     = c(0.5, 1.5),
+                               stability_threshold   = 0.95,
+                               informative_threshold = 0.80,
                                alpha                 = 0.05,
                                ci_level              = 0.05,
                                seed                  = 1L,
                                keep_resamples        = TRUE,
                                progress              = FALSE) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   if (is.null(tree$data))
     stop("tree$data is missing; bootstrap requires the original ",
          "sequences. Refit with context_tree() (>=0.1.1 keeps data).",
@@ -533,14 +534,14 @@ bootstrap_pathways <- function(tree,
       g2_critical_value     = g2_crit,
       seed                  = seed
     ),
-    class = "pathtree_bootstrap"
+    class = "transitrees_bootstrap"
   )
 }
 
 #' @export
-print.pathtree_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
+print.transitrees_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
   cat(sprintf(
-    "<pathtree_bootstrap>  %d resamples\n", x$iter))
+    "<transitrees_bootstrap>  %d resamples\n", x$iter))
   cat(sprintf(
     "  stability  : %s in [%.2f, %.2f] x observed, p < %.2f\n",
     x$stat, x$consistency_range[1L], x$consistency_range[2L],
@@ -576,7 +577,7 @@ print.pathtree_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
 }
 
 #' @export
-summary.pathtree_bootstrap <- function(object, ...) {
+summary.transitrees_bootstrap <- function(object, ...) {
   object$summary
 }
 
@@ -587,13 +588,13 @@ summary.pathtree_bootstrap <- function(object, ...) {
 #' (\code{object$summary}), so \code{as.data.frame(boot)} and
 #' \code{summary(boot)} are interchangeable extractors.
 #'
-#' @param x A \code{pathtree_bootstrap}.
+#' @param x A \code{transitrees_bootstrap}.
 #' @param row.names,optional Ignored.
 #' @param ... Ignored.
 #' @return A data.frame; see \code{\link{bootstrap_pathways}} for the
 #'   full column vocabulary.
 #' @export
-as.data.frame.pathtree_bootstrap <- function(x, row.names = NULL,
+as.data.frame.transitrees_bootstrap <- function(x, row.names = NULL,
                                               optional = FALSE, ...) {
   x$summary
 }
@@ -608,14 +609,14 @@ as.data.frame.pathtree_bootstrap <- function(x, row.names = NULL,
 #' dashed reference line: pathways whose CI lies entirely above it
 #' are reproducibly informative.
 #'
-#' @param x A \code{pathtree_bootstrap} object.
+#' @param x A \code{transitrees_bootstrap} object.
 #' @param top Integer. Maximum pathways to show. Default 25.
 #' @param min_stability Numeric. Minimum stability_rate to display.
 #'   Default \code{NULL} (use \code{x$stability_threshold}).
 #' @param ... Ignored.
 #' @return A ggplot object.
 #' @export
-plot.pathtree_bootstrap <- function(x, top = 25L,
+plot.transitrees_bootstrap <- function(x, top = 25L,
                                     min_stability = NULL, ...) {
   if (is.null(min_stability)) min_stability <- x$stability_threshold
   s <- x$summary
@@ -677,7 +678,7 @@ plot.pathtree_bootstrap <- function(x, top = 25L,
 #' Faceted histogram of the bootstrap resample values for a chosen
 #' pathway statistic, one panel per pathway.
 #'
-#' @param x A \code{pathtree_bootstrap} object.
+#' @param x A \code{transitrees_bootstrap} object.
 #' @param pathways Character vector of pathway names. \code{NULL}
 #'   (default) picks the top \code{top} pathways from the summary.
 #' @param stat Character. One of \code{"count"} (default),
@@ -690,7 +691,7 @@ plot_pathway_resamples <- function(x, pathways = NULL,
                                    stat = c("count", "next_probability",
                                             "divergence", "G2"),
                                    top = 6L, bins = 30L) {
-  stopifnot(inherits(x, "pathtree_bootstrap"))
+  stopifnot(inherits(x, "transitrees_bootstrap"))
   stat <- match.arg(stat)
   M <- switch(stat,
               count            = x$M_count,

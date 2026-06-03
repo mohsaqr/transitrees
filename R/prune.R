@@ -11,7 +11,7 @@
 #' Renamed from \code{prune()} to avoid collision with
 #' \code{tna::prune}, \code{rpart::prune}, and \code{tree::prune}.
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param criterion One of \code{"G2"} (likelihood-ratio test against
 #'   parent; default), \code{"KL"} (per-context Kullback-Leibler
 #'   against parent), \code{"AIC"} (Akaike penalty), \code{"BIC"}
@@ -21,7 +21,7 @@
 #' @param threshold Numeric. Minimum information gain in nats for
 #'   \code{"KL"}; ignored otherwise. Default 0.005.
 #'
-#' @return A pruned \code{pathtree} with \code{tree$pruned = TRUE} and
+#' @return A pruned \code{transitrees} with \code{tree$pruned = TRUE} and
 #'   \code{tree$pruning} carrying the criterion + threshold settings.
 #'
 #' @details
@@ -36,7 +36,7 @@
 #' seqs   <- replicate(50, sample(c("A","B","C"), 12, replace = TRUE),
 #'                     simplify = FALSE)
 #' tree   <- context_tree(seqs, max_depth = 4)
-#' pruned <- prune_pathtree(tree, criterion = "G2", alpha = 0.05)
+#' pruned <- prune_tree(tree, criterion = "G2", alpha = 0.05)
 #' }
 #'
 #' @references
@@ -44,17 +44,17 @@
 #' \emph{Machine Learning}, 25, 117-149.
 #'
 #' @export
-prune_pathtree <- function(tree,
+prune_tree <- function(tree,
                            criterion = c("G2", "KL", "AIC", "BIC"),
                            alpha = 0.05, threshold = 0.005) {
-  ## A pathtree_group prunes each member, preserving the group wrapper.
-  if (inherits(tree, "pathtree_group")) {
-    out <- lapply(tree, prune_pathtree, criterion = criterion,
+  ## A transitrees_group prunes each member, preserving the group wrapper.
+  if (inherits(tree, "transitrees_group")) {
+    out <- lapply(tree, prune_tree, criterion = criterion,
                   alpha = alpha, threshold = threshold)
     return(structure(out, class = class(tree),
                      group = attr(tree, "group")))
   }
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   criterion <- match.arg(criterion)
 
   ## Critical value for G2: chi-square at (k-1) df
@@ -123,10 +123,10 @@ prune_pathtree <- function(tree,
 #' Prunes a fitted tree under several criteria — holding \code{alpha}
 #' and \code{threshold} fixed — and returns a tidy one-row-per-criterion
 #' summary of how aggressively each trims the tree. A convenience
-#' wrapper over repeated \code{\link{prune_pathtree}} calls that
+#' wrapper over repeated \code{\link{prune_tree}} calls that
 #' collapses the usual \code{vapply()} criterion loop into one call.
 #'
-#' @param tree A \code{pathtree} (typically unpruned).
+#' @param tree A \code{transitrees} (typically unpruned).
 #' @param criterion Character vector of criteria to compare. Defaults
 #'   to all four: \code{"G2"}, \code{"KL"}, \code{"AIC"}, \code{"BIC"}.
 #' @param alpha Significance level for \code{"G2"} (and the AIC/BIC
@@ -149,19 +149,19 @@ prune_pathtree <- function(tree,
 #' compare_pruning(tree, criterion = c("G2", "BIC"), alpha = 0.01)
 #' }
 #'
-#' @seealso \code{\link{prune_pathtree}} to apply one criterion,
-#'   \code{\link{tune_pathtree}} for cross-validated selection.
+#' @seealso \code{\link{prune_tree}} to apply one criterion,
+#'   \code{\link{tune_tree}} for cross-validated selection.
 #' @export
 compare_pruning <- function(tree,
                             criterion = c("G2", "KL", "AIC", "BIC"),
                             alpha = 0.05, threshold = 0.005) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   if (!is.character(criterion) || length(criterion) < 1L)
     stop("'criterion' must be a non-empty character vector of ",
          "criterion names.", call. = FALSE)
   n0 <- length(tree$nodes)
   n  <- vapply(criterion, function(cr)
-    length(prune_pathtree(tree, criterion = cr, alpha = alpha,
+    length(prune_tree(tree, criterion = cr, alpha = alpha,
                           threshold = threshold)$nodes), integer(1))
   data.frame(
     criterion     = criterion,

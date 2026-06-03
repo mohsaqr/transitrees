@@ -1,7 +1,7 @@
 # ---- prepare_input(): long-format -> wide sequence frame ----
 #
 # Base-R reimplementation of the long->sequence reshaping done by
-# tna::prepare_data() / Nestimate::build_network(). pathtree stays pure
+# tna::prepare_data() / Nestimate::build_network(). transitrees stays pure
 # base R, so the dplyr/tidyr machinery of those packages is replaced by
 # order() / ave() / matrix-indexing, but the session-splitting logic is
 # identical: within each actor, a new session begins when the gap to the
@@ -159,4 +159,24 @@ prepare_input <- function(data, actor = NULL, time = NULL, action = NULL,
                  dimnames = list(sessions, paste0("T", seq_len(max_len))))
   wide[cbind(match(session_id, sessions), seqpos)] <- act_s
   as.data.frame(wide, stringsAsFactors = FALSE)
+}
+
+#' Reshape long-format \code{data} to a wide sequence frame when
+#' \code{action} is named, else pass it through. Shared by the functions
+#' that accept raw data (\code{context_tree}, \code{tune_tree},
+#' \code{compare_smoothing}) so they all gain long-format input
+#' identically. Naming \code{actor}/\code{time}/\code{order}/\code{session}
+#' without \code{action} is an error (the state column must be named).
+#' @noRd
+.ct_maybe_reshape <- function(data, actor, time, action, order, session,
+                              time_threshold) {
+  if (!is.null(action))
+    return(prepare_input(data, actor = actor, time = time, action = action,
+                         order = order, session = session,
+                         time_threshold = time_threshold))
+  if (!is.null(actor) || !is.null(time) || !is.null(session) ||
+      !is.null(order))
+    stop("To fit from long-format data, name the state column via ",
+         "'action ='.", call. = FALSE)
+  data
 }

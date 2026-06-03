@@ -19,7 +19,7 @@ test_that("compare_pruning returns a tidy 3-column data.frame", {
 test_that("n_nodes / reduction_pct match a hand-pruned tree", {
   tree <- .cp_tree()
   res  <- compare_pruning(tree, criterion = "G2", alpha = 0.05)
-  ref  <- length(prune_pathtree(tree, criterion = "G2",
+  ref  <- length(prune_tree(tree, criterion = "G2",
                                 alpha = 0.05)$nodes)
   expect_equal(res$n_nodes, ref)
   expect_equal(res$reduction_pct,
@@ -37,8 +37,8 @@ test_that("reduction_pct is between 0 and 100 and never negative", {
   expect_true(all(res$reduction_pct >= 0 & res$reduction_pct <= 100))
 })
 
-test_that("a non-pathtree or empty criterion errors clearly", {
-  expect_error(compare_pruning(list()), "pathtree")
+test_that("a non-transitrees or empty criterion errors clearly", {
+  expect_error(compare_pruning(list()), "transitrees")
   expect_error(compare_pruning(.cp_tree(), criterion = character(0)),
                "non-empty character vector")
 })

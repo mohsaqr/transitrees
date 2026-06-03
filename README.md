@@ -1,8 +1,8 @@
-# pathtree
+# transitrees
 
 Predictive pathway discovery in categorical sequence data.
 
-`pathtree` fits a variable-depth pathway tree (prediction suffix tree;
+`transitrees` fits a variable-depth pathway tree (prediction suffix tree;
 Ron, Singer & Tishby 1996) from sequences and exposes a tidy,
 pathway-centric API: most common pathways, most predictively divergent
 pathways, modal-flip diagnostics, and next-state predictions.
@@ -14,13 +14,13 @@ or fit fixed-order Markov chains (one-size-fits-all memory). Real
 trajectories — student engagement weeks, patient pathways, clickstreams,
 play sequences — usually have memory that varies *by context*: some
 states predict the next state on their own, others only when paired
-with a longer history. `pathtree` makes that variable-depth structure
+with a longer history. `transitrees` makes that variable-depth structure
 the central object and reports it as a ranked list of pathways the
 data actually supports.
 
 An earlier R implementation, `PST` 0.94.1 (Gabadinho & Ritschard
 2013, *Journal of Statistical Software* **53**(3)), was archived from
-CRAN on 2025-11-27. `pathtree` is an **independent implementation** of
+CRAN on 2025-11-27. `transitrees` is an **independent implementation** of
 the same model — not a replacement for, or fork of, any package:
 
 - pure base R + ggplot2, no Rcpp;
@@ -28,20 +28,20 @@ the same model — not a replacement for, or fork of, any package:
 - validated at machine precision against two external references —
   `PST` (fit, `query`, `predict`, `logLik`, topology) and `markovchain`
   (order-1); see `PARITY.md`;
-- a pathway-centric API (`pathtree_pathways()`, `common_pathways()`,
+- a pathway-centric API (`tree_pathways()`, `common_pathways()`,
   `divergent_pathways()`, `sharp_pathways()`) that ranks trajectories
   by frequency, predictive divergence, or modal-flip — the structure
   domain experts actually want to read off the model;
-- naming chosen so `library(pathtree)` does not collide with sibling
+- naming chosen so `library(transitrees)` does not collide with sibling
   packages in the `mohsaqr` family: the three exports that would have
   shadowed `tna::prune` / `Nestimate::pathways` / `Nestimate::path_dependence`
-  are namespaced as `prune_pathtree()` / `pathtree_pathways()` /
-  `pathtree_dependence()`;
+  are namespaced as `prune_tree()` / `tree_pathways()` /
+  `tree_dependence()`;
 - a full predictive-modelling toolchain: `logLik` / `AIC` / `BIC` /
   `perplexity` / `score_*`, five smoothing schemes
   (`floor`, `laplace`, `kneser_ney`, `witten_bell`, `jelinek_mercer`),
-  k-fold cross-validated `tune_pathtree()`, and permutation-tested
-  two-tree `compare_pathtrees()`;
+  k-fold cross-validated `tune_tree()`, and permutation-tested
+  two-tree `compare_trees()`;
 - TraMineR `stslist` ingestion + per-sequence weights for social-
   science workflows;
 - two ggplot-based plot styles — a pure-ggplot dendrogram (default;
@@ -58,7 +58,7 @@ remotes::install_github("mohsaqr/pathtree")
 ## Usage
 
 ```r
-library(pathtree)
+library(transitrees)
 
 # Fit a pathway tree from a wide character matrix or data.frame
 tree <- context_tree(seqs, max_depth = 4, nmin = 5, smoothing = "floor")
@@ -73,17 +73,17 @@ summary(tree)
 plot(tree)
 
 # Prune by likelihood-ratio G^2 with familywise alpha = 0.05
-pruned <- prune_pathtree(tree, criterion = "G2", alpha = 0.05)
+pruned <- prune_tree(tree, criterion = "G2", alpha = 0.05)
 
 # The pathway-centric API
-pathtree_pathways(pruned)                   # all pathways, sorted by count
+tree_pathways(pruned)                   # all pathways, sorted by count
 common_pathways(pruned,    n = 8)           # top by frequency
 divergent_pathways(pruned, n = 6)           # top by KL from shorter history
 divergent_pathways(pruned, flips_only = TRUE)
 sharp_pathways(pruned,     n = 5)           # most deterministic continuations
 
 # Per-context KL diagnostic — full table
-pathtree_dependence(pruned)
+tree_dependence(pruned)
 
 # Predict next state for new partial sequences
 predict(pruned, newdata = list(c("A","B","B"), c("A","A","C")))
@@ -99,7 +99,7 @@ perplexity(pruned, newdata = test_seqs)
 score_sequences(pruned, newdata = test_seqs)
 
 # Cross-validated hyperparameter tuning
-tg <- tune_pathtree(seqs, max_depth = 1:4, nmin = c(3, 5),
+tg <- tune_tree(seqs, max_depth = 1:4, nmin = c(3, 5),
                     smoothing = c("floor", "kneser_ney"),
                     prune = c(FALSE, TRUE), k = 5)
 attr(tg, "best")
@@ -107,7 +107,7 @@ attr(tg, "best")
 # Two-tree comparison with permutation test
 tree_a <- context_tree(group_a)
 tree_b <- context_tree(group_b)
-compare_pathtrees(tree_a, tree_b, n_perm = 200)
+compare_trees(tree_a, tree_b, n_perm = 200)
 
 # Bootstrap pathway reliability
 boot <- bootstrap_pathways(pruned, iter = 1000, stat = "count")

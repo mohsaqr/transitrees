@@ -1,4 +1,4 @@
-# ---- pathtree_dependence(): per-context KL diagnostic ----
+# ---- tree_dependence(): per-context KL diagnostic ----
 
 #' @noRd
 .pt_empty_dependence_df <- function() {
@@ -30,7 +30,7 @@
 #' Renamed from \code{path_dependence()} to avoid collision with
 #' \code{Nestimate::path_dependence}.
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param base Numeric. Logarithm base for the KL divergence. Default
 #'   2 (bits). Use \code{exp(1)} for nats or \code{10} for hartleys.
 #' @param sort_by Character. Column to sort by, descending. One of
@@ -68,8 +68,8 @@
 #' seqs   <- replicate(50, sample(c("A","B","C"), 12, replace = TRUE),
 #'                     simplify = FALSE)
 #' tree   <- context_tree(seqs, max_depth = 3)
-#' pruned <- prune_pathtree(tree, criterion = "G2")
-#' pathtree_dependence(pruned)
+#' pruned <- prune_tree(tree, criterion = "G2")
+#' tree_dependence(pruned)
 #' }
 #'
 #' @references
@@ -77,11 +77,11 @@
 #' Theory}, 2nd ed. Wiley.
 #'
 #' @export
-pathtree_dependence <- function(tree, base = 2,
+tree_dependence <- function(tree, base = 2,
                                 sort_by = c("divergence", "entropy_drop",
                                             "entropy", "count", "depth"),
                                 top = NULL) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   stopifnot(is.numeric(base), length(base) == 1L, base > 0, base != 1)
   sort_by <- match.arg(sort_by)
 

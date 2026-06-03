@@ -16,7 +16,7 @@
 
 #' Predict Next-State Probabilities from a Context Tree
 #'
-#' @param object A \code{pathtree}.
+#' @param object A \code{transitrees}.
 #' @param newdata Either (i) a list of character vectors (each is the
 #'   "history" leading up to the prediction point), (ii) a wide
 #'   data.frame / matrix whose rows are histories, or (iii) a single
@@ -44,7 +44,7 @@
 #' }
 #'
 #' @export
-predict.pathtree <- function(object, newdata, type = c("prob", "class"),
+predict.transitrees <- function(object, newdata, type = c("prob", "class"),
                             ...) {
   type <- match.arg(type)
   ## A bare character vector is the interactive shortcut; a character
@@ -90,7 +90,7 @@ predict.pathtree <- function(object, newdata, type = c("prob", "class"),
 
 #' Sample Sequences from a Fitted Context Tree
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param n Integer. Number of sequences to sample.
 #' @param length Integer. Length of each sampled sequence.
 #' @param start NULL or character vector. If NULL (default), each
@@ -110,7 +110,7 @@ predict.pathtree <- function(object, newdata, type = c("prob", "class"),
 #' @export
 generate_sequences <- function(tree, n = 5L, length = 10L,
                                start = NULL) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   ## base::length() because the `length` argument shadows the function.
   if (!is.numeric(n) || base::length(n) != 1L || is.na(n) || n < 1)
     stop("'n' must be a single positive integer.", call. = FALSE)
@@ -150,12 +150,12 @@ generate_sequences <- function(tree, n = 5L, length = 10L,
 #' Simulate Sequences from a Fitted Pathtree
 #'
 #' @description
-#' S3 \code{simulate()} method for \code{pathtree} objects. Wraps
+#' S3 \code{simulate()} method for \code{transitrees} objects. Wraps
 #' \code{\link{generate_sequences}} with the standard \code{nsim}
 #' argument name and an optional \code{seed} (set via
 #' \code{set.seed()} when supplied).
 #'
-#' @param object A \code{pathtree}.
+#' @param object A \code{transitrees}.
 #' @param nsim Integer. Number of sequences to simulate. Default 5.
 #' @param seed Integer or \code{NULL}. Optional RNG seed.
 #' @param length Integer. Length of each simulated sequence.
@@ -165,7 +165,7 @@ generate_sequences <- function(tree, n = 5L, length = 10L,
 #'
 #' @return A character matrix of dimension \code{nsim x length}.
 #' @export
-simulate.pathtree <- function(object, nsim = 5L, seed = NULL,
+simulate.transitrees <- function(object, nsim = 5L, seed = NULL,
                               length = 10L, start = NULL, ...) {
   if (!is.null(seed)) set.seed(seed)
   generate_sequences(object, n = nsim, length = length, start = start)

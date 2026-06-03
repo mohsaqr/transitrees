@@ -15,7 +15,7 @@ compare_smoothing(
 \code{\link{context_tree}} (wide matrix / data.frame, list of
 character vectors, TraMineR \code{stslist}, or a
 \code{mohsaqr}-family network object) — fitted afresh under each
-scheme — \strong{or} an already-fitted \code{pathtree}, which is
+scheme — \strong{or} an already-fitted \code{transitrees}, which is
 \emph{re-smoothed} under each scheme (topology frozen, no
 re-count; e.g. to sweep smoothers on a pruned tree).}
 
@@ -43,7 +43,7 @@ in-sample perplexity. A convenience wrapper over repeated
 \details{
 The perplexity reported is \strong{in-sample} (computed on the
 fitting data), so it rewards memorisation and must \emph{not} be used
-to pick a smoother — use \code{\link{tune_pathtree}()} for
+to pick a smoother — use \code{\link{tune_tree}()} for
 out-of-sample selection. The point of this table is the side-by-side
 view and the invariance of \code{n_nodes} across schemes: smoothing
 changes the \emph{probabilities} inside the tree, never \emph{which}
@@ -61,7 +61,7 @@ compare_smoothing(seqs, smoothing = c("floor", "kneser_ney"),
 
 }
 \seealso{
-\code{\link{smooth_pathtree}} to re-smooth a fitted tree
-  without re-counting; \code{\link{tune_pathtree}} for
+\code{\link{smooth_tree}} to re-smooth a fitted tree
+  without re-counting; \code{\link{tune_tree}} for
   cross-validated selection.
 }

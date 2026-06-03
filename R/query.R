@@ -26,10 +26,10 @@
 #'     otherwise returns \code{NA}.
 #'   \item \code{exact = FALSE} (default): if the pathway is missing,
 #'     falls back to the longest matching suffix that *is* in the tree
-#'     (mirrors \code{predict.pathtree()}).
+#'     (mirrors \code{predict.transitrees()}).
 #' }
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param pathway Character. The conditioning pathway, either as a
 #'   single arrow-notation string ("A -> B -> C") or as a character
 #'   vector of states (\code{c("A","B","C")}).
@@ -52,7 +52,7 @@
 #' @export
 query_pathway <- function(tree, pathway, next_state = NULL,
                           exact = FALSE) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   key <- .pt_normalise_pathway(pathway)
 
   if (key %in% names(tree$nodes)) {
@@ -78,7 +78,7 @@ query_pathway <- function(tree, pathway, next_state = NULL,
 
 #' Test Whether a Pathway Exists in the Tree
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param pathway Character. Pathway as arrow-notation string or
 #'   character vector.
 #'
@@ -92,7 +92,7 @@ query_pathway <- function(tree, pathway, next_state = NULL,
 #' }
 #' @export
 pathway_exists <- function(tree, pathway) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   key <- .pt_normalise_pathway(pathway)
   key %in% names(tree$nodes)
 }
@@ -100,16 +100,16 @@ pathway_exists <- function(tree, pathway) {
 #' Extract the Subtree Rooted at a Pathway
 #'
 #' @description
-#' Returns a new \code{pathtree} containing only the queried node and
+#' Returns a new \code{transitrees} containing only the queried node and
 #' its descendants. Node names are kept absolute (so the original
 #' pathway is preserved as a key), but the returned object has a
 #' \code{local_root} attribute pointing at the queried pathway.
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param pathway Character. The root pathway (arrow-notation or
 #'   character vector). Must exist in the tree.
 #'
-#' @return A new \code{pathtree} whose nodes and edges are restricted
+#' @return A new \code{transitrees} whose nodes and edges are restricted
 #'   to descendants of \code{pathway}. The alphabet, smoothing, and
 #'   other hyperparameters are copied unchanged. Printing the subtree
 #'   reports the context it was cut at (also stored in
@@ -124,7 +124,7 @@ pathway_exists <- function(tree, pathway) {
 #' }
 #' @export
 subtree <- function(tree, pathway) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   key <- .pt_normalise_pathway(pathway)
   if (!key %in% names(tree$nodes))
     stop("Pathway '", key, "' is not a node in the tree.", call. = FALSE)

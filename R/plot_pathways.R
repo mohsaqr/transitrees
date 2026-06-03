@@ -16,7 +16,7 @@
 #' next state), which are diffuse (mass spread evenly), and which
 #' carry trajectory-specific structure that order-1 misses.
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param top Integer. Maximum number of pathways to show. Default 20.
 #' @param sort_by Character. One of \code{"count"} (default),
 #'   \code{"divergence"}, or \code{"depth"}.
@@ -44,10 +44,10 @@ plot_pathways <- function(tree,
                           min_count = 5L,
                           show_flips = TRUE,
                           title = NULL, ...) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   sort_by <- match.arg(sort_by)
 
-  pw <- pathtree_pathways(tree, min_count = min_count, sort_by = sort_by,
+  pw <- tree_pathways(tree, min_count = min_count, sort_by = sort_by,
                           decreasing = TRUE)
   pw <- pw[pw$pathway != .ROOT_LABEL, , drop = FALSE]
   pw <- utils::head(pw, n = as.integer(top))
@@ -135,7 +135,7 @@ plot_pathways <- function(tree,
 #' Annotates each flip with the prediction change, e.g. "Disengaged
 #' -> Active".
 #'
-#' @param tree A \code{pathtree}.
+#' @param tree A \code{transitrees}.
 #' @param top Integer. Number of pathways to show. Default 15.
 #' @param min_count Integer. Drop pathways below this count. Default 5.
 #' @param title Character. Plot title.
@@ -145,7 +145,7 @@ plot_pathways <- function(tree,
 #' @export
 plot_divergence <- function(tree, top = 15L, min_count = 5L,
                             title = NULL, ...) {
-  stopifnot(inherits(tree, "pathtree"))
+  stopifnot(inherits(tree, "transitrees"))
   pw <- divergent_pathways(tree, top = top, min_count = min_count)
   if (nrow(pw) == 0L) stop("No pathways meet the threshold.", call. = FALSE)
   pw$pathway <- factor(pw$pathway, levels = rev(pw$pathway))

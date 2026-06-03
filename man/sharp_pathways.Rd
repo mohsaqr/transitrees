@@ -7,7 +7,7 @@
 sharp_pathways(tree, top = 10L, min_count = 1L)
 }
 \arguments{
-\item{tree}{A \code{pathtree}.}
+\item{tree}{A \code{transitrees}.}
 
 \item{top}{Integer. Number of pathways to return. Default 10.}
 
@@ -15,7 +15,7 @@ sharp_pathways(tree, top = 10L, min_count = 1L)
 occurrences. Default 1.}
 }
 \value{
-A data.frame, same columns as \code{\link{pathtree_pathways}},
+A data.frame, same columns as \code{\link{tree_pathways}},
   sorted by \code{next_probability} descending.
 }
 \description{

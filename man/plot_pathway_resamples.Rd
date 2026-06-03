@@ -13,7 +13,7 @@ plot_pathway_resamples(
 )
 }
 \arguments{
-\item{x}{A \code{pathtree_bootstrap} object.}
+\item{x}{A \code{transitrees_bootstrap} object.}
 
 \item{pathways}{Character vector of pathway names. \code{NULL}
 (default) picks the top \code{top} pathways from the summary.}

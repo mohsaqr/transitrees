@@ -79,8 +79,8 @@ character scalar naming a column of a network object's
 When supplied (or when \code{data} is itself a grouped family
 object such as a Nestimate \code{netobject_group} or a \pkg{tna}
 \code{group_tna}), \code{context_tree()} fits one tree per group
-over a shared alphabet and returns a \code{pathtree_group} (a named
-list of \code{pathtree}s). Default \code{NULL} (single tree).}
+over a shared alphabet and returns a \code{transitrees_group} (a named
+list of \code{transitrees}s). Default \code{NULL} (single tree).}
 
 \item{actor, time, order, session, time_threshold}{Passed to
 \code{\link{prepare_input}()} when \code{action} is given: the unit
@@ -97,12 +97,12 @@ Required to use any of \code{actor}/\code{time}/\code{order}/
 shape).}
 }
 \value{
-For a single fit, a \code{pathtree} object (described below).
+For a single fit, a \code{transitrees} object (described below).
   For a grouped fit (\code{group =} supplied, or a grouped family
-  object passed in) a \code{pathtree_group}: a named list of
-  \code{pathtree}s, one per group, in the group's key order, with its
+  object passed in) a \code{transitrees_group}: a named list of
+  \code{transitrees}s, one per group, in the group's key order, with its
   own \code{print} and \code{as.data.frame} methods. A single
-  \code{pathtree} is a list with components
+  \code{transitrees} is a list with components
 \describe{
   \item{nodes}{Named list of node descriptors. Names are context
     strings (e.g. \code{"A -> B"}); the root is keyed by the literal
@@ -120,7 +120,7 @@ For a single fit, a \code{pathtree} object (described below).
     hyperparameters).}
   \item{n_seq, n_obs}{number of sequences and observations.}
   \item{pruned}{Logical. \code{TRUE} after
-    \code{\link{prune_pathtree}()} has been applied.}
+    \code{\link{prune_tree}()} has been applied.}
   \item{pruning}{When \code{pruned} is \code{TRUE}, a list capturing
     the criterion / alpha / threshold used; otherwise \code{NULL}.}
   \item{data}{The cleaned trajectories (a list of character vectors)
@@ -133,14 +133,14 @@ Estimates a variable-depth context tree (PST; Ron, Singer & Tishby
 a context (string of recent states); each leaf carries a smoothed
 conditional distribution over the next state. The tree is grown to
 \code{max_depth}, then optionally pruned via
-\code{\link{prune_pathtree}()}.
+\code{\link{prune_tree}()}.
 }
 \details{
 Construction is bottom-up via k-gram counting. The root holds the
 marginal next-state distribution; depth-k nodes hold the
 next-state distribution conditional on the most recent k states.
 Nodes whose total count falls below \code{min_count} are not created.
-All nodes start "live" and unpruned; \code{\link{prune_pathtree}()}
+All nodes start "live" and unpruned; \code{\link{prune_tree}()}
 decides which to retain.
 }
 \examples{

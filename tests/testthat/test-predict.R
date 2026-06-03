@@ -104,7 +104,7 @@ test_that("generate_sequences honours start", {
   expect_equal(m[, 1L], c("A","A","B","C"))
 })
 
-test_that("simulate.pathtree is a generate_sequences alias with nsim", {
+test_that("simulate.transitrees is a generate_sequences alias with nsim", {
   tree <- context_tree(.three_state_seqs(), max_depth = 2L, min_count = 5L)
   m <- simulate(tree, nsim = 4L, seed = 42L, length = 6L,
                 start = c("A", "B", "C", "A"))

@@ -7,10 +7,10 @@
 n_nodes(tree)
 }
 \arguments{
-\item{tree}{A \code{pathtree} or \code{pathtree_group}.}
+\item{tree}{A \code{transitrees} or \code{transitrees_group}.}
 }
 \value{
-An integer. For a \code{pathtree_group}, a named integer
+An integer. For a \code{transitrees_group}, a named integer
   vector with one count per group.
 }
 \description{

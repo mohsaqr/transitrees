@@ -1,4 +1,4 @@
 library(testthat)
-library(pathtree)
+library(transitrees)
 
-test_check("pathtree")
+test_check("transitrees")

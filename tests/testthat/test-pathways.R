@@ -1,4 +1,4 @@
-# ---- Tests for pathtree_pathways() and friends ----
+# ---- Tests for tree_pathways() and friends ----
 
 .three_state_tree <- function(seed = 1) {
   set.seed(seed)
@@ -21,27 +21,27 @@
 
 # ---- structure ----
 
-test_that("pathtree_pathways() returns the expected columns", {
+test_that("tree_pathways() returns the expected columns", {
   tree <- .three_state_tree()
-  pw   <- pathtree_pathways(tree)
+  pw   <- tree_pathways(tree)
   expect_true(is.data.frame(pw))
   expect_named(pw, c("pathway", "depth", "count",
                      "likely_next", "next_probability", "divergence",
                      "changes_prediction"))
 })
 
-test_that("pathtree_pathways() includes (root) as a pathway of length 0", {
+test_that("tree_pathways() includes (root) as a pathway of length 0", {
   tree <- .three_state_tree()
-  pw   <- pathtree_pathways(tree)
+  pw   <- tree_pathways(tree)
   expect_true("(start)" %in% pw$pathway)
   root_row <- pw[pw$pathway == "(start)", ]
   expect_equal(root_row$depth, 0L)
   expect_true(is.na(root_row$divergence))
 })
 
-test_that("pathtree_pathways() in arrow notation, never with > separator", {
+test_that("tree_pathways() in arrow notation, never with > separator", {
   tree <- .three_state_tree()
-  pw   <- pathtree_pathways(tree)
+  pw   <- tree_pathways(tree)
   non_root <- pw$pathway[pw$pathway != "(start)"]
   ## Arrow notation present in any multi-state pathway
   multi <- non_root[grepl(" ", non_root)]
@@ -49,15 +49,15 @@ test_that("pathtree_pathways() in arrow notation, never with > separator", {
   expect_true(all(!grepl(" > ", multi)))
 })
 
-test_that("pathtree_pathways() default sort is by count, descending", {
+test_that("tree_pathways() default sort is by count, descending", {
   tree <- .three_state_tree()
-  pw   <- pathtree_pathways(tree)
+  pw   <- tree_pathways(tree)
   expect_equal(pw$count, sort(pw$count, decreasing = TRUE))
 })
 
 test_that("sort_by 'divergence' sorts non-NA descending", {
   tree <- .three_state_tree()
-  pw   <- pathtree_pathways(tree, sort_by = "divergence")
+  pw   <- tree_pathways(tree, sort_by = "divergence")
   finite_div <- pw$divergence[!is.na(pw$divergence)]
   expect_equal(finite_div, sort(finite_div, decreasing = TRUE))
   ## Any NA (only the root) should be the last row
@@ -68,15 +68,15 @@ test_that("sort_by 'divergence' sorts non-NA descending", {
 
 test_that("min_count filters out rare pathways", {
   tree <- .three_state_tree()
-  all_pw <- pathtree_pathways(tree, min_count = 1L)
-  big    <- pathtree_pathways(tree, min_count = 30L)
+  all_pw <- tree_pathways(tree, min_count = 1L)
+  big    <- tree_pathways(tree, min_count = 30L)
   expect_lte(nrow(big), nrow(all_pw))
   expect_true(all(big$count >= 30L))
 })
 
-test_that("empty pathtree_pathways() result is schema-stable", {
+test_that("empty tree_pathways() result is schema-stable", {
   tree <- .three_state_tree()
-  empty <- pathtree_pathways(tree, min_count = 10000L)
+  empty <- tree_pathways(tree, min_count = 10000L)
   expect_true(is.data.frame(empty))
   expect_equal(nrow(empty), 0L)
   expect_named(empty, c("pathway", "depth", "count",
@@ -127,10 +127,10 @@ test_that("sharp_pathways returns top n by next_probability", {
                sort(sp$next_probability, decreasing = TRUE))
 })
 
-# ---- pathtree_pathways is a plain function (no longer an S3 generic) ----
+# ---- tree_pathways is a plain function (no longer an S3 generic) ----
 
-test_that("pathtree_pathways is a plain exported function", {
-  expect_true(is.function(pathtree_pathways))
+test_that("tree_pathways is a plain exported function", {
+  expect_true(is.function(tree_pathways))
   ## The generic was retired to avoid collision with Nestimate::pathways.
-  expect_false(isTRUE(any(grepl("UseMethod", deparse(body(pathtree_pathways))))))
+  expect_false(isTRUE(any(grepl("UseMethod", deparse(body(tree_pathways))))))
 })

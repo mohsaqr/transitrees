@@ -7,7 +7,7 @@
 score_sequences(tree, newdata)
 }
 \arguments{
-\item{tree}{A \code{pathtree}.}
+\item{tree}{A \code{transitrees}.}
 
 \item{newdata}{Sequence data.}
 }

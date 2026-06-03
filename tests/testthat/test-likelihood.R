@@ -8,7 +8,7 @@ mk_tree <- function(seed = 1L, n = 40L, len = 12L,
   context_tree(m, max_depth = max_depth, min_count = min_count)
 }
 
-test_that("logLik.pathtree returns a logLik object with df and nobs", {
+test_that("logLik.transitrees returns a logLik object with df and nobs", {
   tr <- mk_tree()
   ll <- logLik(tr)
   expect_s3_class(ll, "logLik")
@@ -19,7 +19,7 @@ test_that("logLik.pathtree returns a logLik object with df and nobs", {
                    length(tr$nodes) * (length(tr$alphabet) - 1L))
 })
 
-test_that("nobs.pathtree returns total tokens", {
+test_that("nobs.transitrees returns total tokens", {
   tr <- mk_tree()
   expect_identical(nobs(tr), as.integer(tr$n_obs))
 })
