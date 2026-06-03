@@ -93,10 +93,11 @@ test_that("plot.pathtree style='icicle' uses size-based abbreviation", {
     s
   })
   tr <- context_tree(seqs, max_depth = 3L, min_count = 5L)
-  ## Default mode (label_abbrev_fraction = NULL) is binary:
-  ## any slice >= label_min_fraction gets the full state name; the
-  ## rest get no label.
-  p  <- plot(tr, style = "icicle")
+  ## Binary mode (label_abbrev_fraction == label_min_fraction): any slice
+  ## >= label_min_fraction gets the full state name; the rest no label.
+  ## (The DEFAULT is now three-tier, so we request binary explicitly.)
+  p  <- plot(tr, style = "icicle",
+             label_min_fraction = 0.10, label_abbrev_fraction = 0.10)
   graph_df <- p$data
   expect_true(all(c("label_text","arc_fraction") %in% names(graph_df)))
   labelled <- graph_df[!is.na(graph_df$label_text), ]

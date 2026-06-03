@@ -12,8 +12,8 @@
 
 #' @noRd
 .plot_icicle <- function(tree,
-                          label_min_fraction    = 0.10,
-                          label_abbrev_fraction = NULL,
+                          label_min_fraction    = 0.03,
+                          label_abbrev_fraction = 0.08,
                           gap_size              = 5,
                           gap_size_within       = 0.3,
                           abbrev_len            = 2L,
@@ -216,26 +216,9 @@
       legend.position = "right"
     ) +
     ggplot2::labs(
-      title    = "Context tree sunburst",
+      title    = "Context tree (sunburst)",
       subtitle = sprintf(
-        paste0("%d nodes, depth <= %d, alphabet = %d  |  ",
-               "wedge-divider %.1f / hairline %.2f  |  ",
-               "%s%s"),
-        length(tree$nodes), tree$max_depth,
-        length(state_levels),
-        gap_size, gap_size_within,
-        if (label_abbrev_fraction > label_min_fraction)
-          sprintf("full name >= %.0f%%, abbreviation (%s) %.0f-%.0f%%, no label < %.0f%%",
-                  100 * label_abbrev_fraction,
-                  paste(state_abbrev, collapse = "/"),
-                  100 * label_min_fraction,
-                  100 * label_abbrev_fraction,
-                  100 * label_min_fraction)
-        else
-          sprintf("full name >= %.0f%%, no label otherwise",
-                  100 * label_min_fraction),
-        if (jitter > 0)
-          sprintf("  |  leaf-edge jitter %.0f%%", 100 * jitter)
-        else "")
+        "%d nodes, depth <= %d;  arc width = count;  fill = state;  rings = depth",
+        length(tree$nodes), tree$max_depth)
     )
 }

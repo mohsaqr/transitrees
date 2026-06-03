@@ -92,5 +92,6 @@
                          arrows = "to") |>
     visNetwork::visOptions(highlightNearest = list(enabled = TRUE,
                                                    degree = 1, hover = TRUE)) |>
-    visNetwork::visInteraction(zoomView = TRUE, dragView = TRUE, hover = TRUE)
+    visNetwork::visInteraction(dragView = FALSE, zoomView = FALSE,
+                               dragNodes = TRUE, hover = TRUE)
 }
