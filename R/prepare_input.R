@@ -99,10 +99,10 @@ prepare_input <- function(data, actor = NULL, time = NULL, action = NULL,
   unix_time_unit <- match.arg(unix_time_unit)
   if (is.null(action) || !action %in% names(data))
     stop("'action' must name a column of 'data'.", call. = FALSE)
-  for (nm in c(actor, time, order, session))
-    if (!is.null(nm) && !all(nm %in% names(data)))
-      stop("'", paste(nm, collapse = "', '"),
-           "' is not a column of 'data'.", call. = FALSE)
+  missing_cols <- setdiff(c(actor, time, order, session), names(data))
+  if (length(missing_cols))
+    stop("'", paste(missing_cols, collapse = "', '"),
+         "' is not a column of 'data'.", call. = FALSE)
   if (!is.numeric(time_threshold) || length(time_threshold) != 1L ||
       time_threshold < 0)
     stop("'time_threshold' must be a single non-negative number.",

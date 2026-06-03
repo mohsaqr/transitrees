@@ -135,7 +135,12 @@ logLik.transitrees <- function(object, newdata = NULL, ...) {
 #'
 #' @param object A \code{transitrees}.
 #' @param ... Ignored.
-#' @return Integer. Number of state observations used to fit the tree.
+#' @return Integer. The total number of state observations recorded
+#'   when the tree was fitted. This training-set count can exceed the
+#'   \code{"nobs"} attribute returned by
+#'   \code{\link{logLik.transitrees}()}, which counts only the
+#'   positions actually scored (e.g. excluding states outside the
+#'   tree's alphabet).
 #' @export
 nobs.transitrees <- function(object, ...) {
   as.integer(object$n_obs)
@@ -174,12 +179,20 @@ perplexity <- function(tree, newdata = NULL) {
 #'
 #' @description
 #' Returns one row per held-out sequence with its log-likelihood,
-#' number of scored positions, and per-position perplexity.
+#' number of scored positions, and per-sequence perplexity
+#' (\code{exp(-log_lik / n_scored)}).
 #'
 #' @param tree A \code{transitrees}.
 #' @param newdata Sequence data.
 #' @return A data.frame with columns \code{sequence_id},
 #'   \code{n_scored}, \code{log_lik}, \code{perplexity}.
+#' @examples
+#' fit  <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+#'                   simplify = FALSE)
+#' tree <- context_tree(fit, max_depth = 1L)
+#' new  <- replicate(5, sample(c("A", "B", "C"), 10, replace = TRUE),
+#'                   simplify = FALSE)
+#' score_sequences(tree, new)
 #' @export
 score_sequences <- function(tree, newdata) {
   stopifnot(inherits(tree, "transitrees"))
@@ -219,6 +232,13 @@ score_sequences <- function(tree, newdata) {
 #' @return A data.frame with columns \code{sequence_id},
 #'   \code{position}, \code{matched_context}, \code{observed},
 #'   \code{predicted_prob}, \code{log_lik}.
+#' @examples
+#' fit  <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+#'                   simplify = FALSE)
+#' tree <- context_tree(fit, max_depth = 1L)
+#' new  <- replicate(5, sample(c("A", "B", "C"), 10, replace = TRUE),
+#'                   simplify = FALSE)
+#' score_positions(tree, new, worst = 5L)
 #' @export
 score_positions <- function(tree, newdata, worst = NULL) {
   stopifnot(inherits(tree, "transitrees"))
@@ -278,6 +298,16 @@ model_fit <- function(tree, newdata = NULL) {
   df  <- attr(ll, "df")
   n   <- attr(ll, "nobs")
   llv <- as.numeric(ll)
+  ## With zero scored positions the fit scalars are undefined; report
+  ## them all as NA rather than a row mixing -Inf (BIC), finite (AIC),
+  ## and NA (perplexity).
+  if (n == 0L) {
+    return(data.frame(
+      logLik     = NA_real_, df = df, nobs = 0L,
+      AIC        = NA_real_, BIC = NA_real_, perplexity = NA_real_,
+      row.names  = NULL
+    ))
+  }
   data.frame(
     logLik     = llv,
     df         = df,

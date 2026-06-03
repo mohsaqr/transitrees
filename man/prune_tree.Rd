@@ -12,7 +12,9 @@ prune_tree(
 )
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitrees}, or a \code{transitrees_group}, in
+which case each member is pruned and the group wrapper is
+preserved.}
 
 \item{criterion}{One of \code{"G2"} (likelihood-ratio test against
 parent; default), \code{"KL"} (per-context Kullback-Leibler

@@ -27,3 +27,10 @@ The chi-square critical value at \code{alpha_g2} is shown as a
 dashed reference line: pathways whose CI lies entirely above it
 are reproducibly informative.
 }
+\examples{
+seqs <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+                  simplify = FALSE)
+boot <- bootstrap_pathways(context_tree(seqs, max_depth = 1L),
+                           iter = 50L)
+plot(boot)
+}

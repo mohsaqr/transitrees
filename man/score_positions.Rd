@@ -27,3 +27,11 @@ context, predicted probability of the observed next state, and
 log-likelihood contribution. Useful for diagnostic plots showing
 where the model is confident vs. surprised.
 }
+\examples{
+fit  <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+                  simplify = FALSE)
+tree <- context_tree(fit, max_depth = 1L)
+new  <- replicate(5, sample(c("A", "B", "C"), 10, replace = TRUE),
+                  simplify = FALSE)
+score_positions(tree, new, worst = 5L)
+}

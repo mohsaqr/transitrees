@@ -24,7 +24,8 @@
 #'   occurrences. Default 5.
 #' @param show_flips Logical. Mark modal-flip pathways with a leading
 #'   caret in the label. Default \code{TRUE}.
-#' @param title Character. Plot title.
+#' @param title Character. Plot title; if \code{NULL} (default) a title
+#'   is derived from \code{sort_by}.
 #' @param ... Ignored.
 #' @return A ggplot object.
 #'
@@ -77,11 +78,11 @@ plot_pathways <- function(tree,
   long$label <- factor(pw$label[match(long$pathway, pw$pathway)],
                         levels = pw$label)
 
-  ## Highlight modal cells
-  long$is_modal <- mapply(function(pa, ns) {
-    info <- tree$nodes[[pa]]
-    states[which.max(info$prob)] == as.character(ns)
-  }, long$pathway, long$next_state)
+  ## Highlight modal cells (vapply pins the result to logical)
+  long$is_modal <- vapply(seq_len(nrow(long)), function(i) {
+    info <- tree$nodes[[long$pathway[i]]]
+    states[which.max(info$prob)] == as.character(long$next_state[i])
+  }, logical(1))
 
   if (is.null(title)) {
     sort_label <- switch(sort_by,
@@ -138,9 +139,18 @@ plot_pathways <- function(tree,
 #' @param tree A \code{transitrees}.
 #' @param top Integer. Number of pathways to show. Default 15.
 #' @param min_count Integer. Drop pathways below this count. Default 5.
-#' @param title Character. Plot title.
+#' @param title Character. Plot title; if \code{NULL} (default) a
+#'   default title is used.
 #' @param ... Ignored.
 #' @return A ggplot object.
+#'
+#' @examples
+#' \donttest{
+#' seqs <- replicate(50, sample(c("A", "B", "C"), 12, replace = TRUE),
+#'                   simplify = FALSE)
+#' tree <- context_tree(seqs, max_depth = 3L)
+#' plot_divergence(tree)
+#' }
 #'
 #' @export
 plot_divergence <- function(tree, top = 15L, min_count = 5L,

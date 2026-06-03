@@ -66,7 +66,8 @@
                         width = numeric(0), stringsAsFactors = FALSE)
   } else {
     child_count <- vapply(e$child,
-                          function(c) as.numeric(tree$nodes[[c]]$n), numeric(1))
+                          function(child_ctx) as.numeric(tree$nodes[[child_ctx]]$n),
+                          numeric(1))
     edges <- data.frame(
       from  = e$parent,
       to    = e$child,

@@ -257,6 +257,9 @@ smooth_tree <- function(tree, smoothing = "floor") {
   stopifnot(inherits(tree, "transitrees"))
   sm <- .pt_resolve_smoothing(smoothing)
 
+  ## Re-smooth shallow-to-deep: this loop carries a true sequential
+  ## dependency (each node reads its already re-smoothed parent from
+  ## new_nodes), so it cannot be vectorised into a single vapply.
   ord <- order(vapply(tree$nodes, function(x) x$depth, integer(1)))
   new_nodes <- tree$nodes
   for (ctx in names(tree$nodes)[ord]) {

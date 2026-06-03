@@ -82,7 +82,7 @@ A \code{transitrees_bootstrap} object: a list with
       M_changes_prediction}{Raw resample matrices:
       \code{iter x n_pathways}, columns named by pathway.}
     \item{iter, stat, consistency_range, stability_threshold,
-      informative_threshold, alpha_g2, level, seed,
+      informative_threshold, alpha_g2, ci_level, seed,
       g2_critical_value}{Configuration.}
   }
 }
@@ -131,6 +131,13 @@ Read \code{stable} and \code{informative} together:
   \item \code{!stable && !informative}: weak or sample-fragile
     pathway.
 }
+}
+\examples{
+seqs <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+                  simplify = FALSE)
+tree <- context_tree(seqs, max_depth = 1L)
+boot <- bootstrap_pathways(tree, iter = 50L)
+summary(boot)
 }
 \references{
 Saqr, M., Tikka, S., & López-Pernas, S. (2025). Transition

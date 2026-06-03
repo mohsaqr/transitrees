@@ -17,5 +17,14 @@ A data.frame with columns \code{sequence_id},
 }
 \description{
 Returns one row per held-out sequence with its log-likelihood,
-number of scored positions, and per-position perplexity.
+number of scored positions, and per-sequence perplexity
+(\code{exp(-log_lik / n_scored)}).
+}
+\examples{
+fit  <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+                  simplify = FALSE)
+tree <- context_tree(fit, max_depth = 1L)
+new  <- replicate(5, sample(c("A", "B", "C"), 10, replace = TRUE),
+                  simplify = FALSE)
+score_sequences(tree, new)
 }

@@ -229,6 +229,12 @@ plot.transitrees_tune <- function(x, ...) {
     )
 }
 
+#' Print a Pathtree Tuning Grid
+#'
+#' @param x A \code{transitrees_tune} object.
+#' @param n Integer. Number of configurations to print. Default 10.
+#' @param ... Ignored.
+#' @return \code{x} invisibly.
 #' @export
 print.transitrees_tune <- function(x, n = 10L, ...) {
   cat(sprintf("<transitrees_tune>  %d configurations\n", nrow(x)))

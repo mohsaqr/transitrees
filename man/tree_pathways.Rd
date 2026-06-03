@@ -32,10 +32,12 @@ A data.frame with columns \code{pathway} (arrow notation,
   \code{depth} (history length), \code{count}, \code{likely_next}
   (the most likely next state), \code{next_probability} (its
   probability), \code{divergence} (Kullback-Leibler divergence from
-  the parent context's prediction, in bits; \code{NA} for the root),
-  and \code{changes_prediction} (logical, did the most likely next
-  state change vs the parent context?). The empty case returns a
-  0-row data.frame with the same schema.
+  the parent context's prediction, in bits; \code{NA} for the root
+  and when the parent context is absent, and \code{Inf} when the
+  pathway places probability on a state the parent predicts with
+  probability 0), and \code{changes_prediction} (logical, did the
+  most likely next state change vs the parent context?). The empty
+  case returns a 0-row data.frame with the same schema.
 }
 \description{
 Returns a tidy data.frame with one row per pathway (= context) in the

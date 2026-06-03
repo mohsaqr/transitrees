@@ -12,7 +12,12 @@
 \item{...}{Ignored.}
 }
 \value{
-Integer. Number of state observations used to fit the tree.
+Integer. The total number of state observations recorded
+  when the tree was fitted. This training-set count can exceed the
+  \code{"nobs"} attribute returned by
+  \code{\link{logLik.transitrees}()}, which counts only the
+  positions actually scored (e.g. excluding states outside the
+  tree's alphabet).
 }
 \description{
 Number of Observations Used to Fit a Pathtree

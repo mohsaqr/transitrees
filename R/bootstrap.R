@@ -290,7 +290,7 @@
 #'       M_changes_prediction}{Raw resample matrices:
 #'       \code{iter x n_pathways}, columns named by pathway.}
 #'     \item{iter, stat, consistency_range, stability_threshold,
-#'       informative_threshold, alpha_g2, level, seed,
+#'       informative_threshold, alpha_g2, ci_level, seed,
 #'       g2_critical_value}{Configuration.}
 #'   }
 #'
@@ -298,6 +298,12 @@
 #' Saqr, M., Tikka, S., & López-Pernas, S. (2025). Transition
 #' Network Analysis. \emph{LAK '25},
 #' doi:10.1145/3706468.3706513.
+#' @examples
+#' seqs <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+#'                   simplify = FALSE)
+#' tree <- context_tree(seqs, max_depth = 1L)
+#' boot <- bootstrap_pathways(tree, iter = 50L)
+#' summary(boot)
 #' @export
 bootstrap_pathways <- function(tree,
                                iter                  = 1000L,
@@ -538,6 +544,14 @@ bootstrap_pathways <- function(tree,
   )
 }
 
+#' Print a Pathtree Bootstrap
+#'
+#' @param x A \code{transitrees_bootstrap} object.
+#' @param n Integer. Number of top pathways to print. Default 10.
+#' @param digits Integer. Numeric digits for the printed table.
+#'   Default 3.
+#' @param ... Ignored.
+#' @return \code{x} invisibly.
 #' @export
 print.transitrees_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
   cat(sprintf(
@@ -576,6 +590,13 @@ print.transitrees_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
   invisible(x)
 }
 
+#' Summarise a Pathtree Bootstrap
+#'
+#' @param object A \code{transitrees_bootstrap} object.
+#' @param ... Ignored.
+#' @return The per-pathway summary \code{data.frame}
+#'   (\code{object$summary}); see \code{\link{bootstrap_pathways}}
+#'   for the full column vocabulary.
 #' @export
 summary.transitrees_bootstrap <- function(object, ...) {
   object$summary
@@ -615,6 +636,12 @@ as.data.frame.transitrees_bootstrap <- function(x, row.names = NULL,
 #'   Default \code{NULL} (use \code{x$stability_threshold}).
 #' @param ... Ignored.
 #' @return A ggplot object.
+#' @examples
+#' seqs <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+#'                   simplify = FALSE)
+#' boot <- bootstrap_pathways(context_tree(seqs, max_depth = 1L),
+#'                            iter = 50L)
+#' plot(boot)
 #' @export
 plot.transitrees_bootstrap <- function(x, top = 25L,
                                     min_stability = NULL, ...) {
@@ -686,6 +713,12 @@ plot.transitrees_bootstrap <- function(x, top = 25L,
 #' @param top Integer. Default 6.
 #' @param bins Integer. Histogram bins. Default 30.
 #' @return A ggplot object.
+#' @examples
+#' seqs <- replicate(40, sample(c("A", "B", "C"), 10, replace = TRUE),
+#'                   simplify = FALSE)
+#' boot <- bootstrap_pathways(context_tree(seqs, max_depth = 1L),
+#'                            iter = 50L)
+#' plot_pathway_resamples(boot, stat = "count")
 #' @export
 plot_pathway_resamples <- function(x, pathways = NULL,
                                    stat = c("count", "next_probability",

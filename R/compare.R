@@ -190,11 +190,13 @@ compare_trees <- function(tree_a, tree_b = NULL, iter = 200L,
 
   p_value <- (1 + sum(null_dist >= pdist_obs)) / (iter + 1)
 
+  pathways <- bd[order(-bd$divergence_sym), , drop = FALSE]
+  rownames(pathways) <- NULL
   structure(
     list(pdist     = pdist_obs,
          null_dist = null_dist,
          p_value   = p_value,
-         pathways  = bd[order(-bd$divergence_sym), , drop = FALSE]),
+         pathways  = pathways),
     class = "transitrees_comparison"
   )
 }
@@ -257,6 +259,15 @@ as.data.frame.transitrees_comparison <- function(x, row.names = NULL,
   x$pathways
 }
 
+#' Print a Pathtree Comparison
+#'
+#' @param x A \code{transitrees_comparison} object.
+#' @param digits Integer. Numeric digits for the printed table.
+#'   Default 3.
+#' @param n Integer. Number of top divergent pathways to print.
+#'   Default 6.
+#' @param ... Ignored.
+#' @return \code{x} invisibly.
 #' @export
 print.transitrees_comparison <- function(x, digits = 3L, n = 6L, ...) {
   cat(sprintf("<transitrees_comparison>  iter = %d\n",

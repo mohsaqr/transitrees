@@ -28,7 +28,8 @@ occurrences. Default 5.}
 \item{show_flips}{Logical. Mark modal-flip pathways with a leading
 caret in the label. Default \code{TRUE}.}
 
-\item{title}{Character. Plot title.}
+\item{title}{Character. Plot title; if \code{NULL} (default) a title
+is derived from \code{sort_by}.}
 
 \item{...}{Ignored.}
 }

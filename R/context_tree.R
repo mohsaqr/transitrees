@@ -447,8 +447,8 @@
   if (weighted) w_vec <- w_vec[keep]
 
   unique_ctx <- unique(ctx_vec)
-  out <- lapply(unique_ctx, function(c) {
-    msk <- ctx_vec == c
+  out <- lapply(unique_ctx, function(ctx_str) {
+    msk <- ctx_vec == ctx_str
     if (!weighted) {
       tabulate(nxt_idx[msk], nbins = na_size)
     } else {

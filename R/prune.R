@@ -11,7 +11,9 @@
 #' Renamed from \code{prune()} to avoid collision with
 #' \code{tna::prune}, \code{rpart::prune}, and \code{tree::prune}.
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitrees}, or a \code{transitrees_group}, in
+#'   which case each member is pruned and the group wrapper is
+#'   preserved.
 #' @param criterion One of \code{"G2"} (likelihood-ratio test against
 #'   parent; default), \code{"KL"} (per-context Kullback-Leibler
 #'   against parent), \code{"AIC"} (Akaike penalty), \code{"BIC"}

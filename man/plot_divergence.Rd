@@ -13,7 +13,8 @@ plot_divergence(tree, top = 15L, min_count = 5L, title = NULL, ...)
 
 \item{min_count}{Integer. Drop pathways below this count. Default 5.}
 
-\item{title}{Character. Plot title.}
+\item{title}{Character. Plot title; if \code{NULL} (default) a
+default title is used.}
 
 \item{...}{Ignored.}
 }
@@ -26,4 +27,13 @@ Lollipop chart of per-pathway Kullback-Leibler divergence from the
 points mark pathways whose modal next state flips between orders.
 Annotates each flip with the prediction change, e.g. "Disengaged
 -> Active".
+}
+\examples{
+\donttest{
+seqs <- replicate(50, sample(c("A", "B", "C"), 12, replace = TRUE),
+                  simplify = FALSE)
+tree <- context_tree(seqs, max_depth = 3L)
+plot_divergence(tree)
+}
+
 }

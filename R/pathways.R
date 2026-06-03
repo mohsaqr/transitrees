@@ -42,10 +42,12 @@
 #'   \code{depth} (history length), \code{count}, \code{likely_next}
 #'   (the most likely next state), \code{next_probability} (its
 #'   probability), \code{divergence} (Kullback-Leibler divergence from
-#'   the parent context's prediction, in bits; \code{NA} for the root),
-#'   and \code{changes_prediction} (logical, did the most likely next
-#'   state change vs the parent context?). The empty case returns a
-#'   0-row data.frame with the same schema.
+#'   the parent context's prediction, in bits; \code{NA} for the root
+#'   and when the parent context is absent, and \code{Inf} when the
+#'   pathway places probability on a state the parent predicts with
+#'   probability 0), and \code{changes_prediction} (logical, did the
+#'   most likely next state change vs the parent context?). The empty
+#'   case returns a 0-row data.frame with the same schema.
 #'
 #' @details
 #' Each row is a pathway -- a (possibly empty) sequence of states ending
@@ -96,6 +98,9 @@ tree_pathways <- function(tree, min_count = 1L,
       } else {
         p <- info$prob; q <- par_info$prob
         msk <- p > 0
+        ## Reported in bits (log base 2) for the pathway table; the
+        ## internal .ct_kl() helper used by pruning works in nats. The
+        ## two unit conventions are intentional.
         KL <- if (any(p[msk] > 0 & q[msk] == 0)) Inf else
           sum(p[msk] * log(p[msk] / q[msk], base = 2))
         modal_parent <- tree$alphabet[which.max(par_info$prob)]
