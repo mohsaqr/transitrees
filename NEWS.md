@@ -1,4 +1,4 @@
-# transitiontrees 0.1.1
+# transitiontrees 0.1.2
 
 Initial CRAN release.
 

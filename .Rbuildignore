@@ -15,7 +15,7 @@
 ^POLISH\.md$
 ^README\.Rmd$
 ^README\.html$
-^pathtree_human_ai_demo\.html$
+^transitiontrees_human_ai_demo\.html$
 ^PARITY\.md$
 ^\.playwright-mcp$
 ^.*\.tar\.gz$
