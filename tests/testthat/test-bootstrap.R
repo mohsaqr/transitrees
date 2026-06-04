@@ -8,10 +8,10 @@ mk_boot_tree <- function(n = 40L, L = 12L, alpha = c("A","B","C"),
   context_tree(m, max_depth = max_depth, min_count = min_count)
 }
 
-test_that("bootstrap_pathways returns a transitrees_bootstrap with the expected slots", {
+test_that("bootstrap_pathways returns a transitiontrees_bootstrap with the expected slots", {
   tr <- mk_boot_tree()
   b  <- bootstrap_pathways(tr, iter = 20L, seed = 42L)
-  expect_s3_class(b, "transitrees_bootstrap")
+  expect_s3_class(b, "transitiontrees_bootstrap")
   expect_true(all(c("summary", "pathways_orig", "M_count",
                     "M_next_probability", "M_divergence",
                     "M_changes_prediction",
@@ -372,7 +372,7 @@ test_that("as.data.frame(boot) returns the summary table (uniform tidy-extract)"
   expect_identical(df, b$summary)
 })
 
-test_that("plot.transitrees_bootstrap returns a ggplot", {
+test_that("plot.transitiontrees_bootstrap returns a ggplot", {
   tr <- mk_boot_tree()
   b  <- bootstrap_pathways(tr, iter = 30L, seed = 1L)
   p  <- plot(b, min_stability = 0)

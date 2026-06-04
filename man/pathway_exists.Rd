@@ -7,7 +7,7 @@
 pathway_exists(tree, pathway)
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitiontrees}.}
 
 \item{pathway}{Character. Pathway as arrow-notation string or
 character vector.}

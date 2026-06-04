@@ -8,7 +8,7 @@ compare_trees(tree_a, tree_b = NULL, iter = 200L, seed = 1L, symmetric = TRUE)
 }
 \arguments{
 \item{tree_a, tree_b}{Pathtrees fit on data subsets A and B.
-Alternatively, pass a two-element \code{transitrees_group} (from
+Alternatively, pass a two-element \code{transitiontrees_group} (from
 \code{context_tree(..., group =)}) as \code{tree_a} and leave
 \code{tree_b = NULL}; its two trees are compared in key order.}
 
@@ -19,7 +19,7 @@ Alternatively, pass a two-element \code{transitrees_group} (from
 \item{symmetric}{Logical. Default \code{TRUE}.}
 }
 \value{
-A \code{transitrees_comparison} object with components:
+A \code{transitiontrees_comparison} object with components:
 \describe{
   \item{pdist}{observed scalar distance}
   \item{null_dist}{numeric vector, length \code{iter}}
@@ -30,7 +30,7 @@ A \code{transitrees_comparison} object with components:
 }
 \description{
 Computes the count-weighted symmetric Kullback-Leibler divergence
-between two fitted transitreess, then provides a reference distribution
+between two fitted transitiontrees, then provides a reference distribution
 by permuting sequence-to-tree assignments.
 
 Use this to ask: do two cohorts (group A vs. group B, baseline vs.

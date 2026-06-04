@@ -12,7 +12,7 @@ compare_pruning(
 )
 }
 \arguments{
-\item{tree}{A \code{transitrees} (typically unpruned).}
+\item{tree}{A \code{transitiontrees} (typically unpruned).}
 
 \item{criterion}{Character vector of criteria to compare. Defaults
 to all four: \code{"G2"}, \code{"KL"}, \code{"AIC"}, \code{"BIC"}.}

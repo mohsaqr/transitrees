@@ -17,7 +17,7 @@
                      alphabet  = alphabet)
   if (isTRUE(cfg$prune))
     tr <- prune_tree(tr, criterion = "G2", alpha = cfg$alpha)
-  ll <- logLik.transitrees(tr, newdata = test_seqs)
+  ll <- logLik.transitiontrees(tr, newdata = test_seqs)
   list(ll = as.numeric(ll), n = attr(ll, "nobs"),
        n_nodes = length(tr$nodes))
 }
@@ -83,7 +83,7 @@
 #'   one row per sequence. Default \code{NULL}/900 (data already in
 #'   sequence shape).
 #'
-#' @return A \code{transitrees_tune} object: a data.frame with one row per
+#' @return A \code{transitiontrees_tune} object: a data.frame with one row per
 #'   grid point and columns \code{max_depth}, \code{nmin},
 #'   \code{smoothing}, \code{prune}, \code{logLik}, \code{n_scored},
 #'   \code{perplexity}, \code{n_nodes_avg}, sorted by \code{perplexity}
@@ -177,7 +177,7 @@ tune_tree <- function(data,
   rownames(out) <- NULL
 
   best <- out[1L, , drop = FALSE]
-  structure(out, best = best, class = c("transitrees_tune", "data.frame"))
+  structure(out, best = best, class = c("transitiontrees_tune", "data.frame"))
 }
 
 #' Plot a Pathtree CV Grid
@@ -189,11 +189,11 @@ tune_tree <- function(data,
 #' \code{nmin}. The minimum-perplexity configuration is highlighted
 #' with a star.
 #'
-#' @param x A \code{transitrees_tune} object.
+#' @param x A \code{transitiontrees_tune} object.
 #' @param ... Ignored.
 #' @return A ggplot object.
 #' @export
-plot.transitrees_tune <- function(x, ...) {
+plot.transitiontrees_tune <- function(x, ...) {
   best <- attr(x, "best")
   df   <- as.data.frame(unclass(x), stringsAsFactors = FALSE)
   df$prune_label <- ifelse(df$prune, "pruned", "unpruned")
@@ -231,13 +231,13 @@ plot.transitrees_tune <- function(x, ...) {
 
 #' Print a Pathtree Tuning Grid
 #'
-#' @param x A \code{transitrees_tune} object.
+#' @param x A \code{transitiontrees_tune} object.
 #' @param n Integer. Number of configurations to print. Default 10.
 #' @param ... Ignored.
 #' @return \code{x} invisibly.
 #' @export
-print.transitrees_tune <- function(x, n = 10L, ...) {
-  cat(sprintf("<transitrees_tune>  %d configurations\n", nrow(x)))
+print.transitiontrees_tune <- function(x, n = 10L, ...) {
+  cat(sprintf("<transitiontrees_tune>  %d configurations\n", nrow(x)))
   print.data.frame(utils::head(x, n), row.names = FALSE)
   best <- attr(x, "best")
   if (!is.null(best)) {

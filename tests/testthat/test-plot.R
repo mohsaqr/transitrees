@@ -1,4 +1,4 @@
-# Tests for Phase G: plot.transitrees style dispatcher (ggplot only)
+# Tests for Phase G: plot.transitiontrees style dispatcher (ggplot only)
 
 mk_plot_tree <- function() {
   set.seed(1)
@@ -6,7 +6,7 @@ mk_plot_tree <- function() {
   context_tree(m, max_depth = 2L, min_count = 3L)
 }
 
-test_that("plot.transitrees default style is horizontal and returns a ggplot", {
+test_that("plot.transitiontrees default style is horizontal and returns a ggplot", {
   tr <- mk_plot_tree()
   p  <- plot(tr)
   expect_s3_class(p, "ggplot")
@@ -14,19 +14,19 @@ test_that("plot.transitrees default style is horizontal and returns a ggplot", {
   expect_identical(p$labels$x, plot(tr, style = "horizontal")$labels$x)
 })
 
-test_that("plot.transitrees style='dendrogram' returns a ggplot", {
+test_that("plot.transitiontrees style='dendrogram' returns a ggplot", {
   tr <- mk_plot_tree()
   p  <- plot(tr, style = "dendrogram")
   expect_s3_class(p, "ggplot")
 })
 
-test_that("plot.transitrees style='dendrogram' accepts custom point_size_range", {
+test_that("plot.transitiontrees style='dendrogram' accepts custom point_size_range", {
   tr <- mk_plot_tree()
   p  <- plot(tr, style = "dendrogram", point_size_range = c(3, 12))
   expect_s3_class(p, "ggplot")
 })
 
-test_that("plot.transitrees style='dendrogram' edges carry per-edge linewidth", {
+test_that("plot.transitiontrees style='dendrogram' edges carry per-edge linewidth", {
   tr <- mk_plot_tree()
   p  <- plot(tr, style = "dendrogram")
   ## The first layer is the edge geom_path; its data should carry an
@@ -36,7 +36,7 @@ test_that("plot.transitrees style='dendrogram' edges carry per-edge linewidth", 
   expect_true(all(edge_layer$data$edge_weight > 0))
 })
 
-test_that("plot.transitrees style='horizontal' returns a ggplot with x = depth", {
+test_that("plot.transitiontrees style='horizontal' returns a ggplot with x = depth", {
   tr <- mk_plot_tree()
   p  <- plot(tr, style = "horizontal")
   expect_s3_class(p, "ggplot")
@@ -48,7 +48,7 @@ test_that("plot.transitrees style='horizontal' returns a ggplot with x = depth",
   expect_true(all(body_layer$data$x == as.integer(body_layer$data$x)))
 })
 
-test_that("plot.transitrees style='horizontal' accepts custom size ranges", {
+test_that("plot.transitiontrees style='horizontal' accepts custom size ranges", {
   tr <- mk_plot_tree()
   p  <- plot(tr, style = "horizontal",
              point_size_range = c(3, 12),
@@ -56,7 +56,7 @@ test_that("plot.transitrees style='horizontal' accepts custom size ranges", {
   expect_s3_class(p, "ggplot")
 })
 
-test_that("plot.transitrees style='icicle' returns a ggplot when ggraph + tidygraph are installed", {
+test_that("plot.transitiontrees style='icicle' returns a ggplot when ggraph + tidygraph are installed", {
   skip_if_not_installed("ggraph")
   skip_if_not_installed("tidygraph")
   tr <- mk_plot_tree()
@@ -64,7 +64,7 @@ test_that("plot.transitrees style='icicle' returns a ggplot when ggraph + tidygr
   expect_s3_class(p, "ggplot")
 })
 
-test_that("plot.transitrees style='interactive' returns an htmlwidget with sized nodes and edges", {
+test_that("plot.transitiontrees style='interactive' returns an htmlwidget with sized nodes and edges", {
   skip_if_not_installed("visNetwork")
   tr <- mk_plot_tree()
   w  <- plot(tr, style = "interactive")
@@ -77,7 +77,7 @@ test_that("plot.transitrees style='interactive' returns an htmlwidget with sized
   expect_true(all(w$x$edges$width >= 1  & w$x$edges$width <= 10))
 })
 
-test_that("plot.transitrees style='icicle' uses size-based abbreviation", {
+test_that("plot.transitiontrees style='icicle' uses size-based abbreviation", {
   skip_if_not_installed("ggraph")
   skip_if_not_installed("tidygraph")
   set.seed(7)
@@ -119,7 +119,7 @@ test_that("plot.transitrees style='icicle' uses size-based abbreviation", {
     expect_true(all(nchar(small$label_text) <= 3L))
 })
 
-test_that("plot.transitrees style='icicle' respects override args", {
+test_that("plot.transitiontrees style='icicle' respects override args", {
   skip_if_not_installed("ggraph")
   skip_if_not_installed("tidygraph")
   set.seed(7)
@@ -153,7 +153,7 @@ test_that("plot.transitrees style='icicle' respects override args", {
   expect_s3_class(p_gap, "ggplot")
 })
 
-test_that("plot.transitrees errors on unrecognised style", {
+test_that("plot.transitiontrees errors on unrecognised style", {
   tr <- mk_plot_tree()
   expect_error(plot(tr, style = "sankey"))
   expect_error(plot(tr, style = "treemap"))

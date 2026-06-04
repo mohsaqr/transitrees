@@ -7,7 +7,7 @@
 sharp_pathways(tree, top = 10L, min_count = 1L)
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitiontrees}.}
 
 \item{top}{Integer. Number of pathways to return. Default 10.}
 

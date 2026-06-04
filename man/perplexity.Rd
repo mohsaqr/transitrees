@@ -7,7 +7,7 @@
 perplexity(tree, newdata = NULL)
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitiontrees}.}
 
 \item{newdata}{Sequence data; \code{NULL} (default) returns
 in-sample perplexity.}

@@ -1,4 +1,4 @@
-# ---- Smoothing schemes for transitreess ----
+# ---- Smoothing schemes for transitiontrees ----
 #
 # Implements:
 #   .smooth_floor          - floor MLE at ymin (PST-compatible "interpolate"
@@ -22,7 +22,7 @@
 #'     every state observed are left as the raw MLE. This is the floor
 #'     used by the archived \pkg{PST} package.
 #'   \item \code{"cap"}: clamp every probability up to \code{ymin} and
-#'     renormalise (\code{pmax(p, ymin) / sum(...)}). transitrees's original
+#'     renormalise (\code{pmax(p, ymin) / sum(...)}). transitiontrees's original
 #'     rule; kept available for back-compatibility.
 #' }
 #' @noRd
@@ -225,7 +225,7 @@
 #' scheme without refitting the tree. Walks nodes top-down by depth so
 #' each node's parent is re-smoothed before its children read it.
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitiontrees}.
 #' @param smoothing Smoothing specification: either a method name as a
 #'   string (uses defaults for that method's hyperparameters) or a list
 #'   of the form \code{list(method, ...kwargs)} for explicit
@@ -234,12 +234,12 @@
 #'   (\code{discount = 0.75}), \code{"witten_bell"},
 #'   \code{"jelinek_mercer"} (\code{lambda = 0.5}).
 #'
-#' @return A new \code{transitrees} with re-smoothed probabilities. Counts
+#' @return A new \code{transitiontrees} with re-smoothed probabilities. Counts
 #'   and topology are unchanged.
 #'
 #' @details
 #' For \code{"kneser_ney"} the canonical continuation-distribution
-#' formulation requires per-state \emph{type counts}. transitrees does
+#' formulation requires per-state \emph{type counts}. transitiontrees does
 #' not track these; the implementation uses the parent's smoothed
 #' probability as the back-off distribution, an approximation
 #' discussed in Begleiter, El-Yaniv & Yona (2004), \emph{JAIR} 22, §3.
@@ -254,13 +254,13 @@
 #' }
 #' @export
 smooth_tree <- function(tree, smoothing = "floor") {
-  ## A transitrees_group re-smooths each member, preserving the wrapper.
-  if (inherits(tree, "transitrees_group")) {
+  ## A transitiontrees_group re-smooths each member, preserving the wrapper.
+  if (inherits(tree, "transitiontrees_group")) {
     out <- lapply(tree, smooth_tree, smoothing = smoothing)
     return(structure(out, class = class(tree),
                      group = attr(tree, "group")))
   }
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   sm <- .pt_resolve_smoothing(smoothing)
 
   ## Re-smooth shallow-to-deep: this loop carries a true sequential
@@ -304,7 +304,7 @@ smooth_tree <- function(tree, smoothing = "floor") {
 #'   \code{\link{context_tree}} (wide matrix / data.frame, list of
 #'   character vectors, TraMineR \code{stslist}, or a
 #'   \code{mohsaqr}-family network object) — fitted afresh under each
-#'   scheme — \strong{or} an already-fitted \code{transitrees}, which is
+#'   scheme — \strong{or} an already-fitted \code{transitiontrees}, which is
 #'   \emph{re-smoothed} under each scheme (topology frozen, no
 #'   re-count; e.g. to sweep smoothers on a pruned tree).
 #' @param smoothing Character vector of smoothing-method names to
@@ -341,7 +341,7 @@ compare_smoothing <- function(data,
          call. = FALSE)
   ## A fitted tree is re-smoothed (topology frozen, no re-count); raw
   ## data is fitted afresh under each scheme.
-  fits <- if (inherits(data, "transitrees"))
+  fits <- if (inherits(data, "transitiontrees"))
     lapply(smoothing, function(s) smooth_tree(data, s))
   else
     lapply(smoothing, function(s) context_tree(data, smoothing = s, ...))

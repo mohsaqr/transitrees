@@ -14,7 +14,8 @@ prepare_input(
   time_threshold = 900,
   format = NULL,
   is_unix_time = FALSE,
-  unix_time_unit = c("seconds", "milliseconds", "microseconds")
+  unix_time_unit = c("seconds", "milliseconds", "microseconds"),
+  meta = NULL
 )
 }
 \arguments{
@@ -53,12 +54,21 @@ time. Default \code{FALSE}.}
 
 \item{unix_time_unit}{One of \code{"seconds"} (default),
 \code{"milliseconds"}, \code{"microseconds"}.}
+
+\item{meta}{Optional character vector of column names to carry through
+the reshape as per-sequence metadata (one value per session, the
+first event's). Returned as a \code{data.frame} on the
+\code{"meta"} attribute of the result, aligned to its rows. Used by
+\code{\link{context_tree}()} to align column-name \code{group}/
+\code{block} to the wide rows. Default \code{NULL}.}
 }
 \value{
 A wide character \code{data.frame}, one row per sequence
   (session), columns \code{T1, T2, ...} holding the ordered states and
   trailing \code{NA}s past the end of each sequence. Row names are the
-  session ids. Pass it straight to \code{\link{context_tree}()}.
+  session ids. When \code{meta} is given, an aligned per-sequence
+  metadata \code{data.frame} is attached as \code{attr(., "meta")}.
+  Pass it straight to \code{\link{context_tree}()}.
 }
 \description{
 Turns a long, one-row-per-event table into the wide, one-row-per-

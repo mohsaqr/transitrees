@@ -7,7 +7,7 @@
 smooth_tree(tree, smoothing = "floor")
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitiontrees}.}
 
 \item{smoothing}{Smoothing specification: either a method name as a
 string (uses defaults for that method's hyperparameters) or a list
@@ -18,7 +18,7 @@ hyperparameters. Available methods: \code{"floor"} (\code{ymin =
 \code{"jelinek_mercer"} (\code{lambda = 0.5}).}
 }
 \value{
-A new \code{transitrees} with re-smoothed probabilities. Counts
+A new \code{transitiontrees} with re-smoothed probabilities. Counts
   and topology are unchanged.
 }
 \description{
@@ -28,7 +28,7 @@ each node's parent is re-smoothed before its children read it.
 }
 \details{
 For \code{"kneser_ney"} the canonical continuation-distribution
-formulation requires per-state \emph{type counts}. transitrees does
+formulation requires per-state \emph{type counts}. transitiontrees does
 not track these; the implementation uses the parent's smoothed
 probability as the back-off distribution, an approximation
 discussed in Begleiter, El-Yaniv & Yona (2004), \emph{JAIR} 22, §3.

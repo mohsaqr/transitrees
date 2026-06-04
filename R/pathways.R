@@ -28,7 +28,7 @@
 #' Renamed from \code{pathways()} to avoid collision with
 #' \code{Nestimate::pathways}.
 #'
-#' @param tree A \code{transitrees} object.
+#' @param tree A \code{transitiontrees} object.
 #' @param min_count Integer. Drop pathways with fewer than this many
 #'   occurrences. Default 1.
 #' @param sort_by Character. One of \code{"count"} (default),
@@ -68,7 +68,7 @@
 tree_pathways <- function(tree, min_count = 1L,
                               sort_by = c("count", "divergence", "depth"),
                               decreasing = TRUE, ...) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   sort_by   <- match.arg(sort_by)
   min_count <- as.integer(min_count)
 
@@ -145,7 +145,7 @@ tree_pathways <- function(tree, min_count = 1L,
 #' Returns the top \code{n} pathways by occurrence count -- the
 #' trajectories the data actually contains many copies of.
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitiontrees}.
 #' @param top Integer. Number of pathways to return. Default 10.
 #' @param depth Integer or NULL. Restrict to pathways of this exact
 #'   depth. \code{NULL} (default) keeps all depths.
@@ -165,7 +165,7 @@ tree_pathways <- function(tree, min_count = 1L,
 #'
 #' @export
 common_pathways <- function(tree, top = 10L, depth = NULL, min_count = 1L) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   out <- tree_pathways(tree, min_count = min_count, sort_by = "count",
                            decreasing = TRUE)
   if (!is.null(depth))
@@ -182,7 +182,7 @@ common_pathways <- function(tree, top = 10L, depth = NULL, min_count = 1L) {
 #' Pathways whose most likely next state actually flips between orders
 #' are marked in the \code{changes_prediction} column.
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitiontrees}.
 #' @param top Integer. Number of pathways to return. Default 10.
 #' @param min_count Integer. Drop pathways with fewer than this many
 #'   occurrences. Default 1.
@@ -205,7 +205,7 @@ common_pathways <- function(tree, top = 10L, depth = NULL, min_count = 1L) {
 #' @export
 divergent_pathways <- function(tree, top = 10L, min_count = 1L,
                                flips_only = FALSE) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   out <- tree_pathways(tree, min_count = min_count,
                            sort_by = "divergence", decreasing = TRUE)
   out <- out[!is.na(out$divergence), , drop = FALSE]
@@ -223,7 +223,7 @@ divergent_pathways <- function(tree, top = 10L, min_count = 1L,
 #' strongly deterministic continuations; low values indicate
 #' ambiguous next-state distributions.
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitiontrees}.
 #' @param top Integer. Number of pathways to return. Default 10.
 #' @param min_count Integer. Drop pathways with fewer than this many
 #'   occurrences. Default 1.
@@ -241,7 +241,7 @@ divergent_pathways <- function(tree, top = 10L, min_count = 1L,
 #'
 #' @export
 sharp_pathways <- function(tree, top = 10L, min_count = 1L) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   out <- tree_pathways(tree, min_count = min_count, sort_by = "count")
   out <- out[order(-out$next_probability), , drop = FALSE]
   rownames(out) <- NULL

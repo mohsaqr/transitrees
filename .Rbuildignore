@@ -17,3 +17,5 @@
 ^README\.html$
 ^pathtree_human_ai_demo\.html$
 ^PARITY\.md$
+^\.playwright-mcp$
+^.*\.tar\.gz$

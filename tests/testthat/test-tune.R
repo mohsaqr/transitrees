@@ -6,12 +6,12 @@ mk_iid_data <- function(n = 60, len = 14, seed = 1,
   matrix(sample(states, n * len, replace = TRUE), n, len)
 }
 
-test_that("tune_tree returns a sorted transitrees_tune data.frame", {
+test_that("tune_tree returns a sorted transitiontrees_tune data.frame", {
   m <- mk_iid_data()
   tg <- tune_tree(m, max_depth = 1L:2L, min_count = c(3L, 5L),
                       smoothing = "floor",
                       prune = c(FALSE, TRUE), folds = 3L)
-  expect_s3_class(tg, "transitrees_tune")
+  expect_s3_class(tg, "transitiontrees_tune")
   expect_s3_class(tg, "data.frame")
   expect_named(tg, c("max_depth", "nmin", "smoothing", "prune",
                      "logLik", "n_scored", "perplexity", "n_nodes_avg"))
@@ -41,7 +41,7 @@ test_that("tune_tree print method runs without error", {
   m <- mk_iid_data()
   tg <- tune_tree(m, max_depth = 1L, min_count = 3L,
                       smoothing = "floor", prune = FALSE, folds = 3L)
-  expect_output(print(tg), "<transitrees_tune>")
+  expect_output(print(tg), "<transitiontrees_tune>")
   expect_output(print(tg), "best")
 })
 
@@ -56,7 +56,7 @@ test_that("tune_tree is reproducible across calls with same seed", {
   expect_equal(a$perplexity, b$perplexity)
 })
 
-test_that("plot.transitrees_tune returns a ggplot", {
+test_that("plot.transitiontrees_tune returns a ggplot", {
   m <- mk_iid_data()
   tg <- tune_tree(m, max_depth = 1L:2L, min_count = c(3L, 5L),
                       smoothing = "floor",

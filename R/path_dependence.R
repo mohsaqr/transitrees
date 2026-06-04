@@ -30,7 +30,7 @@
 #' Renamed from \code{path_dependence()} to avoid collision with
 #' \code{Nestimate::path_dependence}.
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitiontrees}.
 #' @param base Numeric. Logarithm base for the KL divergence. Default
 #'   2 (bits). Use \code{exp(1)} for nats or \code{10} for hartleys.
 #' @param sort_by Character. Column to sort by, descending. One of
@@ -81,7 +81,7 @@ tree_dependence <- function(tree, base = 2,
                                 sort_by = c("divergence", "entropy_drop",
                                             "entropy", "count", "depth"),
                                 top = NULL) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   stopifnot(is.numeric(base), length(base) == 1L, base > 0, base != 1)
   sort_by <- match.arg(sort_by)
 

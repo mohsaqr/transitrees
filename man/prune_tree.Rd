@@ -12,7 +12,7 @@ prune_tree(
 )
 }
 \arguments{
-\item{tree}{A \code{transitrees}, or a \code{transitrees_group}, in
+\item{tree}{A \code{transitiontrees}, or a \code{transitiontrees_group}, in
 which case each member is pruned and the group wrapper is
 preserved.}
 
@@ -28,7 +28,7 @@ ignored otherwise. Default 0.05.}
 \code{"KL"}; ignored otherwise. Default 0.005.}
 }
 \value{
-A pruned \code{transitrees} with \code{tree$pruned = TRUE} and
+A pruned \code{transitiontrees} with \code{tree$pruned = TRUE} and
   \code{tree$pruning} carrying the criterion + threshold settings.
 }
 \description{

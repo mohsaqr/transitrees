@@ -1,8 +1,8 @@
 # ---- Likelihood, perplexity, and stats S3 generics ----
 #
 # Implements:
-#   logLik.transitrees   - in-sample if newdata = NULL, held-out otherwise
-#   nobs.transitrees
+#   logLik.transitiontrees   - in-sample if newdata = NULL, held-out otherwise
+#   nobs.transitiontrees
 #   perplexity()      - exp(- ll / n)
 #   score_sequences() - per-sequence log-lik
 #   score_positions() - per-position log-lik
@@ -109,7 +109,7 @@
 #' \code{score_sequences()}, and \code{score_positions()} inherit the
 #' same behaviour.
 #'
-#' @param object A \code{transitrees}.
+#' @param object A \code{transitiontrees}.
 #' @param newdata Optional. Sequence data in any format accepted by
 #'   \code{context_tree()}. \code{NULL} (default) returns in-sample
 #'   log-likelihood.
@@ -126,7 +126,7 @@
 #' AIC(tree); BIC(tree)
 #' }
 #' @export
-logLik.transitrees <- function(object, newdata = NULL, ...) {
+logLik.transitiontrees <- function(object, newdata = NULL, ...) {
   alpha_size <- length(object$alphabet)
   df <- length(object$nodes) * (alpha_size - 1L)
   if (is.null(newdata)) {
@@ -143,16 +143,16 @@ logLik.transitrees <- function(object, newdata = NULL, ...) {
 
 #' Number of Observations Used to Fit a Pathtree
 #'
-#' @param object A \code{transitrees}.
+#' @param object A \code{transitiontrees}.
 #' @param ... Ignored.
 #' @return Integer. The total number of state observations recorded
 #'   when the tree was fitted. This training-set count can exceed the
 #'   \code{"nobs"} attribute returned by
-#'   \code{\link{logLik.transitrees}()}, which counts only the
+#'   \code{\link{logLik.transitiontrees}()}, which counts only the
 #'   positions actually scored (e.g. excluding states outside the
 #'   tree's alphabet).
 #' @export
-nobs.transitrees <- function(object, ...) {
+nobs.transitiontrees <- function(object, ...) {
   as.integer(object$n_obs)
 }
 
@@ -166,7 +166,7 @@ nobs.transitrees <- function(object, ...) {
 #' \eqn{k = |S|} is the uniform baseline; \eqn{k = 1} is perfect
 #' deterministic prediction.
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitiontrees}.
 #' @param newdata Sequence data; \code{NULL} (default) returns
 #'   in-sample perplexity.
 #' @return Numeric scalar.
@@ -178,8 +178,8 @@ nobs.transitrees <- function(object, ...) {
 #' }
 #' @export
 perplexity <- function(tree, newdata = NULL) {
-  stopifnot(inherits(tree, "transitrees"))
-  ll <- logLik.transitrees(tree, newdata = newdata)
+  stopifnot(inherits(tree, "transitiontrees"))
+  ll <- logLik.transitiontrees(tree, newdata = newdata)
   n  <- attr(ll, "nobs")
   if (n == 0L) return(NA_real_)
   exp(-as.numeric(ll) / n)
@@ -192,7 +192,7 @@ perplexity <- function(tree, newdata = NULL) {
 #' number of scored positions, and per-sequence perplexity
 #' (\code{exp(-log_lik / n_scored)}).
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitiontrees}.
 #' @param newdata Sequence data.
 #' @return A data.frame with columns \code{sequence_id},
 #'   \code{n_scored}, \code{log_lik}, \code{perplexity}.
@@ -205,7 +205,7 @@ perplexity <- function(tree, newdata = NULL) {
 #' score_sequences(tree, new)
 #' @export
 score_sequences <- function(tree, newdata) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   pos <- .pt_score_walk(tree, newdata)
   if (nrow(pos) == 0L)
     return(data.frame(sequence_id = integer(0), n_scored = integer(0),
@@ -233,7 +233,7 @@ score_sequences <- function(tree, newdata) {
 #' log-likelihood contribution. Useful for diagnostic plots showing
 #' where the model is confident vs. surprised.
 #'
-#' @param tree A \code{transitrees}.
+#' @param tree A \code{transitiontrees}.
 #' @param newdata Sequence data.
 #' @param worst Integer or \code{NULL}. If given, return only the
 #'   \code{worst} positions — those with the lowest
@@ -251,7 +251,7 @@ score_sequences <- function(tree, newdata) {
 #' score_positions(tree, new, worst = 5L)
 #' @export
 score_positions <- function(tree, newdata, worst = NULL) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   out <- .pt_score_walk(tree, newdata)
   if (!is.null(worst) && nrow(out) > 0L) {
     out <- out[order(out$predicted_prob), , drop = FALSE]
@@ -273,15 +273,15 @@ score_positions <- function(tree, newdata, worst = NULL) {
 #' @details
 #' With \code{newdata}, every scalar is computed \strong{out-of-sample}
 #' (\code{AIC}/\code{BIC} use the held-out deviance with the model's
-#' training \code{df}). A \code{transitrees_group} returns one row per
+#' training \code{df}). A \code{transitiontrees_group} returns one row per
 #' group, tagged with a leading \code{group} column.
 #'
-#' @param tree A \code{transitrees} or \code{transitrees_group}.
+#' @param tree A \code{transitiontrees} or \code{transitiontrees_group}.
 #' @param newdata Optional sequence data. If supplied, the scalars are
 #'   evaluated on it (held-out); if \code{NULL} (default), in-sample.
 #'
 #' @return A one-row \code{data.frame} (one row per group for a
-#'   \code{transitrees_group}) with columns \code{logLik}, \code{df},
+#'   \code{transitiontrees_group}) with columns \code{logLik}, \code{df},
 #'   \code{nobs}, \code{AIC}, \code{BIC}, \code{perplexity}.
 #'
 #' @examples
@@ -292,10 +292,10 @@ score_positions <- function(tree, newdata, worst = NULL) {
 #' model_fit(tree)
 #' }
 #'
-#' @seealso \code{\link{perplexity}}, \code{\link{logLik.transitrees}}.
+#' @seealso \code{\link{perplexity}}, \code{\link{logLik.transitiontrees}}.
 #' @export
 model_fit <- function(tree, newdata = NULL) {
-  if (inherits(tree, "transitrees_group")) {
+  if (inherits(tree, "transitiontrees_group")) {
     parts <- lapply(names(tree), function(nm)
       cbind(group = nm, model_fit(tree[[nm]], newdata = newdata),
             stringsAsFactors = FALSE))
@@ -303,7 +303,7 @@ model_fit <- function(tree, newdata = NULL) {
     rownames(out) <- NULL
     return(out)
   }
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   ll  <- logLik(tree, newdata = newdata)
   df  <- attr(ll, "df")
   n   <- attr(ll, "nobs")
@@ -335,8 +335,8 @@ model_fit <- function(tree, newdata = NULL) {
 #' The count of contexts the tree represents — an intuitive accessor for
 #' \code{length(tree$nodes)} (the number printed in the tree banner).
 #'
-#' @param tree A \code{transitrees} or \code{transitrees_group}.
-#' @return An integer. For a \code{transitrees_group}, a named integer
+#' @param tree A \code{transitiontrees} or \code{transitiontrees_group}.
+#' @return An integer. For a \code{transitiontrees_group}, a named integer
 #'   vector with one count per group.
 #'
 #' @examples
@@ -347,8 +347,8 @@ model_fit <- function(tree, newdata = NULL) {
 #' }
 #' @export
 n_nodes <- function(tree) {
-  if (inherits(tree, "transitrees_group"))
+  if (inherits(tree, "transitiontrees_group"))
     return(vapply(tree, function(t) length(t$nodes), integer(1)))
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   length(tree$nodes)
 }

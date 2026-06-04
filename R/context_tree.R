@@ -13,7 +13,7 @@
 
 #' Is this a Dynalytics / \code{mohsaqr}-family model object?
 #'
-#' transitrees is a sibling of \code{Nestimate}, \code{cograph},
+#' transitiontrees is a sibling of \code{Nestimate}, \code{cograph},
 #' \code{tna}, \code{codyna}, \code{temporal}, \code{Saqrlab},
 #' \code{Snakeplot}, so it takes their model objects directly. Detected
 #' by known class — \code{netobject} (Nestimate),
@@ -131,7 +131,7 @@
           stop("Integer-coded sequence frame has positional state ",
                "code(s) outside 1..", length(lk$labels), " (the ",
                "label set): ", paste(sort(unique(codes[bad])),
-                                      collapse = ", "), ". transitrees ",
+                                      collapse = ", "), ". transitiontrees ",
                "reads positional $labels as 1-based (code k = state ",
                "k); recode to 1-based or supply a $nodes id/label ",
                "table.", call. = FALSE)
@@ -175,7 +175,7 @@
     stop("This ", cls, " object carries no sequence data anywhere ",
          "(no usable $data / $sequences / $seqdata / embedded ",
          "netobject). It looks like a pure graph - an aggregated ",
-         "transition network - and transitrees fits on raw sequences, ",
+         "transition network - and transitiontrees fits on raw sequences, ",
          "not on aggregated transitions: the original sequences ",
          "cannot be recovered from edge weights (the same reason ",
          "numeric transition matrices are rejected). Pass the ",
@@ -201,7 +201,7 @@
 #' single network object is not a group (it is detected as a single).
 #' @noRd
 .ct_is_group <- function(x) {
-  if (inherits(x, c("netobject_group", "group_tna", "transitrees_group")))
+  if (inherits(x, c("netobject_group", "group_tna", "transitiontrees_group")))
     return(TRUE)
   if (is.list(x) && !is.data.frame(x) && !.ct_is_netobject(x) &&
       length(x) > 0L) {
@@ -306,10 +306,10 @@
   lapply(parts$idx, function(ix) weights[ix])
 }
 
-#' Assemble a list of fitted trees into a \code{transitrees_group}.
+#' Assemble a list of fitted trees into a \code{transitiontrees_group}.
 #' @noRd
 .ct_as_group <- function(trees, group_var) {
-  structure(trees, class = c("transitrees_group", "list"),
+  structure(trees, class = c("transitiontrees_group", "list"),
             group = if (is.null(group_var)) NA_character_ else group_var)
 }
 
@@ -537,14 +537,22 @@
 #'   to the number of input rows / list elements. If \code{NULL}
 #'   (default) and \code{data} is a TraMineR \code{stslist} carrying
 #'   weights, those are auto-detected.
-#' @param group Optional grouping for a \strong{batch fit}. Either a
-#'   character scalar naming a column of a network object's
-#'   \code{$metadata}, or a vector with one entry per input sequence.
-#'   When supplied (or when \code{data} is itself a grouped family
-#'   object such as a Nestimate \code{netobject_group} or a \pkg{tna}
-#'   \code{group_tna}), \code{context_tree()} fits one tree per group
-#'   over a shared alphabet and returns a \code{transitrees_group} (a named
-#'   list of \code{transitrees}s). Default \code{NULL} (single tree).
+#' @param group Optional grouping for a \strong{batch fit}: a vector with
+#'   one entry per input sequence, a column name of a network object's
+#'   \code{$metadata}, or --- in long-format mode (\code{action} given)
+#'   --- a column name of \code{data} (collapsed to one value per
+#'   sequence). When supplied (or when \code{data} is itself a grouped
+#'   family object such as a Nestimate \code{netobject_group} or a
+#'   \pkg{tna} \code{group_tna}), \code{context_tree()} fits one tree per
+#'   group over a shared alphabet and returns a \code{transitiontrees_group}
+#'   (a named list of \code{transitiontrees}s). Default \code{NULL} (single
+#'   tree).
+#' @param block Optional block id for a stratified group comparison, in
+#'   the same shapes as \code{group} (per-sequence vector, or a column
+#'   name of \code{data} in long-format mode). Carried on the returned
+#'   \code{transitiontrees_group} and used automatically by
+#'   \code{\link{compare_groups}()} so the caller never re-aligns it.
+#'   Only meaningful alongside \code{group}. Default \code{NULL}.
 #' @param action Character. Naming a state/code column switches
 #'   \code{data} to \strong{long-format} mode: it is reshaped to a wide
 #'   sequence frame with \code{\link{prepare_input}()} before fitting.
@@ -558,12 +566,12 @@
 #'   (\code{session}), and the gap in seconds that starts a new session
 #'   (\code{time_threshold}, default 900).
 #'
-#' @return For a single fit, a \code{transitrees} object (described below).
+#' @return For a single fit, a \code{transitiontrees} object (described below).
 #'   For a grouped fit (\code{group =} supplied, or a grouped family
-#'   object passed in) a \code{transitrees_group}: a named list of
-#'   \code{transitrees}s, one per group, in the group's key order, with its
+#'   object passed in) a \code{transitiontrees_group}: a named list of
+#'   \code{transitiontrees}s, one per group, in the group's key order, with its
 #'   own \code{print} and \code{as.data.frame} methods. A single
-#'   \code{transitrees} is a list with components
+#'   \code{transitiontrees} is a list with components
 #' \describe{
 #'   \item{nodes}{Named list of node descriptors. Names are context
 #'     strings (e.g. \code{"A -> B"}); the root is keyed by the literal
@@ -619,6 +627,7 @@ context_tree <- function(data,
                          alphabet  = NULL,
                          weights   = NULL,
                          group     = NULL,
+                         block     = NULL,
                          actor = NULL, time = NULL, action = NULL,
                          order = NULL, session = NULL,
                          time_threshold = 900) {
@@ -630,6 +639,22 @@ context_tree <- function(data,
       is.na(min_count) || min_count < 1)
     stop("'min_count' must be a single integer >= 1.", call. = FALSE)
 
+  ## ---- Long-format `group` / `block` as column names ------------------
+  ## In long mode, `group` and `block` may simply name columns of `data`;
+  ## prepare_input() carries them through the reshape as per-sequence
+  ## metadata aligned to the wide rows (one value per sequence), so the
+  ## caller never hand-builds or re-aligns a vector. This works for every
+  ## reshape path (time/session sessionization included), because the
+  ## alignment is produced by the reshape itself, not re-derived from the
+  ## actor key.
+  long_mode <- !is.null(action) && is.data.frame(data)
+  is_str <- function(x) is.character(x) && length(x) == 1L
+  grp_col <- if (long_mode && is_str(group)) group else NULL
+  blk_col <- if (long_mode && is_str(block)) block else NULL
+  for (cn in c(grp_col, blk_col))
+    if (!cn %in% names(data))
+      stop("'", cn, "' is not a column of 'data'.", call. = FALSE)
+
   ## ---- Long-format input: reshape to a wide sequence frame first ------
   ## When `action` (the state column) is named, `data` is treated as a
   ## long, one-row-per-event table and reshaped with prepare_input() --
@@ -637,14 +662,17 @@ context_tree <- function(data,
   ## actor's events into sessions when the time gap exceeds
   ## `time_threshold`. Everything below then fits on the wide frame.
   data <- .ct_maybe_reshape(data, actor, time, action, order, session,
-                            time_threshold)
+                            time_threshold,
+                            meta = unique(c(grp_col, blk_col)))
+  if (!is.null(grp_col)) group <- attr(data, "meta")[[grp_col]]
+  if (!is.null(blk_col)) block <- attr(data, "meta")[[blk_col]]
 
-  ## ---- Grouped fit -> a transitrees_group (one tree per group) ----------
+  ## ---- Grouped fit -> a transitiontrees_group (one tree per group) ----------
   ## A grouped family object (netobject_group / group_tna / a named list
   ## of family objects) dispatches over its elements; an explicit
   ## group = (a metadata column name or a per-sequence vector) splits a
   ## single dataset. Both share one alphabet so the trees are
-  ## comparable, and return a transitrees_group.
+  ## comparable, and return a transitiontrees_group.
   if (.ct_is_group(data)) {
     if (!is.null(group))
       stop("Pass either a grouped object or 'group =', not both.",
@@ -672,6 +700,19 @@ context_tree <- function(data,
       context_tree(d, max_depth = max_depth, min_count = min_count,
                    smoothing = smoothing, alphabet = alpha, weights = w),
       parts$subsets, w_by_group)
+    ## Carry the block id on each member tree, aligned to that member's
+    ## own rows. compare_groups() filters it through the same row-drop as
+    ## the fit (.ct_traj), so it stays aligned even when empty sequences
+    ## are dropped, and it survives group subsetting (the attribute lives
+    ## with the tree, not on the list).
+    if (!is.null(block)) {
+      if (length(block) != parts$n)
+        stop("'block' must have one entry per input sequence (got ",
+             length(block), ", expected ", parts$n, ").", call. = FALSE)
+      trees <- Map(function(tr, ix) {
+        attr(tr, "block") <- block[ix]; tr
+      }, trees, parts$idx)
+    }
     return(.ct_as_group(trees, parts$var))
   }
 
@@ -767,7 +808,7 @@ context_tree <- function(data,
       pruning    = NULL,
       data       = trajs
     ),
-    class = "transitrees"
+    class = "transitiontrees"
   )
 }
 
@@ -779,7 +820,7 @@ context_tree <- function(data,
 #' \code{as.data.frame(tree)} and immediately filter, sort, or export
 #' with base-R idioms.
 #'
-#' @param x A \code{transitrees}.
+#' @param x A \code{transitiontrees}.
 #' @param row.names,optional Ignored.
 #' @param ... Forwarded to \code{\link{tree_pathways}()}.
 #'
@@ -788,21 +829,21 @@ context_tree <- function(data,
 #'   \code{divergence}, \code{changes_prediction}. See
 #'   \code{\link{tree_pathways}}.
 #' @export
-as.data.frame.transitrees <- function(x, row.names = NULL,
+as.data.frame.transitiontrees <- function(x, row.names = NULL,
                                     optional = FALSE, ...) {
   tree_pathways(x, ...)
 }
 
 #' Print a Group of Context Trees
 #'
-#' @param x A \code{transitrees_group} (named list of \code{transitrees}s).
+#' @param x A \code{transitiontrees_group} (named list of \code{transitiontrees}s).
 #' @param ... Ignored.
 #' @return \code{x} invisibly.
 #' @export
-print.transitrees_group <- function(x, ...) {
+print.transitiontrees_group <- function(x, ...) {
   gv <- attr(x, "group")
   by <- if (!is.null(gv) && !is.na(gv)) sprintf(" by '%s'", gv) else ""
-  cat(sprintf("<transitrees_group>  %d groups%s\n", length(x), by))
+  cat(sprintf("<transitiontrees_group>  %d groups%s\n", length(x), by))
   for (nm in names(x)) {
     t <- x[[nm]]
     cat(sprintf("  %-14s %3d nodes, depth <= %d, %d seq, %d obs%s\n",
@@ -819,14 +860,14 @@ print.transitrees_group <- function(x, ...) {
 #' with a leading \code{group} column, so the whole batch is one tidy
 #' frame ready to filter, facet, or join.
 #'
-#' @param x A \code{transitrees_group}.
+#' @param x A \code{transitiontrees_group}.
 #' @param row.names,optional Ignored.
 #' @param ... Forwarded to \code{\link{tree_pathways}()}.
 #'
 #' @return A data.frame: the canonical pathway columns with a leading
 #'   \code{group} column identifying the source tree.
 #' @export
-as.data.frame.transitrees_group <- function(x, row.names = NULL,
+as.data.frame.transitiontrees_group <- function(x, row.names = NULL,
                                          optional = FALSE, ...) {
   parts <- lapply(names(x), function(nm) {
     d <- tree_pathways(x[[nm]], ...)
@@ -843,17 +884,17 @@ as.data.frame.transitrees_group <- function(x, row.names = NULL,
 
 #' Print a Context Tree
 #'
-#' @param x A \code{transitrees}.
+#' @param x A \code{transitiontrees}.
 #' @param max_lines Integer. Maximum tree-rendering lines. Default 25.
 #' @param digits Integer. Probability digits. Default 2.
 #' @param ... Ignored.
 #' @return \code{x} invisibly.
 #' @export
-print.transitrees <- function(x, max_lines = 25L, digits = 2L, ...) {
+print.transitiontrees <- function(x, max_lines = 25L, digits = 2L, ...) {
   alpha <- x$alphabet
   sm_label <- .pt_smoothing_label(x$smoothing)
   cat(sprintf(
-    "<transitrees>  %d nodes, depth <= %d, %d states  [%s]\n",
+    "<transitiontrees>  %d nodes, depth <= %d, %d states  [%s]\n",
     length(x$nodes), x$max_depth, length(alpha),
     if (isTRUE(x$pruned)) "pruned" else "unpruned"
   ))
@@ -906,9 +947,9 @@ print.transitrees <- function(x, max_lines = 25L, digits = 2L, ...) {
 
 #' Summary of a Context Tree
 #'
-#' @param object A \code{transitrees}.
+#' @param object A \code{transitiontrees}.
 #' @param ... Ignored.
-#' @return A \code{summary.transitrees} object. The \code{$table} slot is
+#' @return A \code{summary.transitiontrees} object. The \code{$table} slot is
 #'   the canonical pathway data.frame from
 #'   \code{\link{tree_pathways}} (columns \code{pathway},
 #'   \code{depth}, \code{count}, \code{likely_next},
@@ -916,7 +957,7 @@ print.transitrees <- function(x, max_lines = 25L, digits = 2L, ...) {
 #'   \code{changes_prediction}), re-sorted by \code{(depth, -count)} so
 #'   the structural tree order is read top-to-bottom.
 #' @export
-summary.transitrees <- function(object, ...) {
+summary.transitiontrees <- function(object, ...) {
   tbl <- tree_pathways(object, min_count = 1L)
   if (nrow(tbl) > 0L) {
     tbl <- tbl[order(tbl$depth, -tbl$count), , drop = FALSE]
@@ -926,13 +967,13 @@ summary.transitrees <- function(object, ...) {
     list(table = tbl, n_states = length(object$alphabet),
          max_depth = object$max_depth, n_nodes = length(object$nodes),
          pruned = isTRUE(object$pruned)),
-    class = "summary.transitrees"
+    class = "summary.transitiontrees"
   )
 }
 
 #' @export
-print.summary.transitrees <- function(x, n = 10L, ...) {
-  cat(sprintf("<transitrees summary>  %d nodes, depth <= %d, %d states  [%s]\n\n",
+print.summary.transitiontrees <- function(x, n = 10L, ...) {
+  cat(sprintf("<transitiontrees summary>  %d nodes, depth <= %d, %d states  [%s]\n\n",
               x$n_nodes, x$max_depth, x$n_states,
               if (x$pruned) "pruned" else "unpruned"))
   tbl <- x$table

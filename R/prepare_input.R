@@ -1,7 +1,7 @@
 # ---- prepare_input(): long-format -> wide sequence frame ----
 #
 # Base-R reimplementation of the long->sequence reshaping done by
-# tna::prepare_data() / Nestimate::build_network(). transitrees stays pure
+# tna::prepare_data() / Nestimate::build_network(). transitiontrees stays pure
 # base R, so the dplyr/tidyr machinery of those packages is replaced by
 # order() / ave() / matrix-indexing, but the session-splitting logic is
 # identical: within each actor, a new session begins when the gap to the
@@ -69,11 +69,19 @@
 #'   time. Default \code{FALSE}.
 #' @param unix_time_unit One of \code{"seconds"} (default),
 #'   \code{"milliseconds"}, \code{"microseconds"}.
+#' @param meta Optional character vector of column names to carry through
+#'   the reshape as per-sequence metadata (one value per session, the
+#'   first event's). Returned as a \code{data.frame} on the
+#'   \code{"meta"} attribute of the result, aligned to its rows. Used by
+#'   \code{\link{context_tree}()} to align column-name \code{group}/
+#'   \code{block} to the wide rows. Default \code{NULL}.
 #'
 #' @return A wide character \code{data.frame}, one row per sequence
 #'   (session), columns \code{T1, T2, ...} holding the ordered states and
 #'   trailing \code{NA}s past the end of each sequence. Row names are the
-#'   session ids. Pass it straight to \code{\link{context_tree}()}.
+#'   session ids. When \code{meta} is given, an aligned per-sequence
+#'   metadata \code{data.frame} is attached as \code{attr(., "meta")}.
+#'   Pass it straight to \code{\link{context_tree}()}.
 #'
 #' @examples
 #' long <- data.frame(
@@ -94,12 +102,13 @@ prepare_input <- function(data, actor = NULL, time = NULL, action = NULL,
                          time_threshold = 900,
                          format = NULL, is_unix_time = FALSE,
                          unix_time_unit = c("seconds", "milliseconds",
-                                            "microseconds")) {
+                                            "microseconds"),
+                         meta = NULL) {
   stopifnot(is.data.frame(data), nrow(data) > 0L)
   unix_time_unit <- match.arg(unix_time_unit)
   if (is.null(action) || !action %in% names(data))
     stop("'action' must name a column of 'data'.", call. = FALSE)
-  missing_cols <- setdiff(c(actor, time, order, session), names(data))
+  missing_cols <- setdiff(c(actor, time, order, session, meta), names(data))
   if (length(missing_cols))
     stop("'", paste(missing_cols, collapse = "', '"),
          "' is not a column of 'data'.", call. = FALSE)
@@ -158,7 +167,18 @@ prepare_input <- function(data, actor = NULL, time = NULL, action = NULL,
   wide <- matrix(NA_character_, length(sessions), max_len,
                  dimnames = list(sessions, paste0("T", seq_len(max_len))))
   wide[cbind(match(session_id, sessions), seqpos)] <- act_s
-  as.data.frame(wide, stringsAsFactors = FALSE)
+  out <- as.data.frame(wide, stringsAsFactors = FALSE)
+
+  ## Carry per-sequence metadata through the reshape: one value per
+  ## session (first event's), aligned to the wide rows -- so callers get
+  ## group/block aligned by construction instead of re-deriving it.
+  if (!is.null(meta)) {
+    first  <- !duplicated(session_id)
+    md     <- data[o, meta, drop = FALSE][first, , drop = FALSE]
+    attr(out, "meta") <- md[match(sessions, session_id[first]), ,
+                            drop = FALSE]
+  }
+  out
 }
 
 #' Reshape long-format \code{data} to a wide sequence frame when
@@ -169,11 +189,11 @@ prepare_input <- function(data, actor = NULL, time = NULL, action = NULL,
 #' without \code{action} is an error (the state column must be named).
 #' @noRd
 .ct_maybe_reshape <- function(data, actor, time, action, order, session,
-                              time_threshold) {
+                              time_threshold, meta = NULL) {
   if (!is.null(action))
     return(prepare_input(data, actor = actor, time = time, action = action,
                          order = order, session = session,
-                         time_threshold = time_threshold))
+                         time_threshold = time_threshold, meta = meta))
   if (!is.null(actor) || !is.null(time) || !is.null(session) ||
       !is.null(order))
     stop("To fit from long-format data, name the state column via ",

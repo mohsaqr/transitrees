@@ -15,7 +15,7 @@
 
 test_that("context_tree returns ctxtree with correct fields", {
   tree <- context_tree(.simple_seqs(), max_depth = 2L, min_count = 1L)
-  expect_s3_class(tree, "transitrees")
+  expect_s3_class(tree, "transitiontrees")
   expect_named(tree, c("nodes", "edges", "alphabet",
                        "max_depth", "nmin",
                        "n_seq", "n_obs", "smoothing",
@@ -66,7 +66,7 @@ test_that("context_tree accepts a character matrix", {
   m <- do.call(rbind, lapply(.simple_seqs(),
                               function(x) c(x, rep(NA, 6L - length(x)))))
   tree <- context_tree(m, max_depth = 2L, min_count = 1L)
-  expect_s3_class(tree, "transitrees")
+  expect_s3_class(tree, "transitiontrees")
   expect_setequal(tree$alphabet, c("A", "B"))
 })
 
@@ -76,7 +76,7 @@ test_that("context_tree accepts a wide data.frame", {
                function(x) c(x, rep(NA, 6L - length(x))))),
         stringsAsFactors = FALSE)
   tree <- context_tree(df, max_depth = 2L, min_count = 1L)
-  expect_s3_class(tree, "transitrees")
+  expect_s3_class(tree, "transitiontrees")
 })
 
 test_that("context_tree errors on unusable input", {
@@ -89,12 +89,12 @@ test_that("context_tree errors on unusable input", {
 
 test_that("print and summary dispatch correctly", {
   tree <- context_tree(.simple_seqs(), max_depth = 2L, min_count = 1L)
-  expect_output(print(tree), "<transitrees>")
+  expect_output(print(tree), "<transitiontrees>")
   s <- summary(tree)
-  expect_s3_class(s, "summary.transitrees")
+  expect_s3_class(s, "summary.transitiontrees")
   expect_true(is.data.frame(s$table))
   expect_true(any(s$table$pathway == "(start)"))
-  expect_output(print(s), "transitrees summary")
+  expect_output(print(s), "transitiontrees summary")
 })
 
 test_that("summary(tree)$table carries the canonical 7-column schema", {
@@ -107,7 +107,7 @@ test_that("summary(tree)$table carries the canonical 7-column schema", {
   expect_equal(s$table$depth, sort(s$table$depth))
 })
 
-test_that("as.data.frame.transitrees is the canonical tidy view", {
+test_that("as.data.frame.transitiontrees is the canonical tidy view", {
   tree <- context_tree(.simple_seqs(), max_depth = 2L, min_count = 1L)
   df <- as.data.frame(tree)
   expect_s3_class(df, "data.frame")
@@ -148,7 +148,7 @@ test_that("context_tree accepts a Nestimate netobject via $data", {
   td <- context_tree(no$data, max_depth = 2L, min_count = 1L,
                       alphabet = no$nodes$label)
   drop_call <- function(x) x[setdiff(names(x), "call")]
-  expect_s3_class(tn, "transitrees")
+  expect_s3_class(tn, "transitiontrees")
   expect_equal(drop_call(tn), drop_call(td))
 })
 
@@ -184,7 +184,7 @@ test_that("a cograph_network carrying $data fits as is", {
   tc <- context_tree(cg, max_depth = 2L, min_count = 1L)
   td <- context_tree(no, max_depth = 2L, min_count = 1L)
   drop_call <- function(x) x[setdiff(names(x), "call")]
-  expect_s3_class(tc, "transitrees")
+  expect_s3_class(tc, "transitiontrees")
   expect_equal(drop_call(tc), drop_call(td))
 })
 
@@ -217,7 +217,7 @@ test_that("a tna-style model (class 'tna', $data + $labels) fits direct", {
                             1L, 2L, 1L, NA), nrow = 4)),
     class = "tna")
   tr <- context_tree(tm, max_depth = 2L, min_count = 1L)
-  expect_s3_class(tr, "transitrees")
+  expect_s3_class(tr, "transitiontrees")
   expect_setequal(tr$alphabet, c("plan", "discuss"))
   expect_false(any(c("1", "2") %in% tr$alphabet))   # decoded, not codes
 })
@@ -230,7 +230,7 @@ test_that("an unclassed family-shaped list is detected structurally", {
                                 stringsAsFactors = FALSE),
               labels = c("X", "Y"))
   tr <- context_tree(obj, max_depth = 1L, min_count = 1L)
-  expect_s3_class(tr, "transitrees")
+  expect_s3_class(tr, "transitiontrees")
   expect_setequal(tr$alphabet, c("X", "Y"))
 })
 
@@ -239,7 +239,7 @@ test_that("a plain list of character vectors is NOT mis-detected", {
   ## ragged-list input form.
   lst <- list(c("A","B","A","B"), c("B","A","B","A"))
   tr  <- context_tree(lst, max_depth = 1L, min_count = 1L)
-  expect_s3_class(tr, "transitrees")
+  expect_s3_class(tr, "transitiontrees")
   expect_setequal(tr$alphabet, c("A","B"))
 })
 
@@ -252,7 +252,7 @@ test_that("sequences are extracted from a non-$data slot ($sequences)", {
          nodes = data.frame(label = c("A","B"))),
     class = "cograph_network")
   tr <- context_tree(obj, max_depth = 2L, min_count = 1L)
-  expect_s3_class(tr, "transitrees")
+  expect_s3_class(tr, "transitiontrees")
   expect_setequal(tr$alphabet, c("A","B"))
 })
 
@@ -280,7 +280,7 @@ test_that("integer-coded sequence frame is decoded via $nodes labels", {
                             stringsAsFactors = FALSE)),
     class = c("cograph_network", "list"))
   tr <- context_tree(obj, max_depth = 2L, min_count = 1L)
-  expect_s3_class(tr, "transitrees")
+  expect_s3_class(tr, "transitiontrees")
   expect_setequal(tr$alphabet, c("plan", "discuss"))
   ## decoded, not "1"/"2"
   expect_false(any(c("1", "2") %in% tr$alphabet))

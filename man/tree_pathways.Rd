@@ -13,7 +13,7 @@ tree_pathways(
 )
 }
 \arguments{
-\item{tree}{A \code{transitrees} object.}
+\item{tree}{A \code{transitiontrees} object.}
 
 \item{min_count}{Integer. Drop pathways with fewer than this many
 occurrences. Default 1.}

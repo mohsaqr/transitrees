@@ -7,7 +7,7 @@
 plot_divergence(tree, top = 15L, min_count = 5L, title = NULL, ...)
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitiontrees}.}
 
 \item{top}{Integer. Number of pathways to show. Default 15.}
 

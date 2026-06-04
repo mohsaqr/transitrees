@@ -19,7 +19,7 @@ bootstrap_pathways(
 )
 }
 \arguments{
-\item{tree}{A fitted \code{transitrees} carrying \code{tree$data}.}
+\item{tree}{A fitted \code{transitiontrees} carrying \code{tree$data}.}
 
 \item{iter}{Integer. Number of bootstrap iterations.
 Default \code{1000}.}
@@ -71,7 +71,7 @@ is unaffected.}
 Default \code{FALSE}.}
 }
 \value{
-A \code{transitrees_bootstrap} object: a list with
+A \code{transitiontrees_bootstrap} object: a list with
   \describe{
     \item{summary}{Per-pathway data.frame, sorted so that
       \code{stable & informative} pathways come first then by
@@ -87,7 +87,7 @@ A \code{transitrees_bootstrap} object: a list with
   }
 }
 \description{
-Non-parametric sequence bootstrap for a fitted \code{transitrees}.
+Non-parametric sequence bootstrap for a fitted \code{transitiontrees}.
 Methodologically built on Saqr, Tikka & López-Pernas (2025),
 \code{tna}, extending the edge-level bootstrap framework to
 variable-depth pathways.

@@ -32,3 +32,5 @@ sidelined/
 tests/testthat/Rplots.pdf
 tests/testthat/testthat-problems.rds
 tests/testthat/_problems/
+.playwright-mcp/
+*.tar.gz

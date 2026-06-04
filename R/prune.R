@@ -11,7 +11,7 @@
 #' Renamed from \code{prune()} to avoid collision with
 #' \code{tna::prune}, \code{rpart::prune}, and \code{tree::prune}.
 #'
-#' @param tree A \code{transitrees}, or a \code{transitrees_group}, in
+#' @param tree A \code{transitiontrees}, or a \code{transitiontrees_group}, in
 #'   which case each member is pruned and the group wrapper is
 #'   preserved.
 #' @param criterion One of \code{"G2"} (likelihood-ratio test against
@@ -23,7 +23,7 @@
 #' @param threshold Numeric. Minimum information gain in nats for
 #'   \code{"KL"}; ignored otherwise. Default 0.005.
 #'
-#' @return A pruned \code{transitrees} with \code{tree$pruned = TRUE} and
+#' @return A pruned \code{transitiontrees} with \code{tree$pruned = TRUE} and
 #'   \code{tree$pruning} carrying the criterion + threshold settings.
 #'
 #' @details
@@ -55,14 +55,14 @@
 prune_tree <- function(tree,
                            criterion = c("G2", "KL", "AIC", "BIC"),
                            alpha = 0.05, threshold = 0.005) {
-  ## A transitrees_group prunes each member, preserving the group wrapper.
-  if (inherits(tree, "transitrees_group")) {
+  ## A transitiontrees_group prunes each member, preserving the group wrapper.
+  if (inherits(tree, "transitiontrees_group")) {
     out <- lapply(tree, prune_tree, criterion = criterion,
                   alpha = alpha, threshold = threshold)
     return(structure(out, class = class(tree),
                      group = attr(tree, "group")))
   }
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   criterion <- match.arg(criterion)
 
   ## Critical value for G2: chi-square at (k-1) df
@@ -134,7 +134,7 @@ prune_tree <- function(tree,
 #' wrapper over repeated \code{\link{prune_tree}} calls that
 #' collapses the usual \code{vapply()} criterion loop into one call.
 #'
-#' @param tree A \code{transitrees} (typically unpruned).
+#' @param tree A \code{transitiontrees} (typically unpruned).
 #' @param criterion Character vector of criteria to compare. Defaults
 #'   to all four: \code{"G2"}, \code{"KL"}, \code{"AIC"}, \code{"BIC"}.
 #' @param alpha Significance level for \code{"G2"} (and the AIC/BIC
@@ -163,7 +163,7 @@ prune_tree <- function(tree,
 compare_pruning <- function(tree,
                             criterion = c("G2", "KL", "AIC", "BIC"),
                             alpha = 0.05, threshold = 0.005) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   if (!is.character(criterion) || length(criterion) < 1L)
     stop("'criterion' must be a non-empty character vector of ",
          "criterion names.", call. = FALSE)

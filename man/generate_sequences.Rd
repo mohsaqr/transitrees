@@ -7,7 +7,7 @@
 generate_sequences(tree, n = 5L, length = 10L, start = NULL)
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitiontrees}.}
 
 \item{n}{Integer. Number of sequences to sample.}
 

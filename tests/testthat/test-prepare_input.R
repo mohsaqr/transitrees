@@ -31,7 +31,7 @@ test_that("output is a wide character frame that context_tree() accepts", {
   expect_s3_class(w, "data.frame")
   expect_true(all(grepl("^T[0-9]+$", names(w))))
   tr <- context_tree(w, max_depth = 2L, min_count = 1L)
-  expect_s3_class(tr, "transitrees")
+  expect_s3_class(tr, "transitiontrees")
   expect_setequal(tr$alphabet, c("X", "Y", "Z"))
 })
 
@@ -88,7 +88,7 @@ test_that("context_tree() reshapes long data when action is named", {
   t2 <- context_tree(prepare_input(long, actor = "id", order = "o",
                                    action = "s"),
                      max_depth = 2L, min_count = 1L)
-  expect_s3_class(t1, "transitrees")
+  expect_s3_class(t1, "transitiontrees")
   expect_identical(t1$nodes, t2$nodes)        # one-call == two-step
 })
 
@@ -101,5 +101,5 @@ test_that("context_tree() errors if actor/time given without action", {
 
 test_that("context_tree() on already-wide data is unaffected", {
   m <- matrix(c("A","B","A","B","A","C"), nrow = 2, byrow = TRUE)
-  expect_s3_class(context_tree(m, max_depth = 1L, min_count = 1L), "transitrees")
+  expect_s3_class(context_tree(m, max_depth = 1L, min_count = 1L), "transitiontrees")
 })

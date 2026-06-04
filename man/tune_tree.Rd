@@ -54,7 +54,7 @@ one row per sequence. Default \code{NULL}/900 (data already in
 sequence shape).}
 }
 \value{
-A \code{transitrees_tune} object: a data.frame with one row per
+A \code{transitiontrees_tune} object: a data.frame with one row per
   grid point and columns \code{max_depth}, \code{nmin},
   \code{smoothing}, \code{prune}, \code{logLik}, \code{n_scored},
   \code{perplexity}, \code{n_nodes_avg}, sorted by \code{perplexity}

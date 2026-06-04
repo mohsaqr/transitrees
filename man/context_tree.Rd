@@ -12,6 +12,7 @@ context_tree(
   alphabet = NULL,
   weights = NULL,
   group = NULL,
+  block = NULL,
   actor = NULL,
   time = NULL,
   action = NULL,
@@ -73,14 +74,23 @@ to the number of input rows / list elements. If \code{NULL}
 (default) and \code{data} is a TraMineR \code{stslist} carrying
 weights, those are auto-detected.}
 
-\item{group}{Optional grouping for a \strong{batch fit}. Either a
-character scalar naming a column of a network object's
-\code{$metadata}, or a vector with one entry per input sequence.
-When supplied (or when \code{data} is itself a grouped family
-object such as a Nestimate \code{netobject_group} or a \pkg{tna}
-\code{group_tna}), \code{context_tree()} fits one tree per group
-over a shared alphabet and returns a \code{transitrees_group} (a named
-list of \code{transitrees}s). Default \code{NULL} (single tree).}
+\item{group}{Optional grouping for a \strong{batch fit}: a vector with
+one entry per input sequence, a column name of a network object's
+\code{$metadata}, or --- in long-format mode (\code{action} given)
+--- a column name of \code{data} (collapsed to one value per
+sequence). When supplied (or when \code{data} is itself a grouped
+family object such as a Nestimate \code{netobject_group} or a
+\pkg{tna} \code{group_tna}), \code{context_tree()} fits one tree per
+group over a shared alphabet and returns a \code{transitiontrees_group}
+(a named list of \code{transitiontrees}s). Default \code{NULL} (single
+tree).}
+
+\item{block}{Optional block id for a stratified group comparison, in
+the same shapes as \code{group} (per-sequence vector, or a column
+name of \code{data} in long-format mode). Carried on the returned
+\code{transitiontrees_group} and used automatically by
+\code{\link{compare_groups}()} so the caller never re-aligns it.
+Only meaningful alongside \code{group}. Default \code{NULL}.}
 
 \item{actor, time, order, session, time_threshold}{Passed to
 \code{\link{prepare_input}()} when \code{action} is given: the unit
@@ -97,12 +107,12 @@ Required to use any of \code{actor}/\code{time}/\code{order}/
 shape).}
 }
 \value{
-For a single fit, a \code{transitrees} object (described below).
+For a single fit, a \code{transitiontrees} object (described below).
   For a grouped fit (\code{group =} supplied, or a grouped family
-  object passed in) a \code{transitrees_group}: a named list of
-  \code{transitrees}s, one per group, in the group's key order, with its
+  object passed in) a \code{transitiontrees_group}: a named list of
+  \code{transitiontrees}s, one per group, in the group's key order, with its
   own \code{print} and \code{as.data.frame} methods. A single
-  \code{transitrees} is a list with components
+  \code{transitiontrees} is a list with components
 \describe{
   \item{nodes}{Named list of node descriptors. Names are context
     strings (e.g. \code{"A -> B"}); the root is keyed by the literal

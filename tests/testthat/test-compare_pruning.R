@@ -37,8 +37,8 @@ test_that("reduction_pct is between 0 and 100 and never negative", {
   expect_true(all(res$reduction_pct >= 0 & res$reduction_pct <= 100))
 })
 
-test_that("a non-transitrees or empty criterion errors clearly", {
-  expect_error(compare_pruning(list()), "transitrees")
+test_that("a non-transitiontrees or empty criterion errors clearly", {
+  expect_error(compare_pruning(list()), "transitiontrees")
   expect_error(compare_pruning(.cp_tree(), criterion = character(0)),
                "non-empty character vector")
 })

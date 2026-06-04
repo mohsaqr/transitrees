@@ -1,4 +1,4 @@
 library(testthat)
-library(transitrees)
+library(transitiontrees)
 
-test_check("transitrees")
+test_check("transitiontrees")

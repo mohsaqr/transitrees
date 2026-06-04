@@ -15,7 +15,7 @@ plot_pathways(
 )
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitiontrees}.}
 
 \item{top}{Integer. Maximum number of pathways to show. Default 20.}
 

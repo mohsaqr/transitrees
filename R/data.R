@@ -1,7 +1,7 @@
 #' Student engagement trajectories
 #'
 #' An example set of categorical learning-engagement trajectories used in
-#' the \pkg{transitrees} examples and the \dQuote{trajectories} vignette.
+#' the \pkg{transitiontrees} examples and the \dQuote{trajectories} vignette.
 #' Each row is one learner, each column a time-step, and each cell the
 #' engagement state at that step. Trailing \code{NA}s mark the end of a
 #' trajectory. This wide character matrix is exactly the shape

@@ -83,8 +83,8 @@
 #' }
 #' @export
 tree_distance <- function(tree_a, tree_b, symmetric = TRUE) {
-  stopifnot(inherits(tree_a, "transitrees"),
-            inherits(tree_b, "transitrees"))
+  stopifnot(inherits(tree_a, "transitiontrees"),
+            inherits(tree_b, "transitiontrees"))
   .pt_check_alphabet_compatible(tree_a, tree_b)
 
   bd <- .pt_distance_breakdown(tree_a, tree_b)
@@ -101,21 +101,21 @@ tree_distance <- function(tree_a, tree_b, symmetric = TRUE) {
 #'
 #' @description
 #' Computes the count-weighted symmetric Kullback-Leibler divergence
-#' between two fitted transitreess, then provides a reference distribution
+#' between two fitted transitiontrees, then provides a reference distribution
 #' by permuting sequence-to-tree assignments.
 #'
 #' Use this to ask: do two cohorts (group A vs. group B, baseline vs.
 #' intervention) generate significantly different pathway dynamics?
 #'
 #' @param tree_a,tree_b Pathtrees fit on data subsets A and B.
-#'   Alternatively, pass a two-element \code{transitrees_group} (from
+#'   Alternatively, pass a two-element \code{transitiontrees_group} (from
 #'   \code{context_tree(..., group =)}) as \code{tree_a} and leave
 #'   \code{tree_b = NULL}; its two trees are compared in key order.
 #' @param iter Integer. Number of permutations. Default 200.
 #' @param seed Integer. RNG seed for reproducibility. Default 1.
 #' @param symmetric Logical. Default \code{TRUE}.
 #'
-#' @return A \code{transitrees_comparison} object with components:
+#' @return A \code{transitiontrees_comparison} object with components:
 #' \describe{
 #'   \item{pdist}{observed scalar distance}
 #'   \item{null_dist}{numeric vector, length \code{iter}}
@@ -136,13 +136,13 @@ tree_distance <- function(tree_a, tree_b, symmetric = TRUE) {
 #' @export
 compare_trees <- function(tree_a, tree_b = NULL, iter = 200L,
                               seed = 1L, symmetric = TRUE) {
-  ## A 2-group transitrees_group as the sole argument -> compare its pair.
-  if (inherits(tree_a, "transitrees_group")) {
+  ## A 2-group transitiontrees_group as the sole argument -> compare its pair.
+  if (inherits(tree_a, "transitiontrees_group")) {
     if (!is.null(tree_b))
-      stop("Pass a 2-group 'transitrees_group' as the only tree argument, ",
+      stop("Pass a 2-group 'transitiontrees_group' as the only tree argument, ",
            "not a group plus 'tree_b'.", call. = FALSE)
     if (length(tree_a) != 2L)
-      stop("compare_trees() is pairwise; the transitrees_group must ",
+      stop("compare_trees() is pairwise; the transitiontrees_group must ",
            "have exactly 2 groups (got ", length(tree_a), ").",
            call. = FALSE)
     grp    <- tree_a
@@ -150,10 +150,10 @@ compare_trees <- function(tree_a, tree_b = NULL, iter = 200L,
     tree_b <- grp[[2L]]
   }
   if (is.null(tree_b))
-    stop("'tree_b' is required (or pass a 2-group 'transitrees_group' as ",
+    stop("'tree_b' is required (or pass a 2-group 'transitiontrees_group' as ",
          "the first argument).", call. = FALSE)
-  stopifnot(inherits(tree_a, "transitrees"),
-            inherits(tree_b, "transitrees"))
+  stopifnot(inherits(tree_a, "transitiontrees"),
+            inherits(tree_b, "transitiontrees"))
   if (!is.numeric(iter) || length(iter) != 1L ||
       is.na(iter) || iter < 1)
     stop("'iter' must be a single positive integer.", call. = FALSE)
@@ -197,7 +197,7 @@ compare_trees <- function(tree_a, tree_b = NULL, iter = 200L,
          null_dist = null_dist,
          p_value   = p_value,
          pathways  = pathways),
-    class = "transitrees_comparison"
+    class = "transitiontrees_comparison"
   )
 }
 
@@ -205,16 +205,16 @@ compare_trees <- function(tree_a, tree_b = NULL, iter = 200L,
 #'
 #' @description
 #' Visualises the permutation-test result. Histogram of the null
-#' distribution of transitrees distances under shuffled group labels;
+#' distribution of transitiontrees distances under shuffled group labels;
 #' a vertical line marks the observed distance; the panel header
 #' carries the p-value.
 #'
-#' @param x A \code{transitrees_comparison} object.
+#' @param x A \code{transitiontrees_comparison} object.
 #' @param bins Integer. Histogram bins. Default 30.
 #' @param ... Ignored.
 #' @return A ggplot object.
 #' @export
-plot.transitrees_comparison <- function(x, bins = 30L, ...) {
+plot.transitiontrees_comparison <- function(x, bins = 30L, ...) {
   null_df <- data.frame(d = x$null_dist)
   ggplot2::ggplot(null_df, ggplot2::aes(x = .data$d)) +
     ggplot2::geom_histogram(bins = bins, fill = "#0072B2",
@@ -247,21 +247,21 @@ plot.transitrees_comparison <- function(x, bins = 30L, ...) {
 #' (\code{object$pathways}) — the consumer-facing detail behind the
 #' scalar \code{pdist} and the permutation \code{p_value}.
 #'
-#' @param x A \code{transitrees_comparison}.
+#' @param x A \code{transitiontrees_comparison}.
 #' @param row.names,optional Ignored.
 #' @param ... Ignored.
 #' @return A data.frame with columns \code{pathway}, \code{count_a},
 #'   \code{count_b}, \code{divergence_ab}, \code{divergence_ba},
 #'   \code{divergence_sym}.
 #' @export
-as.data.frame.transitrees_comparison <- function(x, row.names = NULL,
+as.data.frame.transitiontrees_comparison <- function(x, row.names = NULL,
                                                optional = FALSE, ...) {
   x$pathways
 }
 
 #' Print a Pathtree Comparison
 #'
-#' @param x A \code{transitrees_comparison} object.
+#' @param x A \code{transitiontrees_comparison} object.
 #' @param digits Integer. Numeric digits for the printed table.
 #'   Default 3.
 #' @param n Integer. Number of top divergent pathways to print.
@@ -269,8 +269,8 @@ as.data.frame.transitrees_comparison <- function(x, row.names = NULL,
 #' @param ... Ignored.
 #' @return \code{x} invisibly.
 #' @export
-print.transitrees_comparison <- function(x, digits = 3L, n = 6L, ...) {
-  cat(sprintf("<transitrees_comparison>  iter = %d\n",
+print.transitiontrees_comparison <- function(x, digits = 3L, n = 6L, ...) {
+  cat(sprintf("<transitiontrees_comparison>  iter = %d\n",
               length(x$null_dist)))
   cat(sprintf("  observed distance : %s\n",
               format(x$pdist, digits = digits)))

@@ -1,5 +1,5 @@
 library(testthat)
-library(transitrees)
+library(transitiontrees)
 
 test_that("compare_trees detects a real difference between different generators", {
   ## Create two different Markov chains
@@ -73,5 +73,5 @@ test_that("bootstrap_pathways handles very short sequences gracefully", {
   
   # This should run without error
   expect_error(b <- bootstrap_pathways(tr, iter = 20, seed = 1), NA)
-  expect_s3_class(b, "transitrees_bootstrap")
+  expect_s3_class(b, "transitiontrees_bootstrap")
 })

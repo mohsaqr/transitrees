@@ -193,7 +193,7 @@
 #' Bootstrap Pathway Stability and Informativeness
 #'
 #' @description
-#' Non-parametric sequence bootstrap for a fitted \code{transitrees}.
+#' Non-parametric sequence bootstrap for a fitted \code{transitiontrees}.
 #' Methodologically built on Saqr, Tikka & López-Pernas (2025),
 #' \code{tna}, extending the edge-level bootstrap framework to
 #' variable-depth pathways.
@@ -238,7 +238,7 @@
 #'     pathway.
 #' }
 #'
-#' @param tree A fitted \code{transitrees} carrying \code{tree$data}.
+#' @param tree A fitted \code{transitiontrees} carrying \code{tree$data}.
 #' @param iter Integer. Number of bootstrap iterations.
 #'   Default \code{1000}.
 #' @param stat Character. Pathway statistic on which
@@ -279,7 +279,7 @@
 #' @param progress Logical. Show a progress bar.
 #'   Default \code{FALSE}.
 #'
-#' @return A \code{transitrees_bootstrap} object: a list with
+#' @return A \code{transitiontrees_bootstrap} object: a list with
 #'   \describe{
 #'     \item{summary}{Per-pathway data.frame, sorted so that
 #'       \code{stable & informative} pathways come first then by
@@ -318,7 +318,7 @@ bootstrap_pathways <- function(tree,
                                seed                  = 1L,
                                keep_resamples        = TRUE,
                                progress              = FALSE) {
-  stopifnot(inherits(tree, "transitrees"))
+  stopifnot(inherits(tree, "transitiontrees"))
   if (is.null(tree$data))
     stop("tree$data is missing; bootstrap requires the original ",
          "sequences. Refit with context_tree() (>=0.1.1 keeps data).",
@@ -540,22 +540,22 @@ bootstrap_pathways <- function(tree,
       g2_critical_value     = g2_crit,
       seed                  = seed
     ),
-    class = "transitrees_bootstrap"
+    class = "transitiontrees_bootstrap"
   )
 }
 
 #' Print a Pathtree Bootstrap
 #'
-#' @param x A \code{transitrees_bootstrap} object.
+#' @param x A \code{transitiontrees_bootstrap} object.
 #' @param n Integer. Number of top pathways to print. Default 10.
 #' @param digits Integer. Numeric digits for the printed table.
 #'   Default 3.
 #' @param ... Ignored.
 #' @return \code{x} invisibly.
 #' @export
-print.transitrees_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
+print.transitiontrees_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
   cat(sprintf(
-    "<transitrees_bootstrap>  %d resamples\n", x$iter))
+    "<transitiontrees_bootstrap>  %d resamples\n", x$iter))
   cat(sprintf(
     "  stability  : %s in [%.2f, %.2f] x observed, p < %.2f\n",
     x$stat, x$consistency_range[1L], x$consistency_range[2L],
@@ -592,13 +592,13 @@ print.transitrees_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
 
 #' Summarise a Pathtree Bootstrap
 #'
-#' @param object A \code{transitrees_bootstrap} object.
+#' @param object A \code{transitiontrees_bootstrap} object.
 #' @param ... Ignored.
 #' @return The per-pathway summary \code{data.frame}
 #'   (\code{object$summary}); see \code{\link{bootstrap_pathways}}
 #'   for the full column vocabulary.
 #' @export
-summary.transitrees_bootstrap <- function(object, ...) {
+summary.transitiontrees_bootstrap <- function(object, ...) {
   object$summary
 }
 
@@ -609,13 +609,13 @@ summary.transitrees_bootstrap <- function(object, ...) {
 #' (\code{object$summary}), so \code{as.data.frame(boot)} and
 #' \code{summary(boot)} are interchangeable extractors.
 #'
-#' @param x A \code{transitrees_bootstrap}.
+#' @param x A \code{transitiontrees_bootstrap}.
 #' @param row.names,optional Ignored.
 #' @param ... Ignored.
 #' @return A data.frame; see \code{\link{bootstrap_pathways}} for the
 #'   full column vocabulary.
 #' @export
-as.data.frame.transitrees_bootstrap <- function(x, row.names = NULL,
+as.data.frame.transitiontrees_bootstrap <- function(x, row.names = NULL,
                                               optional = FALSE, ...) {
   x$summary
 }
@@ -630,7 +630,7 @@ as.data.frame.transitrees_bootstrap <- function(x, row.names = NULL,
 #' dashed reference line: pathways whose CI lies entirely above it
 #' are reproducibly informative.
 #'
-#' @param x A \code{transitrees_bootstrap} object.
+#' @param x A \code{transitiontrees_bootstrap} object.
 #' @param top Integer. Maximum pathways to show. Default 25.
 #' @param min_stability Numeric. Minimum stability_rate to display.
 #'   Default \code{NULL} (use \code{x$stability_threshold}).
@@ -643,7 +643,7 @@ as.data.frame.transitrees_bootstrap <- function(x, row.names = NULL,
 #'                            iter = 50L)
 #' plot(boot)
 #' @export
-plot.transitrees_bootstrap <- function(x, top = 25L,
+plot.transitiontrees_bootstrap <- function(x, top = 25L,
                                     min_stability = NULL, ...) {
   if (is.null(min_stability)) min_stability <- x$stability_threshold
   s <- x$summary
@@ -705,7 +705,7 @@ plot.transitrees_bootstrap <- function(x, top = 25L,
 #' Faceted histogram of the bootstrap resample values for a chosen
 #' pathway statistic, one panel per pathway.
 #'
-#' @param x A \code{transitrees_bootstrap} object.
+#' @param x A \code{transitiontrees_bootstrap} object.
 #' @param pathways Character vector of pathway names. \code{NULL}
 #'   (default) picks the top \code{top} pathways from the summary.
 #' @param stat Character. One of \code{"count"} (default),
@@ -724,7 +724,7 @@ plot_pathway_resamples <- function(x, pathways = NULL,
                                    stat = c("count", "next_probability",
                                             "divergence", "G2"),
                                    top = 6L, bins = 30L) {
-  stopifnot(inherits(x, "transitrees_bootstrap"))
+  stopifnot(inherits(x, "transitiontrees_bootstrap"))
   stat <- match.arg(stat)
   M <- switch(stat,
               count            = x$M_count,

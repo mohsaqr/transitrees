@@ -12,7 +12,7 @@ tree_dependence(
 )
 }
 \arguments{
-\item{tree}{A \code{transitrees}.}
+\item{tree}{A \code{transitiontrees}.}
 
 \item{base}{Numeric. Logarithm base for the KL divergence. Default
 2 (bits). Use \code{exp(1)} for nats or \code{10} for hartleys.}

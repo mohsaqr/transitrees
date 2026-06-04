@@ -7,14 +7,14 @@
 model_fit(tree, newdata = NULL)
 }
 \arguments{
-\item{tree}{A \code{transitrees} or \code{transitrees_group}.}
+\item{tree}{A \code{transitiontrees} or \code{transitiontrees_group}.}
 
 \item{newdata}{Optional sequence data. If supplied, the scalars are
 evaluated on it (held-out); if \code{NULL} (default), in-sample.}
 }
 \value{
 A one-row \code{data.frame} (one row per group for a
-  \code{transitrees_group}) with columns \code{logLik}, \code{df},
+  \code{transitiontrees_group}) with columns \code{logLik}, \code{df},
   \code{nobs}, \code{AIC}, \code{BIC}, \code{perplexity}.
 }
 \description{
@@ -27,7 +27,7 @@ observation count \code{nobs}, \code{AIC}, \code{BIC}, and
 \details{
 With \code{newdata}, every scalar is computed \strong{out-of-sample}
 (\code{AIC}/\code{BIC} use the held-out deviance with the model's
-training \code{df}). A \code{transitrees_group} returns one row per
+training \code{df}). A \code{transitiontrees_group} returns one row per
 group, tagged with a leading \code{group} column.
 }
 \examples{
@@ -40,5 +40,5 @@ model_fit(tree)
 
 }
 \seealso{
-\code{\link{perplexity}}, \code{\link{logLik.transitrees}}.
+\code{\link{perplexity}}, \code{\link{logLik.transitiontrees}}.
 }

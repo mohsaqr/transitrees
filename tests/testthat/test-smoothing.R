@@ -8,28 +8,28 @@ mk_seq_data <- function(n = 40, len = 12, seed = 1,
 
 test_that("Laplace smoothing returns a probability vector summing to 1", {
   counts <- c(3, 0, 1, 0)
-  p <- transitrees:::.smooth_laplace(counts, alpha = 1)
+  p <- transitiontrees:::.smooth_laplace(counts, alpha = 1)
   expect_equal(sum(p), 1)
   expect_true(all(p > 0))
 })
 
 test_that("Laplace with alpha = 0 reduces to MLE", {
   counts <- c(3, 1, 4)
-  expect_equal(transitrees:::.smooth_laplace(counts, alpha = 0),
+  expect_equal(transitiontrees:::.smooth_laplace(counts, alpha = 0),
                counts / sum(counts))
 })
 
 test_that("Kneser-Ney returns a probability vector summing to 1", {
   counts <- c(5, 0, 2, 0)
   parent <- c(0.25, 0.25, 0.25, 0.25)
-  p <- transitrees:::.smooth_kneser_ney(counts, parent, discount = 0.75)
+  p <- transitiontrees:::.smooth_kneser_ney(counts, parent, discount = 0.75)
   expect_equal(sum(p), 1)
   expect_true(all(p >= 0))
 })
 
 test_that("Kneser-Ney sums to 1 under fractional (weighted) counts", {
   parent <- c(1 / 3, 1 / 3, 1 / 3)
-  kn <- function(counts) transitrees:::.smooth_kneser_ney(
+  kn <- function(counts) transitiontrees:::.smooth_kneser_ney(
     counts, parent, discount = 0.75)
   ## A cell below the discount (0.75) used to break the sum-to-1
   ## constraint because back_w = discount * n_pos / n over-counted the
@@ -47,7 +47,7 @@ test_that("Kneser-Ney is unchanged on integer counts (PST-path parity)", {
   n <- sum(counts); n_pos <- sum(counts > 0)
   ref <- pmax(counts - 0.75, 0) / n + (0.75 * n_pos) / n * parent
   expect_equal(
-    transitrees:::.smooth_kneser_ney(counts, parent, discount = 0.75),
+    transitiontrees:::.smooth_kneser_ney(counts, parent, discount = 0.75),
     ref)
 })
 
@@ -63,21 +63,21 @@ test_that("context_tree() with weighted Kneser-Ney sums to 1", {
 test_that("Kneser-Ney with discount 0 reduces to MLE", {
   counts <- c(5, 1, 2, 0)
   parent <- c(0.25, 0.25, 0.25, 0.25)
-  p <- transitrees:::.smooth_kneser_ney(counts, parent, discount = 0)
+  p <- transitiontrees:::.smooth_kneser_ney(counts, parent, discount = 0)
   expect_equal(p, counts / sum(counts))
 })
 
 test_that("Witten-Bell sums to 1 and reduces to parent when no obs", {
   parent <- c(0.5, 0.3, 0.2)
-  expect_equal(transitrees:::.smooth_witten_bell(c(0,0,0), parent), parent)
-  p <- transitrees:::.smooth_witten_bell(c(2, 1, 0), parent)
+  expect_equal(transitiontrees:::.smooth_witten_bell(c(0,0,0), parent), parent)
+  p <- transitiontrees:::.smooth_witten_bell(c(2, 1, 0), parent)
   expect_equal(sum(p), 1)
 })
 
 test_that("Jelinek-Mercer mixes MLE and parent", {
   parent <- c(0.5, 0.3, 0.2)
   counts <- c(3, 0, 1)
-  p <- transitrees:::.smooth_jelinek_mercer(counts, parent, lambda = 0.5)
+  p <- transitiontrees:::.smooth_jelinek_mercer(counts, parent, lambda = 0.5)
   mle <- counts / sum(counts)
   expect_equal(p, 0.5 * mle + 0.5 * parent)
   expect_equal(sum(p), 1)
@@ -88,7 +88,7 @@ test_that("context_tree() accepts all smoothing methods and sums to 1", {
   for (s in c("floor", "laplace", "kneser_ney", "witten_bell",
               "jelinek_mercer")) {
     tr <- context_tree(m, max_depth = 2L, min_count = 3L, smoothing = s)
-    expect_s3_class(tr, "transitrees")
+    expect_s3_class(tr, "transitiontrees")
     sums <- vapply(tr$nodes, function(n) sum(n$prob), numeric(1))
     expect_true(all(abs(sums - 1) < 1e-9),
                 info = paste("smoothing =", s))
@@ -116,18 +116,18 @@ test_that("invalid smoothing hyperparameters error early", {
 test_that("valid boundary smoothing hyperparameters are accepted", {
   m <- mk_seq_data()
   expect_s3_class(context_tree(m, smoothing = list("floor", ymin = 0)),
-                  "transitrees")
+                  "transitiontrees")
   expect_s3_class(context_tree(m, smoothing = list("laplace", alpha = 0)),
-                  "transitrees")
+                  "transitiontrees")
   expect_s3_class(context_tree(m, smoothing = list("kneser_ney",
                                                    discount = 1)),
-                  "transitrees")
+                  "transitiontrees")
   expect_s3_class(context_tree(m, smoothing = list("jelinek_mercer",
                                                    lambda = 0)),
-                  "transitrees")
+                  "transitiontrees")
   expect_s3_class(context_tree(m, smoothing = list("jelinek_mercer",
                                                    lambda = 1)),
-                  "transitrees")
+                  "transitiontrees")
 })
 
 test_that("smoothing = 'floor' default reproduces v0.0 behaviour", {
@@ -180,10 +180,10 @@ test_that("smooth_tree() walks top-down (parent updated before child)", {
   ## smoothed prob. The root has no parent (uniform fallback).
   k <- length(tr$alphabet)
   for (ctx in names(tr2$nodes)) {
-    if (identical(ctx, transitrees:::.ROOT)) {
+    if (identical(ctx, transitiontrees:::.ROOT)) {
       expect_equal(tr2$nodes[[ctx]]$prob, rep(1 / k, k))
     } else {
-      par <- transitrees:::.pt_parent_ctx(ctx)
+      par <- transitiontrees:::.pt_parent_ctx(ctx)
       expect_equal(tr2$nodes[[ctx]]$prob,
                    tr2$nodes[[par]]$prob)
     }
@@ -197,8 +197,8 @@ test_that("floor 'interpolate' errors when k * ymin >= 1 (no negative probs)", {
                "ymin < 1/k")
   ## a small ymin is fine, and 'cap' has no such restriction
   expect_s3_class(context_tree(m, smoothing = list("floor", ymin = 0.001)),
-                  "transitrees")
+                  "transitiontrees")
   expect_s3_class(context_tree(m, smoothing = list("floor", ymin = 0.3,
                                                    rule = "cap")),
-                  "transitrees")
+                  "transitiontrees")
 })

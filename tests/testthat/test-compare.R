@@ -58,10 +58,10 @@ test_that("tree_distance aligns compatible alphabets by state name", {
   expect_equal(tree_distance(tr1, tr2), 0, tolerance = 1e-12)
 })
 
-test_that("compare_trees returns a transitrees_comparison object", {
+test_that("compare_trees returns a transitiontrees_comparison object", {
   trs <- mk_two_trees()
   cmp <- compare_trees(trs$a, trs$b, iter = 30L, seed = 1L)
-  expect_s3_class(cmp, "transitrees_comparison")
+  expect_s3_class(cmp, "transitiontrees_comparison")
   expect_true(is.numeric(cmp$pdist))
   expect_length(cmp$null_dist, 30L)
   expect_true(cmp$p_value > 0 && cmp$p_value <= 1)
@@ -73,7 +73,7 @@ test_that("compare_trees handles pruned observed trees in permutation refits", {
   tr_a <- prune_tree(trs$a, criterion = "G2", alpha = 0.05)
   tr_b <- prune_tree(trs$b, criterion = "G2", alpha = 0.05)
   cmp <- compare_trees(tr_a, tr_b, iter = 20L, seed = 1L)
-  expect_s3_class(cmp, "transitrees_comparison")
+  expect_s3_class(cmp, "transitiontrees_comparison")
   expect_length(cmp$null_dist, 20L)
   expect_true(all(is.finite(cmp$null_dist)))
 })
@@ -90,7 +90,7 @@ test_that("compare_trees null mean is centred near observed for exchangeable gro
 test_that("compare_trees print method runs without error", {
   trs <- mk_two_trees()
   cmp <- compare_trees(trs$a, trs$b, iter = 20L, seed = 1L)
-  expect_output(print(cmp), "<transitrees_comparison>", fixed = TRUE)
+  expect_output(print(cmp), "<transitiontrees_comparison>", fixed = TRUE)
   expect_output(print(cmp), "p-value")
 })
 
@@ -104,7 +104,7 @@ test_that("as.data.frame(cmp) returns the pathways table (uniform tidy-extract)"
                      "divergence_ab", "divergence_ba", "divergence_sym"))
 })
 
-test_that("plot.transitrees_comparison returns a ggplot", {
+test_that("plot.transitiontrees_comparison returns a ggplot", {
   trs <- mk_two_trees()
   cmp <- compare_trees(trs$a, trs$b, iter = 30L, seed = 1L)
   expect_s3_class(plot(cmp), "ggplot")

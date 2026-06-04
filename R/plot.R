@@ -1,4 +1,4 @@
-# ---- plot.transitrees() dispatcher + dendrogram + horizontal phylogram ----
+# ---- plot.transitiontrees() dispatcher + dendrogram + horizontal phylogram ----
 
 #' @noRd
 .pt_state_palette <- function(state_levels) {
@@ -352,7 +352,7 @@
 #' Plot a Context Tree
 #'
 #' @description
-#' Renders a fitted transitrees in one of four styles:
+#' Renders a fitted transitiontrees in one of four styles:
 #' \itemize{
 #'   \item \code{"horizontal"} (default) — pure-ggplot2 left-to-right
 #'     phylogram: root on the left, leaves fanned out vertically on
@@ -375,7 +375,7 @@
 #' = context count, edge thickness = child's count (\dQuote{flow}). The
 #' interactive style carries the same encoding, plus drag / zoom / hover.
 #'
-#' @param x A \code{transitrees}.
+#' @param x A \code{transitiontrees}.
 #' @param style One of \code{"horizontal"} (default),
 #'   \code{"dendrogram"}, \code{"icicle"}, or \code{"interactive"}.
 #' @param point_size_range Numeric length-2 vector controlling the
@@ -408,7 +408,7 @@
 #' plot(tr, style = "interactive")    # visNetwork (needs Suggests)
 #' }
 #' @export
-plot.transitrees <- function(x,
+plot.transitiontrees <- function(x,
                           style = c("horizontal", "dendrogram",
                                      "icicle", "interactive"),
                           point_size_range = NULL,
@@ -442,4 +442,39 @@ plot.transitrees <- function(x,
                    point_size_range = point_size_range %||% c(4, 14),
                    edge_size_range  = edge_size_range  %||% c(0.3, 2.5),
                    ...))
+}
+
+#' Plot Each Tree in a Pathtree Group
+#'
+#' @description
+#' Draw every member of a \code{transitiontrees_group} in turn via
+#' \code{\link{plot.transitiontrees}}. Each member's plot is printed (so the
+#' call produces one figure per group, e.g. in an R Markdown chunk),
+#' captioned with its group name; the named list of plot objects is
+#' returned invisibly for further use.
+#'
+#' @param x A \code{transitiontrees_group}.
+#' @param ... Passed to \code{\link{plot.transitiontrees}} (e.g.
+#'   \code{style}).
+#'
+#' @return Invisibly, a named list (one entry per group, in group order)
+#'   of the per-member plot objects.
+#'
+#' @examples
+#' \donttest{
+#' m   <- matrix(sample(c("A","B","C"), 200, replace = TRUE), 40, 5)
+#' grp <- context_tree(m, group = rep(c("x","y"), each = 20),
+#'                     max_depth = 2L)
+#' plot(grp)                         # one tree per group
+#' }
+#' @export
+plot.transitiontrees_group <- function(x, ...) {
+  plots <- lapply(names(x), function(nm) {
+    p <- plot(x[[nm]], ...)
+    if (inherits(p, "ggplot"))
+      p <- p + ggplot2::labs(caption = paste0("group: ", nm))
+    print(p)
+    p
+  })
+  invisible(setNames(plots, names(x)))
 }
