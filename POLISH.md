@@ -1,4 +1,4 @@
-# pathtree v0.1.1 — Polish Pass
+# transitiontrees v0.1.1 — Polish Pass
 
 A function-by-function audit of the public surface for *dead-simple
 calling, tidy outputs, and consistent conventions*. All changes are
@@ -10,28 +10,28 @@ backward-compatible at the **call** level except where noted.
 |---|---|---|
 | `context_tree()` | First-call OK (`context_tree(data)` works); 11 args feels heavy but each has a sensible default and most users will never touch the smoothing kwargs. | none |
 | `prune()` | `prune(tree)` works (default G²). | none |
-| `predict.pathtree()` | Standard S3 `predict` shape; output matrix/named vector. | none |
+| `predict.transitiontrees()` | Standard S3 `predict` shape; output matrix/named vector. | none |
 | `generate_sequences()` | `n = 1` is a useless default — the function returns a 1×L matrix. | **default bumped to `n = 5`** |
 | `pathways()` | Tidy data.frame; column names mostly OK but `length` was confusable (vs base R `length()`) and the underlying concept is **depth**. | **column renamed `length` → `depth`** |
 | `common_pathways()` | Took a `length =` filter arg; same naming issue. | **arg renamed `length` → `depth`** |
 | `divergent_pathways()` / `sharp_pathways()` | Wrap `pathways()`; inherit the rename automatically. | none |
 | `path_dependence()` | Tidy data.frame, but column names diverged from `pathways()`: `context` vs `pathway`, `n` vs `count`. | **renamed `context` → `pathway`, `n` → `count`** |
-| `logLik.pathtree()` / `nobs.pathtree()` | Standard `stats` generics; AIC / BIC work for free. | none |
+| `logLik.transitiontrees()` / `nobs.transitiontrees()` | Standard `stats` generics; AIC / BIC work for free. | none |
 | `perplexity()` | Took a `base =` arg that was *mathematically a no-op* (perplexity is base-invariant). Confusing. | **`base` arg removed** |
 | `score_sequences()` / `score_positions()` | Tidy data.frames. | none (already polished by `simplify` pass) |
-| `smooth_pathtree()` | Many smoothing-method kwargs but each scheme genuinely needs its own. | none |
-| `tune_pathtree()` | Returns `pathtree_tune` data.frame with `print` method, but no `plot()` — users couldn't visualise their grid. | **added `plot.pathtree_tune()`** |
+| `smooth_transitiontrees()` | Many smoothing-method kwargs but each scheme genuinely needs its own. | none |
+| `tune_transitiontrees()` | Returns `transitiontrees_tune` data.frame with `print` method, but no `plot()` — users couldn't visualise their grid. | **added `plot.transitiontrees_tune()`** |
 | `query_pathway()` / `subtree()` / `pathway_exists()` | Already simple; subtree adds `local_root` attribute. | none |
-| `pathtree_distance()` | Bare scalar. | none |
-| `compare_pathtrees()` | Returns `pathtree_comparison` with `print` method, no `plot()`. | **added `plot.pathtree_comparison()`** |
-| `plot.pathtree()` | Two ggplot styles after the dependency cleanup. | none |
+| `transitiontrees_distance()` | Bare scalar. | none |
+| `compare_transitiontreess()` | Returns `transitiontrees_comparison` with `print` method, no `plot()`. | **added `plot.transitiontrees_comparison()`** |
+| `plot.transitiontrees()` | Two ggplot styles after the dependency cleanup. | none |
 | `plot_pathways()` / `plot_divergence()` | Tidy lollipop / heatmap. | none |
-| `summary.pathtree()` | Old summary table used `context` / `n` — same drift as `path_dependence`. | **table columns renamed to `pathway, depth, count, modal_next, prob_next`** |
-| `print.pathtree()` | Old `(ctx) [n=23 p=0.5/0.3/0.2]` rendering was hard to scan; the per-node prob-vector slash list took the eye away from the modal next state — the thing users actually want at a glance. | **rewritten** — aligned columns, shows count + modal next + its probability, lists the smoothing scheme used |
-| `print.summary.pathtree()` | Same header re-styled. | banner format aligned with `print.pathtree` |
-| **No `as.data.frame` method** | A user with a fitted tree shouldn't have to call `pathways()` to get a flat node table — that's `as.data.frame`'s job. | **added `as.data.frame.pathtree()`** returning `pathway, depth, count, modal_next, prob_next` |
+| `summary.transitiontrees()` | Old summary table used `context` / `n` — same drift as `path_dependence`. | **table columns renamed to `pathway, depth, count, modal_next, prob_next`** |
+| `print.transitiontrees()` | Old `(ctx) [n=23 p=0.5/0.3/0.2]` rendering was hard to scan; the per-node prob-vector slash list took the eye away from the modal next state — the thing users actually want at a glance. | **rewritten** — aligned columns, shows count + modal next + its probability, lists the smoothing scheme used |
+| `print.summary.transitiontrees()` | Same header re-styled. | banner format aligned with `print.transitiontrees` |
+| **No `as.data.frame` method** | A user with a fitted tree shouldn't have to call `pathways()` to get a flat node table — that's `as.data.frame`'s job. | **added `as.data.frame.transitiontrees()`** returning `pathway, depth, count, modal_next, prob_next` |
 
-## What "tidy output" means in pathtree
+## What "tidy output" means in transitiontrees
 
 Every tidy data.frame returned by the package now uses the same column
 vocabulary:
@@ -47,8 +47,8 @@ flips       logical     TRUE iff modal_next changes between this pathway and par
 ```
 
 These are the **canonical column names**. They appear in
-`pathways()`, `path_dependence()`, `as.data.frame.pathtree()`, and the
-`summary.pathtree()` table. They are stable.
+`pathways()`, `path_dependence()`, `as.data.frame.transitiontrees()`, and the
+`summary.transitiontrees()` table. They are stable.
 
 ## What "dead simple to call" means
 
@@ -75,10 +75,10 @@ as.data.frame(tree)                 # one-row-per-node tidy table
 
 | Result class | `print()` | `plot()` |
 |---|---|---|
-| `pathtree` | tree skeleton | dendrogram (default) / icicle (Suggests) |
-| `summary.pathtree` | banner + node table | — |
-| `pathtree_tune` | head + chosen line | **NEW**: perplexity surface, faceted by smoothing × prune, star = best |
-| `pathtree_comparison` | observed + p + top divergent pathways | **NEW**: null-distribution histogram + observed line + p-value annotation |
+| `transitiontrees` | tree skeleton | dendrogram (default) / icicle (Suggests) |
+| `summary.transitiontrees` | banner + node table | — |
+| `transitiontrees_tune` | head + chosen line | **NEW**: perplexity surface, faceted by smoothing × prune, star = best |
+| `transitiontrees_comparison` | observed + p + top divergent pathways | **NEW**: null-distribution histogram + observed line + p-value annotation |
 
 ## Backward compatibility
 
@@ -92,13 +92,13 @@ as.data.frame(tree)                 # one-row-per-node tidy table
   `pathway, count, modal_next` (plus new `prob_next`).
 - **`perplexity(..., base = ...)`**: argument removed. Was a no-op.
 - **`generate_sequences(n = 1)` → `n = 5`** by default.
-- **`print.pathtree()` output** has changed visual format; existing
+- **`print.transitiontrees()` output** has changed visual format; existing
   scripts that grep its output may need updating.
 
 ## Tests
 
 Tests for the renamed columns updated. Three new tests added
-(`as.data.frame.pathtree`, `plot.pathtree_tune`, `plot.pathtree_comparison`).
+(`as.data.frame.transitiontrees`, `plot.transitiontrees_tune`, `plot.transitiontrees_comparison`).
 **Suite: 273 tests, all pass.** **PST 0.94.1 equivalence**: still
 machine precision (1.11e-16). **`R CMD check`: 0 errors, 0 warnings,
 0 notes.**

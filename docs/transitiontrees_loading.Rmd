@@ -1,0 +1,174 @@
+---
+title: "Loading data into transitiontrees"
+subtitle: "Every input shape context_tree() accepts"
+author: "transitiontrees"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+    df_print: paged
+    highlight: tango
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      comment = "#>")
+suppressPackageStartupMessages(devtools::load_all(here::here()))
+```
+
+`transitiontrees` belongs to the **Dynalytics ecosystem** and is fully
+interoperable with its sibling packages **tna** and **Nestimate**. A
+model estimated in either of them can be passed **directly** to
+`context_tree()`: transitiontrees recovers the sequence data underlying the
+fitted model and estimates the suffix tree on it, with no re-formatting,
+re-import, or conversion of any kind — the tree is defined over exactly
+the same state set as the source model. transitiontrees also adopts the **same
+data-preparation conventions** as those packages, so reading raw,
+long-format data (one row per event) uses an identical vocabulary:
+`actor` identifies the unit a sequence belongs to, `time` (or an explicit
+`order`) sequences the events, `action` names the state observed at each
+event, and sessions are delimited either by an explicit `session` column
+or by a `time_threshold` gap. These are supplied to `prepare_input()`, or
+to `context_tree()` directly through the matching arguments. Finally, for
+data that is already organised as sequences, `context_tree()` accepts a
+wide table (one row per case, columns advancing through time), a ragged
+list of sequences, and a TraMineR `stslist`. The sections below
+illustrate each of these routes on example datasets bundled with the
+package, so the vignette runs without any external data.
+
+# 1. A wide matrix or data.frame
+
+The simplest shape: rows are sequences, columns are time-steps, cells are
+states, trailing `NA`s mark the end of a sequence.
+
+```{r wide}
+data(trajectories)
+head(trajectories)
+context_tree(trajectories)
+```
+
+> A character **matrix** or **data.frame** is accepted as-is. (Numeric
+> matrices are rejected — they mean "transition matrix" elsewhere in the
+> ecosystem — so cast to character first.)
+
+# 2. A list of ragged sequences
+
+When sequences have different lengths, a list of character vectors avoids
+padding.
+
+```{r list}
+seqs <- list(c("A", "B", "A", "C"),
+             c("B", "B"),
+             c("C", "A", "A"))
+context_tree(seqs, max_depth = 2L, min_count = 1L)
+```
+
+> Each list element is one sequence; missing cells (`NA` or `""`) are
+> dropped, so a sequence keeps only its observed states.
+
+# 3. A TraMineR state-sequence object (`stslist`)
+
+If your data is already a TraMineR `stslist` (what `TraMineR::seqdef()`
+returns), hand it straight over — the alphabet and any weights are
+honoured.
+
+```{r stslist}
+data(engagement)         # a TraMineR stslist of engagement states
+context_tree(engagement, max_depth = 2L)
+```
+
+# 4. Long format (one row per event)
+
+The usual real-world shape is *long*: each row is a single event, with
+columns for who it belongs to (`actor`), when it happened (`time`), and
+what it was (`action`).
+
+## 4a. In one call
+
+Name the state column with `action =` and `context_tree()` reshapes the
+data for you — grouping by `actor`, ordering by `time`, and splitting
+each actor's events into **sessions** wherever the time gap is large.
+
+```{r long-onecall}
+data(group_regulation_long)
+head(group_regulation_long)
+context_tree(group_regulation_long, actor = "Actor", time = "Time",
+             action = "Action", max_depth = 3L)
+```
+
+## 4b. Or reshape first with `prepare_input()`
+
+`prepare_input()` does the same reshaping and returns the wide frame, so
+you can inspect it before fitting. The two routes are identical.
+
+```{r long-twostep}
+wide <- prepare_input(group_regulation_long, actor = "Actor",
+                      time = "Time", action = "Action")
+head(wide)
+context_tree(wide, max_depth = 3L)
+```
+
+> `prepare_input()` mirrors `tna::prepare_data()`: a new session starts
+> when the gap to the previous event exceeds `time_threshold` seconds
+> (default 900). The result is the wide sequence frame from §1.
+
+# 5. Long-format options: sessions, order, Unix time
+
+`prepare_input()` (and the `context_tree()` arguments that forward to it)
+handle the common variations. Here on `ai_long`, whose `timestamp` is
+Unix time and which carries an explicit `session_id`.
+
+```{r prep-options}
+data(ai_long)
+## (i) timestamp gaps -> sessions (Unix time is auto-detected)
+gap <- prepare_input(ai_long, actor = "project", time = "timestamp",
+                     action = "code", time_threshold = 600)
+dim(gap)
+
+## (ii) use an explicit session column instead of time gaps
+sess <- prepare_input(ai_long, actor = "project", session = "session_id",
+                      action = "code")
+dim(sess)
+
+## (iii) no timestamp: order events with an order column
+ord <- prepare_input(ai_long, actor = "project",
+                     order = "order_in_session", action = "code")
+dim(ord)
+```
+
+> `time_threshold` controls how aggressively a `time` column is split
+> into sessions; `session =` takes sessions from a column directly; and
+> with neither, `order =` (or row order) sequences each actor.
+
+# 6. From the Dynalytics ecosystem
+
+`context_tree()` also takes the sequence-bearing objects from the sibling
+packages directly — it reads their stored sequences, so the tree shares
+one symbol space with the network.
+
+```{r ecosystem}
+library(Nestimate)
+net <- build_network(group_regulation_long, actor = "Actor",
+                     action = "Action", order = "Time", method = "relative")
+context_tree(net, max_depth = 2L)            # a Nestimate netobject
+
+library(tna)
+model <- tna(engagement)
+context_tree(model, max_depth = 2L)          # a tna object
+```
+
+> A network object is the ecosystem handoff format: its `$data`
+> sequences are read and `$nodes$label` becomes the alphabet. A *pure*
+> aggregated transition network (edges/weights only, no sequences) is
+> rejected — transitiontrees fits on sequences, never on aggregated
+> transitions.
+
+# Session info
+
+```{r session}
+sessionInfo()
+```

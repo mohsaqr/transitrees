@@ -1,0 +1,178 @@
+---
+title: "A worked `transitiontrees` example: AI-prompting move sequences"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  fig.width = 8, fig.height = 5, dpi = 110
+)
+library(here)
+devtools::load_all(here::here())
+library(ggplot2)
+```
+
+This is a short, end-to-end analysis of one real dataset — **not** a tour of
+every function. The data are sequences of *rhetorical moves* students make
+while prompting an LLM (`Order`, `Specify`, `Context`, `Reject`, `Request`,
+`Approve`); one **prompt** is one sequence. The question throughout: *after a
+given short history of moves, what does a student do next, and which contexts
+overturn the corpus-wide default?*
+
+# 1. Load and fit
+
+`context_tree()` reads the long event log directly — give it the sequence id
+(`actor`), the event column (`action`), and the within-sequence order
+(`order`); it reshapes internally (no `Nestimate`/`prepare_input()` step
+needed). Prompts are short, so the deepest context worth asking for is 3
+moves; with only a few hundred prompts we keep `min_count` low.
+
+```{r fit}
+raw <- read.csv(
+  "/Users/mohammedsaqr/Documents/Documents X/DocumentsX/TNA Work/TNA networks teem data/Seqdatalonged.csv",
+  stringsAsFactors = FALSE)
+
+tree <- context_tree(
+  raw,
+  actor     = "prompt_id",   # one prompt = one sequence
+  action    = "name",        # the move
+  order     = "value",       # move order within a prompt
+  max_depth = 3L,            # longest context the tree may hold
+  min_count = 3L             # a context needs >= 3 occurrences to get a node
+)
+tree
+```
+
+# 2. Inspect the model
+
+The print banner gives depth, node count, and the corpus size. `summary()`
+adds the per-depth breakdown, and `model_fit()` bundles the goodness-of-fit
+scalars (`logLik`, `df`, `nobs`, `AIC`, `BIC`, `perplexity`) into one row.
+
+```{r summaries}
+summary(tree)
+model_fit(tree)
+```
+
+The in-sample **perplexity** of `r round(perplexity(tree), 2)` says the fitted
+tree is, on average, as uncertain as a fair choice among that many moves —
+well below the 6-move uniform baseline, so history is genuinely informative.
+
+# 3. Pathway tables
+
+The pathway-centric API returns plain `data.frame`s in one canonical schema
+(`pathway | depth | count | likely_next | next_probability | divergence |
+changes_prediction`), so every view joins cleanly. Three named verbs each fix
+a useful sort:
+
+```{r tables}
+common_pathways(tree, top = 8)      # by frequency: the backbone
+divergent_pathways(tree, top = 8)   # by KL from the shorter history
+sharp_pathways(tree, top = 8)       # by how peaked the next-move prediction is
+```
+
+`common_pathways()` is the backbone (what students mostly do).
+`divergent_pathways()` surfaces the contexts where a longer history *changes*
+the prediction — `changes_prediction = TRUE` flags a modal-move flip. Those
+are the interesting rows: places where knowing the previous move(s) overturns
+the corpus default.
+
+# 4. Per-context diagnostics
+
+`tree_dependence()` quantifies, per context, how much the history sharpens the
+next-move distribution — `entropy_drop` is the reduction in predictive entropy
+(bits) the context buys over its shorter suffix.
+
+```{r dependence}
+dep <- tree_dependence(tree)
+head(dep[order(-dep$entropy_drop),
+         c("pathway", "depth", "count", "entropy_drop",
+           "likely_before", "likely_next", "changes_prediction")], 8)
+```
+
+# 5. Prune to the reliable tree
+
+A context that survives fitting can still be over-fit. `prune_tree()` collapses
+contexts whose extra depth does not buy a statistically significant gain over
+their parent (default: a likelihood-ratio \eqn{G^2} test at `alpha = 0.05`).
+
+```{r prune}
+pruned <- prune_tree(tree, criterion = "G2", alpha = 0.05)
+pruned
+```
+
+Pruning takes the model from `r n_nodes(tree)` contexts down to
+`r n_nodes(pruned)` — the deepest, thinnest contexts that could not justify
+their own parameters are folded back into their parents.
+
+# 6. Bootstrap reliability
+
+A pathway can look informative in one dataset by chance. `bootstrap_pathways()`
+resamples whole prompts and asks which pathways are *reproducibly* stable
+(count holds within a tolerance band) **and** informative (\eqn{G^2} clears the
+\eqn{\chi^2} bar in most resamples). A pathway worth a claim is **both**.
+
+```{r bootstrap}
+boot <- bootstrap_pathways(pruned, iter = 200L, stat = "count", seed = 1L)
+boot
+```
+
+```{r bootstrap-summary}
+bs <- summary(boot)
+bs[bs$stable & bs$informative,
+   c("pathway", "depth", "count", "likely_next", "next_probability",
+     "stability_rate", "informative_rate")]
+```
+
+These — the single-move backbone plus the handful of depth-2 rules that clear
+the reproducibility bar — are the pathways you can state as findings.
+
+# 7. Plots
+
+A few of the package's visual outputs on this tree.
+
+**The tree.** Node size scales with count, edge width with transition flow;
+internal-node labels sit below their circles.
+
+```{r plot-tree, fig.height=6}
+plot(pruned, style = "horizontal")
+```
+
+**Pathway heatmap.** Each row is a context, each column a next move; the cell
+is the predicted probability, the modal cell highlighted.
+
+```{r plot-pathways, fig.height=6}
+plot_pathways(tree, top = 14)
+```
+
+**Divergence lollipop.** Per-context KL from the shorter history; orange marks
+contexts whose modal next move flips.
+
+```{r plot-divergence, fig.height=6}
+plot_divergence(tree, top = 12)
+```
+
+**Bootstrap forest.** Per-pathway \eqn{G^2} with bootstrap CIs; the dashed line
+is the \eqn{\chi^2} critical value — pathways whose interval sits entirely to
+its right are reproducibly informative.
+
+```{r plot-bootstrap, fig.height=6}
+plot(boot)
+```
+
+# 8. Predicting the next move
+
+Finally, the point of the model: given a history, predict the next move and its
+probability.
+
+```{r predict}
+predict(tree, c("Order", "Context"), type = "class")       # most likely next
+predict(tree, c("Order", "Context"), type = "prob")        # full distribution
+```

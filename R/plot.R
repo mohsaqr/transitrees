@@ -263,23 +263,31 @@
   layout  <- .ct_horizontal_layout(x)
   e_paths <- .ct_horizontal_edge_paths(layout, x$edges)
 
-  state_levels   <- x$alphabet
-  last_state_str <- vapply(layout$context, .pt_last_state, character(1))
-  layout$state   <- factor(last_state_str, levels = state_levels)
-  layout$abbr    <- as.character(layout$state)
+  ## Node colour = the MOST-RECENT move in the context (the rightmost
+  ## token), i.e. "what just happened". This is the intuitive reading and
+  ## makes each branch off a depth-1 hub share one colour (every "X ->
+  ## Specify" ends in Specify, so the whole Specify branch is one colour).
+  state_levels     <- x$alphabet
+  recent_state_str <- vapply(layout$context, function(ctx) {
+    if (identical(ctx, .ROOT)) return(NA_character_)
+    parts <- strsplit(ctx, " -> ", fixed = TRUE)[[1L]]
+    parts[[length(parts)]]
+  }, character(1))
+  layout$state <- factor(recent_state_str, levels = state_levels)
   pal <- .pt_state_palette(state_levels)
 
   is_root  <- layout$context == .ROOT
   body_df  <- layout[!is_root, , drop = FALSE]
   root_df  <- layout[ is_root, , drop = FALSE]
-  ## Leaf labels: the full pathway in arrow notation, drawn to the
-  ## right of each leaf node. Internal nodes carry the in-circle
-  ## abbreviation instead (a leaf would otherwise collide its
-  ## abbreviation with its full side-label).
-  is_leaf      <- !(layout$context %in% unique(x$edges$parent))
-  leaf_df      <- layout[is_leaf & !is_root, , drop = FALSE]
-  leaf_df$label <- leaf_df$context
-  internal_df  <- layout[!is_leaf & !is_root, , drop = FALSE]
+  ## Labels: full pathway in arrow notation drawn UNDER every non-root
+  ## node, with the node's modal prediction "(state pct%)" on a second
+  ## line so the predicted next move and its probability are readable off
+  ## the plot (node size still encodes count).
+  body_df$label <- vapply(body_df$context, function(ctx) {
+    pr   <- x$nodes[[ctx]]$prob
+    best <- which.max(pr)
+    sprintf("%s\n(%s %.0f%%)", ctx, x$alphabet[best], 100 * pr[best])
+  }, character(1))
 
   ggplot2::ggplot() +
     ggplot2::geom_path(
@@ -296,16 +304,10 @@
       shape = 21, colour = "grey25", stroke = 0.2, na.rm = TRUE
     ) +
     ggplot2::geom_text(
-      data = internal_df,
-      ggplot2::aes(x = .data$x, y = .data$y, label = .data$abbr),
-      vjust = 1, nudge_y = -0.05, size = 2.7, colour = "grey20",
-      fontface = "bold", na.rm = TRUE
-    ) +
-    ggplot2::geom_text(
-      data = leaf_df,
+      data = body_df,
       ggplot2::aes(x = .data$x, y = .data$y, label = .data$label),
-      hjust = 0, nudge_x = 0.10, size = 3, colour = "grey20",
-      family = "mono"
+      hjust = 0.5, vjust = 1, nudge_y = -0.035, size = 2.5,
+      lineheight = 0.9, colour = "grey20", family = "mono", na.rm = TRUE
     ) +
     ggplot2::geom_point(
       data = root_df,
@@ -323,7 +325,7 @@
                                    name = "context count") +
     ggplot2::scale_linewidth_continuous(range = edge_size_range,
                                          name = "edge flow") +
-    ggplot2::scale_fill_manual(values = pal, name = "State",
+    ggplot2::scale_fill_manual(values = pal, name = "Most recent move",
                                na.translate = FALSE,
                                drop = FALSE) +
     ggplot2::scale_x_continuous(
@@ -341,10 +343,12 @@
       panel.grid       = ggplot2::element_blank()
     ) +
     ggplot2::labs(
-      x        = "depth",
+      x        = "depth (further right = older history remembered)",
       title    = "Context tree (horizontal)",
       subtitle = sprintf(
-        "%d nodes, depth <= %d;  node size = count;  edge thickness = flow",
+        paste0("Read a node's label left->right = oldest->newest move; ",
+               "(  ) = predicted next move.  Colour = most recent move; ",
+               "size = count; line = flow.  %d nodes, depth <= %d."),
         length(x$nodes), x$max_depth)
     )
 }
@@ -355,9 +359,12 @@
 #' Renders a fitted transitiontrees in one of four styles:
 #' \itemize{
 #'   \item \code{"horizontal"} (default) — pure-ggplot2 left-to-right
-#'     phylogram: root on the left, leaves fanned out vertically on
-#'     the right with full arrow-notation leaf labels and smooth
-#'     curved branches.
+#'     phylogram: root on the left, contexts fanned out vertically to
+#'     the right. Every non-root node carries its full arrow-notation
+#'     context and its modal prediction \code{"(state pct\%)"} on a
+#'     second line beneath the node; node fill is the \emph{most recent}
+#'     move (rightmost token), so each branch off a depth-1 hub shares a
+#'     colour. The x-axis is depth (further right = older history).
 #'   \item \code{"dendrogram"} — pure-ggplot2 radial tree: root at the
 #'     centre, leaves on the outer ring.
 #'   \item \code{"icicle"} — circular partition / sunburst via
@@ -371,9 +378,11 @@
 #'     complete next-state distribution.
 #' }
 #'
-#' Across all styles: node fill = last state of the pathway, node size
-#' = context count, edge thickness = child's count (\dQuote{flow}). The
-#' interactive style carries the same encoding, plus drag / zoom / hover.
+#' Common encoding: node size = context count, edge thickness = child's
+#' count (\dQuote{flow}). Node fill is the most recent move (rightmost
+#' token of the context) in the \code{"horizontal"} style; the
+#' \code{"dendrogram"}, \code{"icicle"}, and \code{"interactive"} styles
+#' colour by the branching (oldest) token.
 #'
 #' @param x A \code{transitiontrees}.
 #' @param style One of \code{"horizontal"} (default),

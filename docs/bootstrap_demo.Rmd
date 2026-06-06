@@ -1,5 +1,5 @@
 ---
-title: "pathtree::bootstrap_pathways() — demonstration"
+title: "transitiontrees::bootstrap_pathways() — demonstration"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
   html_document:
@@ -42,7 +42,7 @@ Two complementary measures per pathway:
 
 - **`informative_rate`** — fraction of resamples where the
   pathway's empirical likelihood-ratio statistic against its parent
-  context exceeds the chi-square critical value at `alpha_g2 =
+  context exceeds the chi-square critical value at `alpha =
   0.05`. **Reproducible significant divergence from the
   shorter-history baseline.** The bootstrap analogue of
   `prune(criterion = "G2")`.
@@ -78,7 +78,7 @@ run_scenario <- function(P, seed) {
     trans_matrix = P, init_probs = init,
     use_learning_states = FALSE, include_na = FALSE,
     seed = seed)
-  tree <- context_tree(seqs, max_depth = 2L, nmin = 5L)
+  tree <- context_tree(seqs, max_depth = 2L, min_count = 5L)
   bootstrap_pathways(tree, iter = 300L, seed = 1L)
 }
 
@@ -197,7 +197,7 @@ finite-sample noise produces.
 ```{r real-data}
 data("trajectories", package = "Nestimate")
 dim(trajectories)
-tree <- context_tree(trajectories, max_depth = 3L, nmin = 5L)
+tree <- context_tree(trajectories, max_depth = 3L, min_count = 5L)
 boot <- bootstrap_pathways(tree, iter = 500L, seed = 1L)
 boot
 ```

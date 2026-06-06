@@ -182,6 +182,8 @@ plot_divergence <- function(tree, top = 15L, min_count = 5L,
       name = NULL,
       na.value = "grey60") +
     ggplot2::scale_size_continuous(name = "pathway count") +
+    ggplot2::scale_x_continuous(
+      expand = ggplot2::expansion(mult = c(0.02, 0.30))) +
     ggplot2::labs(
       x = "KL divergence (bits)  vs (k-1)-suffix",
       y = NULL,

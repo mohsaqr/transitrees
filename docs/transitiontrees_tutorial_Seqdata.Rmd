@@ -1,0 +1,1234 @@
+---
+title: "transitiontrees: A Complete, Interpreted Tutorial on the Grammar of AI Prompts"
+subtitle: "Every function explained and every result read, on a real log of student prompt-writing moves"
+author: "transitiontrees"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_folding: show
+    df_print: paged
+    highlight: tango
+    fig_caption: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width  = 9,
+  fig.height = 5.5,
+  dpi        = 96,
+  comment    = "#>"
+)
+suppressPackageStartupMessages({
+  devtools::load_all(here::here())
+  library(ggplot2)
+})
+set.seed(20260602)
+```
+
+# How to read this tutorial
+
+`transitiontrees` fits a **variable-order prediction suffix tree** (Ron, Singer
+& Tishby 1996) and exposes a **pathway-centric API**. A fixed-order
+Markov chain assumes memory is the *same length everywhere* ("the last
+move predicts the next", or "the last two do"). That is rarely true of
+behaviour. A variable-order tree lets the **data decide, per context,
+how much history matters** — some prompting moves are predictable from
+the single previous move, others only make sense given a longer run-up,
+and most longer histories add nothing and should be pruned away.
+
+This document does two things at once:
+
+1. **Walks every exported function** against a real **log of how
+   students compose AI prompts** — each prompt decomposed into its
+   ordered *rhetorical moves* (`Order`, `Context`, `Specify`, …).
+2. **Interprets every result.** After each table, test, and plot
+   there is a *Reading* block: what the numbers actually say about how
+   these students build a prompt, what the method is doing under the
+   hood, and — just as important — *what you should not over-read*.
+
+A running storyline emerges and is worth stating up front so the
+sections connect rather than feel like a feature list:
+
+> **The arc.** A prompt almost always *opens* with a command
+> (`Order`) but its *body* is carried by `Specify` and `Context`. The
+> single firmest rule in the corpus is grammatical: **after a
+> `Context` move, students `Specify`** — the great majority of the time.
+> The memory in this behaviour is **short** — prompts are only a few
+> moves long, so cross-validation says order-2/3 is the ceiling and
+> there is no deep structure to find. And the grammar **shifts over the
+> course**: early assignments chain everything into `Specify`; later
+> ones reorganise — a difference that is *statistically real*, whereas
+> the same prompts split by **grade** show *no* difference at all. Every
+> section below adds one piece of evidence to that arc.
+
+Conventions:
+
+- **Pathway** = a sequence of observed moves in arrow notation,
+  `"A -> B -> C"` (leftmost = *oldest*).
+- **Start** = the empty pathway (no history); `"(start)"` in tables,
+  sentinel `"<root>"` internally. Its prediction is just the marginal
+  "what move comes next on average".
+- All public tables are plain `data.frame`s; the four result classes
+  (`transitiontrees`, `transitiontrees_bootstrap`, `transitiontrees_comparison`,
+  `transitiontrees_tune`) all support `as.data.frame()`.
+
+# The dataset
+
+The raw file is in **long format**: one row per *move*, carrying the
+prompt it belongs to (`prompt_id`), the move's order within that prompt
+(`value`), the move label (`name`), and a set of prompt-level covariates
+(the student `id.x`, the `assignment`, the `llm` used, the graded
+`performance`).
+
+```{r data-load}
+library(Nestimate)
+raw <- read.csv(
+  "/Users/mohammedsaqr/Documents/Documents X/DocumentsX/TNA Work/TNA networks teem data/Seqdatalonged.csv",
+  stringsAsFactors = FALSE)
+dim(raw)
+str(raw)
+sort(table(raw$name), decreasing = TRUE)
+```
+
+> **Reading the corpus.** Six rhetorical moves, and they are unevenly
+> used (the counts are in the table above). `Order` and `Specify`
+> together are the clear majority of every move made; `Approve` is
+> almost absent. This imbalance is the single most important fact about
+> the data and it echoes through every later result: a model that just
+> guesses "Order" or "Specify" will look deceptively good, so the
+> interesting question is never "what is the modal next move" (usually
+> one of those two) but "*which contexts overturn that default*". Keep
+> that lens for the rest of the tutorial.
+
+The modelling unit is **one prompt** — `prompt_id` groups a prompt's
+moves into one ordered sequence. Rather than reshape by hand, we let
+`Nestimate::build_network()` do it: `actor = "prompt_id"` makes **each
+prompt one sequence**, `order = "value"` puts its moves in order. The
+returned `netobject` carries everything `transitiontrees` needs — `$data` is
+the wide, trailing-NA-padded character frame (one row per prompt),
+`$nodes$label` is the canonical alphabet (the move set), and
+`$metadata` is row-aligned to `$data` with the prompt-level covariates
+we use for the cohort comparison in §11.
+
+```{r build-network}
+Model <- build_network(raw, actor = "prompt_id", action = "name",
+                       order = "value", method = "relative")
+class(Model)
+dim(Model$data)
+head(Model$data)                        # trailing NAs = end-of-prompt
+Model$nodes$label                       # the alphabet
+```
+
+```{r netobject-shape}
+AI_data  <- Model$data                  # wide prompt frame, used throughout
+alphabet <- Model$nodes$label           # the 6-move symbol space
+length(unique(Model$metadata$id.x))             # distinct students
+summary(rowSums(!is.na(AI_data)))               # prompt lengths
+sort(Model$initial, decreasing = TRUE)          # OPENING move (netobject slot)
+```
+
+> **Reading the shape — and the first real finding.** Compare the
+> *opening* move with the corpus frequencies above (what students
+> *mostly do*). They disagree sharply: a prompt **opens with `Order`**
+> far more often than `Order`'s one-third share of all moves — it is by
+> far the commonest opening (see the printed opening distribution). That
+> is a genuine behavioural signature: students *open* a prompt with a
+> command ("build X", "make Y"), then spend the body **specifying and
+> contextualising** what they actually want. We have not fitted anything
+> yet and the data already has structure. Prompts are also **very
+> short** — the printed `summary()` of prompt lengths shows a low median
+> and a short ceiling. That brevity is *why* pruning and
+> cross-validation will matter: a depth-3 context simply cannot have
+> much evidence behind it, because only a handful of prompts run that
+> long.
+
+# 1. Fitting a context tree: `context_tree()`
+
+`context_tree()` is the constructor. It returns an S3 `transitiontrees`: a
+list of nodes keyed by pathway string, an edges table, the alphabet,
+and the hyperparameters. The sibling-package integration: pass the
+**Nestimate `netobject` directly** — it unwraps `$data` and uses
+`$nodes$label` as the alphabet, so the network and the tree share one
+symbol space. Because the deepest prompt is 4 moves, the deepest
+*context* worth asking for is 3 (it predicts the 4th move), so we cap
+`max_depth = 3`; with only a few hundred short prompts we keep `min_count`
+low so depth-2/3 contexts can form at all.
+
+```{r fit}
+tree <- context_tree(
+  Model,               # a Nestimate netobject, read natively
+  max_depth = 3L,      # longest context the tree may represent
+  min_count = 3L,      # a context needs >= 3 occurrences to get its own node
+  smoothing = "floor"  # default: floor MLE at ymin=0.001 and renormalise
+)
+tree
+```
+
+> **Reading the fit.** Three numbers matter in that banner.
+> **`r n_nodes(tree)` nodes** — far fewer than the AI-session trees you
+> may have seen, precisely because the prompts are short: there are only
+> so many distinct 2- and 3-move histories that occur >= 3 times.
+> **`r tree$n_seq` sequences / `r nobs(tree)` observations** — every
+> prompt with >= 1 move is kept. With *no* history the best guess is
+> `Order` at `r round(query_pathway(tree, "(start)")["Order"], 2)`,
+> barely ahead of `Specify`
+> (`r round(query_pathway(tree, "(start)")["Specify"], 2)`); that
+> near-tie is the baseline every deeper context has to *beat*. Hold that
+> thought — §3 and §4 are the machinery for separating the rules that
+> beat it from the spines that merely repeat.
+
+The two things you actually reach for — how many contexts the tree
+holds, and the root marginal — both have clean accessors, no
+list-spelunking required:
+
+```{r fit-internals}
+n_nodes(tree)                    # how many contexts the tree holds
+query_pathway(tree, "(start)")    # the root marginal = the null model
+```
+
+> **Reading the root marginal.** `query_pathway(tree, "(start)")` is the
+> next-move distribution with *no* history (printed above): `Order` and
+> `Specify` nearly tied at the top, `Context` next, the rest trailing.
+> This vector is the **null model** for the entire analysis —
+> "divergence from parent", G²
+> pruning, and bootstrap "informativeness" all ultimately measure *how
+> far a context's prediction departs from a chain of these marginals*.
+
+## 1.1 Input shapes accepted
+
+The wide matrix above is one of several equivalent front doors. The
+same prompts can arrive as a ragged list, a TraMineR `stslist`, or — to
+connect with the `mohsaqr` network ecosystem — a Nestimate
+`netobject` / cograph network object built with
+`session = "prompt_id"`.
+
+We fit from the `netobject` above, but `context_tree()` accepts several
+equivalent front doors — all numerically identical:
+
+```{r fit-inputs, eval = FALSE}
+context_tree(Model)                        # Nestimate netobject (this doc)
+context_tree(Model$data)                   # the wide character frame
+context_tree(TraMineR::seqdef(Model$data)) # TraMineR stslist
+context_tree(cograph::as_cograph(Model))   # cograph network object
+```
+
+> **Reading the input rule.** The input shape is a convenience, never a
+> numerical fork — every route above gives the same tree. The Nestimate
+> route is the ecosystem handoff: `build_network(actor = "prompt_id",
+> order = "value")` makes **each prompt one sequence**, hands `transitiontrees`
+> the wide `$data` frame and `$nodes$label` as the alphabet, so the
+> network and the tree share one symbol space. The hard boundary, by
+> design: a **pure graph** object with no `$data` sequences — an
+> aggregated transition network — is *rejected*, because the original
+> move sequences cannot be recovered from edge weights. Numeric matrices
+> are likewise rejected (they mean "transition matrix" elsewhere).
+> *transitiontrees fits on sequences, never on aggregated transitions.*
+
+## 1.2 The five smoothing schemes
+
+Smoothing decides what probability an *unseen* next-move gets. With a
+skewed 6-move alphabet and very short prompts, many context × move
+cells are zero, so this choice is not cosmetic.
+
+`compare_smoothing()` fits the tree under every scheme — holding
+`max_depth`/`min_count` fixed — and returns the comparison in one call:
+
+```{r fit-smoothing-grid}
+compare_smoothing(Model, max_depth = 3L, min_count = 3L)
+```
+
+> **Reading the smoothing grid.** Two things. First, `n_nodes` is
+> **identical across all five schemes** — smoothing changes
+> *probabilities*, never *which contexts exist*; topology is set by
+> `min_count`, not by the smoother. Second, the in-sample perplexities are
+> close but ordered: plain `floor` looks best *in-sample* and `laplace`
+> worst, because add-one `laplace` bleeds the most mass onto unseen
+> moves — exactly the wrong move when two moves (`Order`/`Specify`)
+> dominate. But *in-sample* perplexity rewards memorisation; do **not**
+> pick a smoother here. §10's cross-validation reverses this ranking
+> (`kneser_ney` wins out-of-sample) and that is the verdict that
+> counts. The lesson is methodological: never select a hyperparameter
+> on the data you fit on.
+
+# 2. Inspecting the tree
+
+## 2.1 `summary()` — tidy node table + scalars
+
+```{r summary}
+summary(tree)
+```
+
+> **Reading the summary.** The summary table is the canonical 7-column
+> schema (`pathway, depth, count, likely_next, next_probability,
+> divergence, changes_prediction`), sorted `(depth, -count)` so you read
+> top-down from the root. The depth-1
+> rows are the six single-move contexts — the backbone of everything.
+> Glance at their `next_probability` in the printed table: `Context` is
+> the most predictable (it points hard at `-> Specify`), `Order` and
+> `Reject` middling, `Specify` itself the flattest (it can be followed
+> by almost anything).
+> `changes_prediction = TRUE` on these depth-1 rows means each move
+> predicts a *different* next-move than the root's `Order` default —
+> they carry real conditional information, which §3.3 quantifies.
+
+## 2.2 `as.data.frame(tree)` — uniform tidy-extract
+
+```{r as-data-frame}
+df <- as.data.frame(tree)
+head(df, 6)
+all.equal(df, tree_pathways(tree))
+```
+
+> **Reading it.** `TRUE` — `as.data.frame(tree)` *is*
+> `tree_pathways(tree)`; one source of truth, no schema drift
+> between the console object and the tidy table you would put in a
+> manuscript.
+
+## 2.3 Model-fit scalars
+
+`model_fit()` bundles all the standard fit scalars into one tidy row:
+
+```{r model-fit-scalars}
+model_fit(tree)
+```
+
+> **Reading the scalars.** Perplexity is the interpretable one:
+> "effective number of equally-likely next moves". The uniform baseline
+> is `r length(alphabet)` (six moves, no knowledge); the fitted tree is
+> `r round(model_fit(tree)$perplexity, 2)` — knowing the recent moves
+> collapses six possibilities to under three. That is a large, real
+> effect, but it is *in-sample* and the depth-3 tree is mildly
+> over-parameterised, so read it as an upper-optimistic bound. AIC/BIC
+> exist to *penalise* node count; §10's cross-validation gives the
+> honest, out-of-sample figure.
+
+# 3. The pathway-centric API
+
+Five exports return pathways as tidy data.frames sharing one schema:
+`pathway | depth | count | likely_next | next_probability | divergence | changes_prediction`.
+
+## 3.1 `tree_pathways()` — every node, sorted
+
+```{r transitiontrees-pathways}
+pw <- tree_pathways(tree)
+nrow(pw); head(pw)
+```
+
+> **Reading it.** Default sort is `count` descending, so the top rows
+> (printed above) are the corpus's *highways*: the root, then the single
+> moves `Order` and `Context`, then `Order -> Context`. That last one is
+> interesting already — a large share of prompts issue a command and
+> then add context, and that 2-move history points almost
+> deterministically onward. Frequency surfaces the *workflow*; the next
+> two functions surface what is *informative*.
+
+Schema is stable on empty results, and other sorts/filters work:
+
+```{r transitiontrees-pathways-empty}
+str(tree_pathways(tree, min_count = 1e6))   # 0 rows, still 7 typed cols
+```
+
+```{r transitiontrees-pathways-sort}
+head(tree_pathways(tree, sort_by = "divergence"), 4)
+head(tree_pathways(tree, sort_by = "depth", decreasing = FALSE), 4)
+```
+
+> **Reading it.** The empty case still returns the 7 typed columns — so
+> downstream `rbind`/joins never break on a thresholded-away result.
+> Re-sorting by `divergence` previews §3.3: the high-divergence rows are *different*
+> pathways from the high-count rows — the contexts that *matter* are
+> not the ones that are *common*.
+
+## 3.2 `common_pathways()` — top-n by frequency
+
+```{r common-pathways}
+common_pathways(tree, top = 8)
+```
+
+> **Reading it.** The "what do students mostly do" view: prompts run on
+> `Order` and `Context` openings that resolve into `Specify`. Note
+> `Order -> Context -> Specify` and `Order -> Context` both point hard
+> at `Specify` (see their `next_probability` above) — the dominant
+> *constructive* pattern (command -> contextualise -> specify). Useful as
+> a description of the common workflow; for the *interesting* behaviour
+> you need divergence, not frequency.
+
+```{r common-pathways-depth}
+common_pathways(tree, top = 5, depth = 2L)
+```
+
+> **Reading it.** The top order-2 contexts are all `*-> Specify` or
+> `Order -> Context`: the second move is highly predictable once you
+> know the first. That the *frequent* 2-move histories are so
+> deterministic is itself evidence for short, strong, local grammar —
+> §10 makes the trade-off formal.
+
+## 3.3 `divergent_pathways()` — top-n by KL from parent
+
+```{r divergent-pathways}
+divergent_pathways(tree, top = 8)
+```
+
+> **Reading it — the heart of the analysis.** KL here is, per context,
+> *how much the prediction changes when you add one more step of
+> history*, in nats. Read this table in two layers. The very top rows
+> have enormous `divergence` **but a `count` of only 3** — a 2-move
+> history seen three times that happened to resolve one way. Those are
+> small-sample mirages; §3.4 and §12 exist to disarm them. The rows that
+> *also* carry weight are the depth-1 moves — `Specify`, `Context` and
+> `Order` — each with high `count` *and* substantial `divergence`. These
+> are the well-supported redirections: each move pulls the prediction
+> off the root's `Order` default toward a *specific* successor.
+> `Context` is the standout — common *and* sharply predictive.
+
+```{r divergent-pathways-flips}
+divergent_pathways(tree, flips_only = TRUE, top = 8)
+```
+
+> **Reading the flippers.** Restricting to `changes_prediction = TRUE` keeps
+> pathways where the longer history *overturns which move is most
+> likely*, not merely sharpens it. Essentially the whole high-KL list
+> survives — these divergences are genuine redirections. If this table
+> had come back **empty**, the correct conclusion would have been "the
+> tree only sharpens, never redirects" — a real, reportable negative.
+> It is not empty, so these are the pathways to investigate, prune
+> *toward*, and bootstrap in §12 — once we have filtered the count-3
+> noise out.
+
+## 3.4 `sharp_pathways()` — top-n by predictive sharpness
+
+```{r sharp-pathways}
+sharp_pathways(tree, top = 8)
+```
+
+> **Reading it — and a deliberate trap.** Sorted by `next_probability`
+> descending, the top rows hit near-1.0 probabilities and look like
+> near-deterministic rules. **Do not believe the low-`count` ones.** A
+> 3-move context seen a handful of times that always continued the same
+> way is exactly what a tree manufactures by chance. The rows that *are*
+> trustworthy carry real support — `Order -> Context -> Specify` and its
+> parent `Order -> Context`, both with high `count` in the table above.
+> Same constructive routine, now with enough prompts behind it to take
+> seriously. The lesson this table teaches is *why* §6 and §12 exist:
+> sharpness without support is noise, and the package gives you formal
+> tools to tell them apart rather than eyeballing `next_probability`.
+
+# 4. Per-context diagnostics: `tree_dependence()`
+
+This is the full information-theoretic decomposition that
+`prune_tree(criterion = "KL")` thresholds: per context its
+`divergence`, its entropy `entropy`, its parent's `entropy_before`, the
+resolved uncertainty `entropy_drop = entropy_before - entropy`, and the
+modal-flip flag (`changes_prediction`).
+
+```{r path-dependence}
+tree_dependence(tree, sort_by = "entropy_drop", top = 8)
+```
+
+> **Reading the decomposition.** `entropy_drop` answers "how much
+> next-move uncertainty does this history *remove*?" **`Context` tops
+> the table**: its parent (the root) is very uncertain over the six
+> moves, and conditioning on a single `Context` move almost determines
+> the next one (low `entropy`). It also *flips* the modal move from
+> `Order` to `Specify`. That is the most valuable kind of context — it
+> both sharpens and redirects, with a high `count` of support. The
+> low-`count` rows below it show large `entropy_drop` too, but read them
+> as candidates, not conclusions.
+
+```{r path-dependence-base}
+head(tree_dependence(tree, base = exp(1)), 4)   # nats instead of bits
+```
+
+> **Reading it.** Identical ordering, values rescaled by `ln 2` — base
+> is presentation only. Use nats if you are reconciling against a
+> likelihood (also in nats); bits if you are talking to people ("how
+> many yes/no questions of uncertainty removed").
+
+# 5. Specific-pathway lookup
+
+The examples below use two concrete contexts from this alphabet: a
+single move, and a two-move history written both ways `query_pathway()`
+accepts — an arrow-string and a character vector.
+
+```{r pick-contexts}
+d1  <- "Context"               # a depth-1 context
+d2  <- "Order -> Context"      # a depth-2 context, arrow form
+d2v <- c("Order", "Context")   # the same context, vector form
+```
+
+## 5.1 `query_pathway()` — look up a single pathway
+
+```{r query-pathway}
+query_pathway(tree, d2)    # arrow-string form
+query_pathway(tree, d2v)   # same context, vector form
+```
+
+> **Reading it.** Both call shapes (arrow-string and character vector)
+> return the same conditional distribution over the six moves for the
+> most-common depth-2 context, `Order -> Context`. Read it as a
+> probabilistic rule: after a command then a context move, the next
+> move is `Specify` with probability
+> `r round(query_pathway(tree, d2)["Specify"], 2)` — the constructive
+> routine made explicit.
+
+```{r query-pathway-pinned}
+query_pathway(tree, d1, next_state = "Specify")
+```
+
+> **Reading it.** Pinning `next_state` returns a single number:
+> `P(Specify | last move = Context)` =
+> `r round(query_pathway(tree, d1, next_state = "Specify"), 2)`. This is the primitive you
+> use to answer targeted questions ("after a context move, how likely
+> is a specify move?") without pulling the whole vector.
+
+```{r query-pathway-exact}
+deep_ctx <- c("Reject", "Approve", "Context")   # a 3-deep context unlikely to be a node
+query_pathway(tree, deep_ctx)                # default: longest-suffix backoff
+query_pathway(tree, deep_ctx, exact = TRUE)  # strict: all NA if not a node
+```
+
+> **Reading the backoff.** This contrast is the model's whole
+> philosophy in two lines. By default an unseen 3-deep context **backs
+> off to its longest matching suffix** (here `Context`) — exactly what
+> makes a *variable*-order model robust: it never refuses to predict,
+> it just uses as much history as it has evidence for. `exact = TRUE`
+> returns all-`NA` for the same query, because that precise 3-gram was
+> never a node. Use the default for prediction; use `exact = TRUE` only
+> when auditing *which* contexts literally exist in the tree.
+
+## 5.2 `pathway_exists()` — boolean check
+
+```{r pathway-exists}
+pathway_exists(tree, d1)
+pathway_exists(tree, d2)
+pathway_exists(tree, "nonsense -> path")
+```
+
+> **Reading it.** `TRUE/TRUE/FALSE`. The third is `FALSE` not because
+> prediction failed but because that literal context is not a node —
+> the membership test does *not* do suffix backoff, by design. It
+> answers "did the tree learn this exact context", the right question
+> for structure audits and test scaffolding.
+
+## 5.3 `subtree()` — restrict to descendants
+
+```{r subtree}
+sub <- subtree(tree, d1)         # prints "subtree of: Context" in its banner
+sub
+head(tree_pathways(sub), 4)
+```
+
+> **Reading it.** You get a new, self-contained `transitiontrees` rooted at
+> `Context` containing only that move and everything growing out of it,
+> with the global arrow-form names preserved and the local root shown
+> in its banner. Use this to drill into one motif — "everything that
+> happens after a context move" — and run the *same* pathway API on the
+> slice.
+
+# 6. Pruning: `prune_tree()`
+
+Pruning removes contexts that **don't earn their depth**: bottom-up, a
+leaf whose evidence doesn't beat its parent under the chosen criterion
+is dropped, the parent re-tested, and so on. The root is never pruned.
+
+`compare_pruning()` applies each criterion — holding `alpha`/`threshold`
+fixed — and reports how hard each one trims, in one call:
+
+```{r prune-all}
+compare_pruning(tree)
+```
+
+> **Reading the criteria.** The unpruned tree had `r n_nodes(tree)`
+> nodes (the `n_nodes` column above is each criterion's surviving size).
+> The likelihood-ratio rules agree tightly: **`G2`, `AIC` and `BIC` all
+> cut it to about the same smaller tree**, while `KL` at the lenient
+> 0.005-nat threshold keeps everything (any tiny divergence clears the
+> bar — a knob, not a verdict; tighten `threshold` to make it bite). The
+> contrast with a deep AI-session tree is instructive: there G²
+> typically removes the large majority of nodes because long contexts
+> overgrow wildly; **here it removes far less, because the prompts are
+> so short there was little overgrowth to begin with.** The depth-3
+> contexts that exist are mostly the low-`count` ones, and those are
+> exactly what G²/AIC/BIC strip. **Practical guidance: use `G2` (or
+> `AIC`); report the reduction, because "the unjustified contexts were
+> the rare deep ones" is itself the short-memory finding.**
+
+```{r prune-strict}
+pr_strict <- prune_tree(tree, criterion = "G2", alpha = 0.001)
+pr_strict   # banner reports node count + "pruned by: G2  alpha = 0.001"
+```
+
+> **Reading it.** Dropping `alpha` 0.05 → 0.001 raises the χ² bar, so
+> even fewer contexts survive. The banner now reports the criterion and
+> `alpha`, and those settings *travel with the tree* so
+> `compare_trees()` re-applies the identical prune to every
+> permutation refit (a correctness detail in §11).
+
+```{r prune-pick}
+pruned <- prune_tree(tree, criterion = "G2", alpha = 0.05)
+n_nodes(pruned)
+```
+
+> **Reading it.** This `r n_nodes(pruned)`-node `pruned` tree is the **defensible
+> model** and the working object for the rest of the tutorial:
+> prediction, comparison, bootstrap and plots all use it, because the
+> dropped contexts were the unsupported deep ones.
+
+# 7. Re-smoothing a fitted tree: `smooth_tree()`
+
+Smoothing is applied once at fit time, but `smooth_tree()` re-smooths
+a fitted tree under a new scheme **without re-counting**:
+
+```{r smooth-one}
+pruned_kn <- smooth_tree(pruned, "kneser_ney")     # one scheme
+c(original = n_nodes(pruned), re_smoothed = n_nodes(pruned_kn))  # topology unchanged
+```
+
+Handed a **fitted tree**, `compare_smoothing()` sweeps every scheme by
+re-smoothing (not refitting), so the whole §1.2 comparison works on the
+pruned model in one call:
+
+```{r smooth-transitiontrees}
+compare_smoothing(pruned)
+```
+
+> **Reading it.** Counts and topology are frozen — `n_nodes` is constant
+> down the table — and only the `prob` vectors change, so perplexity
+> moves a little while the *tree* is identical. (Contrast §1.2, where
+> `compare_smoothing()` was given raw data and *refit* under each
+> scheme.) This is the right tool for a smoothing sweep on an
+> already-fit, already-pruned model — you are tuning how unseen moves
+> are handled, not refitting structure.
+
+# 8. Prediction surface
+
+## 8.1 `predict.transitiontrees()`
+
+Schema-stable rule: **container inputs (list/data.frame/matrix) always
+return a matrix**; a bare character vector returns a named vector.
+
+```{r predict-matrix}
+predict(pruned, newdata = list(d2v, c("Order"), c("Reject", "Request")))
+```
+
+```{r predict-named-vec}
+predict(pruned, newdata = d2v)
+```
+
+```{r predict-class}
+predict(pruned, newdata = list(d2v, c("Order","Context"), c("Reject")),
+        type = "class")
+```
+
+> **Reading it.** The matrix form (one row per history, one column per
+> move) is for batch scoring; the named-vector shortcut is for
+> interactive one-offs. `type = "class"` collapses each row to its
+> modal move — and on this data those will lean toward `Specify` after
+> any `Context`-bearing history and `Order` at the root, the predictable
+> consequence of the grammar. When an exact context is missing from the
+> pruned tree, prediction backs off to the longest matching suffix
+> (same philosophy as §5.1), which is why this compact pruned tree still
+> scores arbitrary new prompts.
+
+## 8.2 `perplexity()`, `score_sequences()`, `score_positions()`
+
+The scoring surface measures how well the model predicts a corpus. The
+numbers here score the prompts the tree was fit on, so they are the
+*optimistic* bound; the honest out-of-sample figure is the
+cross-validation in §10 — no hand-rolled train/test split required.
+
+```{r perplexity}
+perplexity(pruned)
+```
+
+> **Reading it.** Perplexity is the "effective number of equally-likely
+> next moves". The uniform baseline is `r length(alphabet)` (six moves,
+> no knowledge); the pruned tree scores
+> `r round(perplexity(pruned), 2)`, so knowing the recent history
+> collapses six possibilities to under three. This is in-sample and
+> therefore optimistic; §10 gives the cross-validated figure to report.
+
+`score_sequences()` breaks that one number down to one row per prompt:
+
+```{r score-sequences}
+ss <- score_sequences(pruned, newdata = AI_data)
+ss
+```
+
+> **Reading it.** One row per prompt with its own perplexity. Most
+> prompts follow the common grammar and are predicted well; a tail is
+> genuinely surprising — the worst prompt scores
+> `r round(max(ss$perplexity), 1)` against a median of
+> `r round(median(ss$perplexity), 1)`. Those high-perplexity prompts are
+> where unusual rhetorical strategies live, worth qualitative follow-up.
+
+`score_positions(worst =)` zooms to the individual moves the model
+predicts worst:
+
+```{r score-positions}
+score_positions(pruned, newdata = AI_data, worst = 5)
+```
+
+> **Reading the worst predictions.** Each row is one observed move with
+> the `matched_context` that drove its prediction, ranked by
+> `predicted_prob` ascending — *where the model was most blindsided*:
+> rare moves landing where the dominant `Order`/`Specify` machinery
+> expected its usual successors. Diagnostic gold for which transitions
+> more data would need to capture.
+
+## 8.3 `model_fit()` — every fit scalar at once
+
+`model_fit()` bundles the goodness-of-fit scalars into one tidy row, so
+log-likelihood, the parameter count, AIC, BIC and perplexity come from a
+single call:
+
+```{r model-fit-pruned}
+model_fit(pruned)
+```
+
+> **Reading it.** Per-observation log-likelihood (`logLik / nobs`) is
+> just `-log(perplexity)` on the information scale that AIC/BIC tooling
+> expects. AIC and BIC penalise the `r n_nodes(pruned)`-node count, so
+> they are the right scalars to weigh two candidate trees fit on the
+> same data.
+
+# 9. Sequence generation
+
+## 9.1 `generate_sequences()`
+
+```{r generate}
+gen <- generate_sequences(pruned, n = 5L, length = 4L)
+gen
+```
+
+> **Reading it.** The tree is generative: each row is a synthetic
+> prompt sampled by walking the conditional distributions. They look
+> plausibly like real prompts — `Order`-opened, resolving into
+> `Specify`/`Context` — a sanity check that the model captured the
+> gross grammar. Generation is also how you build null behavioural
+> corpora or stress-test a downstream pipeline. (Note `length = 4`
+> matches the real prompt ceiling; asking for longer just keeps
+> sampling from the same short-context rules.)
+
+## 9.2 `simulate.transitiontrees()`
+
+```{r simulate}
+sim <- simulate(pruned, nsim = 5L, seed = 42L, length = 4L)
+sim
+```
+
+> **Reading it.** The R-standard `simulate()` generic wrapping
+> `generate_sequences()` with `nsim` + a `seed` for reproducibility —
+> same draws as seeding `generate_sequences()` by hand. Use this form
+> so your simulation slots into the usual `stats` workflow.
+
+# 10. Cross-validated tuning: `tune_tree()`
+
+k-fold CV over a hyperparameter grid; returns a `transitiontrees_tune`
+data.frame sorted by held-out perplexity, with the winner on
+`attr(., "best")`.
+
+```{r tune}
+tg <- tune_tree(AI_data, max_depth = 1L:3L, min_count = c(3L, 5L),
+                    smoothing = c("floor","kneser_ney"),
+                    prune = c(FALSE, TRUE), folds = 5L, seed = 1L)
+head(tg, 8); attr(tg, "best")
+```
+
+> **Reading the verdict — this is where the arc lands.** The
+> minimum-perplexity configuration is printed as `attr(tg, "best")`
+> above — on this run, **`r attr(tg, "best")$smoothing`** at
+> **`max_depth = r attr(tg, "best")$max_depth`** — but read the *whole
+> table*, not just the winner. The perplexities are nearly flat: deeper
+> contexts barely beat shallower ones, and the unpruned and pruned
+> series sit almost on top of each other. Three conclusions follow. The
+> out-of-sample smoothing winner **need not match the in-sample ranking
+> from §1.2** — which is exactly why that earlier ranking had to be
+> ignored: never select a smoother on the data you fit on. **Depth buys
+> almost nothing** beyond order 2 — the quantitative form of "prompts
+> have short memory". And **a winning `prune = FALSE` is no contradiction
+> of §6**: the tree is already so compact (`r n_nodes(tree)` nodes) that
+> there is little overgrowth for pruning to remove, so CV is indifferent
+> to it — unlike a deep AI-session tree where pruning is decisive. The
+> practitioner takeaway: a *shallow* model is the right production
+> choice, and you would not bother shipping anything deeper.
+
+```{r tune-plot, fig.height = 6}
+plot(tg)
+```
+
+> **Reading the surface.** Perplexity (y) against the grid; the orange
+> star is the winner. The shape is as informative as the point: the
+> curves are essentially flat across `max_depth`, so there is no hidden
+> deeper optimum — extra depth is wasted. A flat CV curve like this
+> *is* the picture of a short-memory process; if prompt-writing had
+> long-range structure you would see perplexity keep falling with
+> depth, and it does not.
+
+# 11. Two-cohort comparison
+
+`compare_trees()` asks whether two cohorts generate *significantly
+different* pathway dynamics: a count-weighted symmetric-KL distance plus
+a permutation null from shuffling prompt → cohort labels. The natural
+question for a *course* log is whether the grammar of a prompt **matures
+over time**, so we split on `assignment`: **early** (1–2) vs **late**
+(4–5).
+
+We don't subset by hand: `context_tree(..., group =)` fits **one tree
+per cohort** in a single call (over a shared alphabet), returning a
+`transitiontrees_group`. `prune_tree()` prunes the whole group, and
+`compare_trees()` takes the 2-group result directly. We fit at
+`max_depth = 2` because each cohort is smaller.
+
+```{r cohort-split}
+stage   <- ifelse(Model$metadata$assignment %in% c("assignment1", "assignment2"),
+                  "early", "late")
+cohorts <- prune_tree(
+  context_tree(Model, max_depth = 2L, min_count = 3L, group = stage),
+  criterion = "G2", alpha = 0.05)
+cohorts
+tree_early <- cohorts$early; tree_late <- cohorts$late
+```
+
+## 11.1 `tree_distance()`
+
+```{r transitiontrees-distance}
+tree_distance(tree_early, tree_late)
+tree_distance(tree_early, tree_late, symmetric = FALSE)
+```
+
+> **Reading it.** A single count-weighted symmetric-KL number
+> (`r round(tree_distance(tree_early, tree_late), 3)`) —
+> meaningful only against a null (next), but note `symmetric = FALSE`
+> gives a *different* value: `D(early‖late) ≠ D(late‖early)`, because a
+> pathway frequent early but absent late contributes differently than
+> the reverse. Use the asymmetric form when you specifically care about
+> "what does late do that early can't account for".
+
+## 11.2 `compare_trees()`
+
+```{r compare-transitiontreess}
+cmp <- compare_trees(cohorts, iter = 200L, seed = 1L)  # 2-group -> pairwise
+class(cmp); cmp
+```
+
+> **Reading the test — a real result.** Observed distance
+> **`r round(cmp$pdist, 3)`**, permutation-null mean
+> **`r round(mean(cmp$null_dist), 3)`**, **p =
+> `r round(cmp$p_value, 3)`**. The observed separation sits well above
+> what random relabelling produces, and clears the 0.05 bar:
+> **the grammar of a prompt changes materially between early and late
+> assignments.** The breakdown table below says *how*: early prompts
+> funnel almost everything into a `Specify` move, while
+> command-then-context (`Order -> Context`) and acknowledgement
+> (`Approve`) show up far more in the late cohort. The reading:
+> early-course prompting is a blunt "say it, then specify it" reflex;
+> later prompting reorganises into command-then-contextualise and starts
+> using acknowledgement moves. Students don't just prompt more; they
+> prompt *with a different grammar* as they gain expertise.
+
+```{r compare-transitiontreess-df}
+head(as.data.frame(cmp), 8)
+```
+
+> **Reading the breakdown.** `count_a`/`count_b` are the raw cohort
+> counts; the asymmetry is stark (some pathways are almost entirely
+> early or almost entirely late — compare the two count columns above).
+> `divergence_ab`/`divergence_ba`/`divergence_sym` quantify the
+> Kullback-Leibler divergence each way. A row with a large count gap
+> *and* large `divergence_sym` genuinely distinguishes the cohorts —
+> those are the rows to
+> quote, not the small-count ones whose KL is large only because a
+> near-zero denominator inflates it.
+
+```{r compare-transitiontreess-contrast}
+## The same machinery on a split that does NOT separate: grade.
+## group = "performance" reads the cohort straight from $metadata.
+by_grade <- prune_tree(
+  context_tree(Model, max_depth = 2L, min_count = 3L, group = "performance"),
+  criterion = "G2", alpha = 0.05)
+cmp_perf <- compare_trees(by_grade, iter = 200L, seed = 1L)
+c(early_vs_late_p = cmp$p_value, high_vs_low_p = cmp_perf$p_value)
+```
+
+> **Reading the contrast — why the negative result matters.** Run the
+> *identical* test on high- vs low-`performance` prompts and the result
+> is **p = `r round(cmp_perf$p_value, 2)`** — set against the early/late
+> **p = `r round(cmp$p_value, 3)`**, the grade split does not clear the
+> 0.05 bar. This is the honest other half of the finding: the grammar of
+> a prompt is shaped by **where in the course** it was written, but
+> **not** by the grade it earned. A package that only ever returned
+> "significant" would be useless; the value here is that it cleanly
+> *fails to reject* when the structure isn't there. Report both: the
+> maturation effect is real precisely because the grade effect, tested
+> the same way, is not.
+
+## 11.3 `plot.transitiontrees_comparison()`
+
+```{r compare-transitiontreess-plot, fig.height = 4.5}
+plot(cmp)
+```
+
+> **Reading the histogram.** The grey distribution is the
+> label-shuffled null; the orange line is the observed distance. It
+> sits in the right tail, *outside* the bulk of the null — that visual
+> separation **is** the p = `r round(cmp$p_value, 3)`. If the line had landed inside the
+> histogram (as it would for the grade split above), the Early/Late
+> difference would have been indistinguishable from random relabelling
+> and none of the interpretation above would be licensed. It does not,
+> so it is.
+
+# 12. Bootstrap reliability: `bootstrap_pathways()`
+
+`prune_tree()` asked "which pathways pass a criterion *in this one
+dataset*?". The bootstrap asks the stricter question: "which pass
+*reproducibly* under resampling?" Per pathway: **`stability`** (its
+count is reproducible within a tolerance band) and **`informative_rate`**
+(its G² vs parent reproducibly clears χ²). A pathway worth trusting is
+**both**.
+
+```{r bootstrap}
+boot <- bootstrap_pathways(pruned, iter = 200L, stat = "count",
+          seed = 1L, keep_resamples = TRUE)
+boot
+```
+
+> **Reading the quadrants — the trust filter.** Of the
+> `r n_nodes(pruned)` pruned pathways,
+> `r sum(summary(boot)$stable)` are **stable**,
+> `r sum(summary(boot)$informative)` **informative**, and
+> `r sum(summary(boot)$stable & summary(boot)$informative)` **both**.
+> That last number is the one to internalise: only a handful of pathways
+> in this entire corpus are simultaneously reproducible and predictively
+> distinctive. The "both" set is five single-move pathways plus three
+> depth-2 rules (`Order -> Specify`, `Context -> Specify`, `Reject ->
+> Order`). Everything else — including the low-`count` high-divergence
+> rows that §3.3 dangled in front of us — is not safe to build a
+> narrative on. The depth-1 backbone is rock solid (huge, certain G²);
+> the surviving depth-2 rules are the interesting ones because they
+> cleared a much higher bar.
+
+## 12.1 The summary table
+
+```{r bootstrap-summary}
+bs <- summary(boot)
+bs[, c("pathway","depth","count","likely_next","next_probability",
+       "divergence","changes_prediction","stable","informative",
+       "stability_rate","informative_rate")]
+```
+
+> **Reading it.** First 7 columns are the canonical schema (so this
+> table joins cleanly to every other one); then the flags and bootstrap
+> stats. The pathway to single out is **`Context -> Specify`**: across
+> §3.3 (high KL with support), §3.4 (high sharpness with real support),
+> §4 (top `entropy_drop`) and now here it survives as `stable` *and*
+> `informative`. That convergence of evidence across four independent
+> diagnostics is what lets you state it as a finding: *after a student
+> adds context to a prompt, a specification move follows reproducibly.*
+> That is the tutorial's strongest second-order claim, and it is
+> earned, not eyeballed.
+
+```{r bootstrap-symmetric-stats}
+grep("^(mean|sd|ci)_", names(bs), value = TRUE)
+```
+
+> **Reading it.** Every tracked stat (`count`, `next_probability`, `divergence`, `G2`)
+> carries a symmetric `mean/sd/ci_lo/ci_hi` quartet — so you can report
+> a bootstrap CI for any pathway statistic, not just a point estimate.
+> Quote `ci_*` bounds in a paper; never the bare point.
+
+## 12.2 `keep_resamples = FALSE`
+
+```{r bootstrap-no-resamples}
+boot_lean <- bootstrap_pathways(pruned, iter = 200L, seed = 1L,
+                                keep_resamples = FALSE)
+c(full = object.size(boot), lean = object.size(boot_lean))
+```
+
+> **Reading it.** Same `iter`, a fraction of the memory — the raw
+> `iter x pathway` resample matrices are dropped on the lean object. The
+> summary table is unaffected; you only lose the ability to draw §12.4's
+> histograms (the plotter errors helpfully if you try). Use this for big
+> `iter` in production; keep the default when you still want the
+> distributions.
+
+## 12.3 `plot.transitiontrees_bootstrap()`
+
+```{r bootstrap-plot, fig.height = 7}
+plot(boot, top = 15)
+```
+
+> **Reading the forest plot.** Each row a pathway; bars are 95% CIs on
+> the bootstrap G²; the dashed line is the χ² critical value. The rule
+> is purely visual: **a bar entirely to the right of the dashed line is
+> reproducibly informative**; a bar straddling it is not safe. Colour
+> encodes the trust quadrant. The depth-1 moves have bars far to the
+> right (huge, certain G²); the two surviving depth-2 rules sit closer
+> to the line — real, but with the wider CIs that honest small-sample
+> inference should show. This is the plot to put in a supplement: it
+> shows reliability and effect size together.
+
+## 12.4 `plot_pathway_resamples()`
+
+```{r bootstrap-resamples-plot, fig.height = 5.5}
+plot_pathway_resamples(boot, stat = "next_probability", top = 6L)
+```
+
+> **Reading the histograms.** One panel per top pathway, the full
+> bootstrap distribution of `next_probability`. Shape matters: a tight,
+> symmetric peak means the estimate is well-determined; a **bimodal or
+> heavy-tailed** panel is the tell that the pathway is *carrier-driven*
+> — a handful of prompts (or students) account for it, and dropping
+> them in a resample collapses it. For any pathway you intend to claim,
+> check its panel here is unimodal and tight before you trust the point
+> estimate from §3.
+
+# 13. Visualization
+
+In every static style: **node fill** = last move of the pathway,
+**node size** = context count, **edge thickness** = the child's count
+(the volume of prompts flowing down that branch).
+
+## 13.1a Horizontal phylogram (default)
+
+```{r plot-default, fig.height = 8, fig.width = 10}
+plot(pruned)
+```
+
+> **Reading it.** `(start)` on the left, depth rightward along smooth
+> curved branches, every leaf labelled with its **full arrow-form
+> pathway**. This is the default style and the layout to use in a paper
+> when you need to *cite specific pathways inline* — the reader can
+> trace `Context -> Specify` to its leaf and read its encodings without
+> decoding a circular layout. The thick `Order` and `Context` branches
+> are the corpus highways; the thin outer twigs are contexts the G²
+> prune *kept on evidence, not volume*.
+
+## 13.1b Radial dendrogram
+
+```{r plot-radial, fig.height = 7}
+plot(pruned, style = "dendrogram")
+```
+
+> **Reading the picture.** The eye should go to the thick edges near
+> the centre: the high-volume `Order` and `Context` branches — the
+> corpus highways. The thin outer twigs are the contexts the G² prune
+> *kept on evidence, not volume*. The visual tension between a few fat
+> central branches and a sparse fringe *is* the dataset's story in one
+> image: most prompt-writing is a short command-then-specify reflex; the
+> structure lives in the first two moves.
+
+```{r plot-sized, fig.height = 7}
+plot(pruned, style = "dendrogram",
+     point_size_range = c(4, 14), edge_size_range = c(0.4, 4))
+```
+
+> **Reading it.** Identical topology, exaggerated size dynamic range —
+> for slides/posters where the count contrast needs to read from the
+> back of a room. Encodings unchanged; only the scales differ.
+
+## 13.1c Circular icicle (sunburst)
+
+```{r plot-icicle, fig.height = 7}
+plot(pruned, style = "icicle")
+```
+
+> **Reading it.** A space-filling partition: arc *angular width* is
+> proportional to count, so the dominant `Order` and `Specify` wedges
+> visually swallow the ring — an immediate, honest depiction of the
+> move imbalance that §The-dataset quantified. Inner ring = depth-1
+> (full labels), outer rings abbreviated; arcs too thin to label are
+> the rarer contexts. Best when you want to *show the imbalance itself*
+> as the message.
+
+## 13.1d Interactive network tree
+
+```{r plot-interactive, fig.height = 6, fig.width = 9}
+plot(pruned, style = "interactive")
+```
+
+> **Reading it.** A `visNetwork` widget carrying the *same* encoding as
+> the static styles — **node size = context count, edge width = the
+> child's count (flow)**, fill = last move — but draggable and zoomable,
+> with a hover tooltip for the full pathway, count, modal next move and
+> distribution. This is the *exploration* tool: the fat central `Order`
+> and `Context` nodes and thick branches are the corpus highways, while
+> the thin outer twigs are the evidence-kept contexts. Drag a node to
+> pull a motif clear of the rest, or hover `Context -> Specify` to read
+> its reliable rule directly.
+
+## 13.2 `plot_pathways()` — pathway × next-move heatmap
+
+```{r plot-pathways, fig.height = 6.5}
+plot_pathways(pruned, top = 12L, sort_by = "count")
+```
+
+```{r plot-pathways-kl, fig.height = 6.5}
+plot_pathways(pruned, top = 10L, sort_by = "divergence", min_count = 5L)
+```
+
+> **Reading the two heatmaps together.** This is the single best
+> "interpretation" figure. Sorted by **count**, the heatmap concentrates
+> on the `Order`/`Specify` columns — the monolithic default workflow,
+> visually. Sorted by **KL** (with `min_count` to kill small-sample
+> noise), the bright cells *move*: `Context`-bearing rows light up the
+> `Specify` column and `Order` lights up off-diagonal. That shift, side
+> by side, is the entire thesis in one comparison — *common ≠
+> informative*. The `>` prefix marks modal-flip pathways: rows where
+> history doesn't just sharpen but redirects.
+
+## 13.3 `plot_divergence()` — KL lollipop
+
+```{r plot-divergence, fig.height = 5.5}
+plot_divergence(pruned, top = 12L, min_count = 5L)
+```
+
+> **The numbers in plain language.** Each pathway carries a few numbers;
+> read them as separate dials:
+>
+> | Column | In two words | What it tells you |
+> |---|---|---|
+> | `count` | *how common* | how often this history actually happened |
+> | `divergence` (KL) | *history matters* | does remembering this step change the guess? |
+> | `likely_next` | *best guess* | the single most likely next move |
+> | `next_probability` | *how certain* | how confident that best guess is |
+> | `changes_prediction` | *guess flips* | the best guess actually changed (orange) |
+>
+> The two that get conflated are **"history matters" (KL)** and **"how
+> certain" (next_probability)** — they are independent. `Specify` is high
+> on *history matters* (1.11) yet low on *how certain* (38%): remembering
+> it changes the guess a lot, but you are still not sure. `Context` is
+> high on both. Always read them as two dials, not one.
+
+> **Reading it.** A ranked lollipop of per-pathway KL with orange
+> points marking modal-flippers. With `min_count = 5L` the count-3
+> mirages from §3.3 are gone, so what remains is the honest divergence
+> ranking: the orange (flipping) points at the top — `Context`,
+> `Specify`, `Order`, `Context -> Specify` — are the contexts that
+> genuinely *change the prediction*, the ones to name in a results
+> section. This is the figure that answers "so what is actually
+> interesting in this data" in a single glance.
+
+> **What the ranking reveals.** Order-sensitivity concentrates on the
+> directive moves — `Specify`, `Order`, and `Context` — which carry the
+> largest divergences and the prediction-overturning flips. The process
+> is organised around commanding rather than negotiating. These
+> high-divergence contexts are almost all shallow, depth-1 histories:
+> the single most recent directive governs what follows, not an
+> accumulated multi-step trajectory. The deeper depth-2 contexts that
+> would signal genuine deliberation are fewer, thinly supported, lower
+> in divergence, and tend to confirm rather than redirect the default —
+> there is little evidence of cumulative depth. Equally telling is what
+> is absent: the evaluative moves of a negotiated exchange barely shape
+> prediction. `Approve` is among the rarest moves, and where `Reject`
+> appears it routes straight back into another directive
+> (`Reject -> Specify → Order`, `Reject → Specify`). The pattern is
+> one-directional and commanding: the most informative thing about any
+> moment is the last directive given, and the sequence advances by
+> issuing the next one rather than by evaluating or building on what
+> came before.
+
+# 14. Uniform tidy-extract recap
+
+```{r tidy-recap}
+str(as.data.frame(pruned), give.attr = FALSE)
+str(as.data.frame(boot),   give.attr = FALSE)
+str(as.data.frame(cmp),    give.attr = FALSE)
+str(as.data.frame(tg),     give.attr = FALSE)
+```
+
+> **Reading it.** Every result class — tree, bootstrap, comparison,
+> tune — yields a tidy `data.frame` through the *same* `as.data.frame()`
+> call, all sharing the canonical pathway columns where applicable.
+> Practically: one extraction idiom, and results from different stages
+> join on `pathway` without renaming. That is what made the
+> cross-diagnostic argument for `Context -> Specify` possible — the same
+> key carried it through §3, §4, §6 and §12.
+
+# 15. What this dataset taught us (synthesis)
+
+Pulling the thread through every section:
+
+1. **The move alphabet is imbalanced** (§data): `Order` + `Specify` are
+   the clear majority of all moves — so frequency is a misleading lens
+   and modal predictions are trivially one of those two.
+2. **Open ≠ body** (§data): prompts *open* with `Order` far more than
+   its overall share but are *bodied* by `Specify`/`Context`; a real
+   behavioural asymmetry — command first, then refine.
+3. **Memory is short** (§1, §6, §10): the prompts are only a few moves
+   long, G²/AIC/BIC trim the rare deep contexts, and cross-validation
+   shows depth-3 ≈ depth-2. There is no long-range structure to find.
+4. **The insight is in the second move** (§3.3, §4, §13.2): divergence
+   and `entropy_drop` concentrate on `Context`/`Specify` openings, not
+   on length. *Common ≠ informative.*
+5. **A reproducible micro-rule exists** (§3.4, §4, §12): `Context ->
+   Specify` survives top-divergence, sharpness, top `entropy_drop`
+   *and* the
+   bootstrap trust filter — the tutorial's firmest second-order claim.
+6. **The grammar matures over the course** (§11): early assignments
+   funnel everything into `Specify`; late ones add command-then-context
+   and acknowledgement; permutation-significant (p =
+   `r round(cmp$p_value, 3)`) — while the same test on **grade** is *not*
+   significant (p = `r round(cmp_perf$p_value, 2)`), which is what makes
+   the maturation effect credible.
+
+Each claim is anchored to a function whose output you can re-run —
+which is the whole point of a pathway-centric, testable model.
+
+# 16. Function reference index
+
+| Function | Role | Section |
+|---|---|---|
+| `context_tree()` | fit a variable-depth tree (wide / list / `stslist` / netobject / tna) | §1 |
+| `context_tree(group=)` | batch-fit one tree per group → `transitiontrees_group` | §11 |
+| `print.transitiontrees_group()` / `as.data.frame.transitiontrees_group()` | inspect / tidy-extract a group | §11 |
+| `smooth_tree()` | re-smooth a fitted tree (or group) | §7 |
+| `compare_smoothing()` | compare all smoothing schemes (refit from data, or re-smooth a fitted tree) | §1.2, §7 |
+| `prune_tree()` | drop contexts that don't earn their depth (or prune a whole group) | §6, §11 |
+| `compare_pruning()` | one-call comparison of all pruning criteria | §6 |
+| `tree_pathways()` | canonical 7-col tidy table | §3.1 |
+| `common_pathways()` | top-n by frequency | §3.2 |
+| `divergent_pathways()` | top-n by KL from parent | §3.3 |
+| `sharp_pathways()` | top-n by predictive sharpness | §3.4 |
+| `tree_dependence()` | per-context KL + entropy decomposition | §4 |
+| `query_pathway()` | look up one pathway → distribution / prob | §5.1 |
+| `pathway_exists()` | boolean: is this an exact node? | §5.2 |
+| `subtree()` | restrict to descendants of a context | §5.3 |
+| `predict.transitiontrees()` | next-move distribution for new histories | §8.1 |
+| `perplexity()` | scalar predictive perplexity | §8.2 |
+| `score_sequences()` | per-prompt log-lik / perplexity | §8.2 |
+| `score_positions()` | per-move log-lik + matched context | §8.2 |
+| `model_fit()` | one-call fit scalars (logLik/df/nobs/AIC/BIC/perplexity) | §2.3, §8.3 |
+| `logLik.transitiontrees()` | in-sample or held-out log-likelihood | §8.3 |
+| `nobs.transitiontrees()` | observation count | §1 |
+| `n_nodes()` | context (node) count — accessor for `length(tree$nodes)` | §1, §5.3, §6 |
+| `generate_sequences()` | sample new prompts | §9.1 |
+| `simulate.transitiontrees()` | S3 alias with `nsim` + `seed` | §9.2 |
+| `tune_tree()` | k-fold CV grid search | §10 |
+| `plot.transitiontrees_tune()` | perplexity surface | §10 |
+| `tree_distance()` | scalar symmetric-KL between trees | §11.1 |
+| `compare_trees()` | distance + permutation null (accepts a 2-group `transitiontrees_group`) | §11.2 |
+| `plot.transitiontrees_comparison()` | null vs observed histogram | §11.3 |
+| `bootstrap_pathways()` | stability + informativeness | §12 |
+| `plot.transitiontrees_bootstrap()` | trust-quadrant forest plot | §12.3 |
+| `plot_pathway_resamples()` | per-pathway resample histograms | §12.4 |
+| `summary.transitiontrees_bootstrap()` | extract `$summary` | §12.1 |
+| `plot.transitiontrees()` | dendrogram / horizontal / icicle / interactive | §13.1 |
+| `plot_pathways()` | pathway × next-move heatmap | §13.2 |
+| `plot_divergence()` | KL lollipop | §13.3 |
+| `as.data.frame.*` | uniform tidy-extract | §2.2, §14 |
+
+# 17. Session info
+
+```{r session-info}
+sessionInfo()
+```

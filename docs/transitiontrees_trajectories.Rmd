@@ -1,0 +1,198 @@
+---
+title: "transitiontrees on the trajectories data"
+subtitle: "One analysis, its default output, and how to read it — nothing more"
+author: "transitiontrees"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+    df_print: paged
+    highlight: tango
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width  = 9,
+  fig.height = 6,
+  dpi        = 96,
+  comment    = "#>"
+)
+suppressPackageStartupMessages({
+  devtools::load_all(here::here())
+  library(ggplot2)
+})
+```
+
+This is a plain walk-through of `transitiontrees` on the built-in
+`trajectories` data. Every step is a single **default call** — no
+subsetting, no tuning, no clever code. Each section is one analysis, its
+default output or plot, and a short reading.
+
+# The data
+
+```{r data}
+data(trajectories)            # bundled with transitiontrees
+dim(trajectories)
+head(trajectories)
+```
+
+> One row per learner, one column per time-step, three engagement
+> states (`Active`, `Average`, `Disengaged`). Trailing `NA`s mark the
+> end of a trajectory. This wide frame is exactly what `context_tree()`
+> consumes.
+
+# Fit a context tree
+
+```{r fit}
+tree <- context_tree(trajectories)
+tree
+```
+
+> The banner is the whole model at a glance: how many contexts it holds,
+> the alphabet, how many sequences and observations it was fit on, and —
+> at the bottom — the next state predicted from no history (the `(start)`
+> row) followed by the tree of deeper contexts. With the defaults the
+> tree grows to depth 5, so it is large and over-grown; the next step
+> trims it.
+
+# Prune the tree
+
+```{r prune}
+pruned <- prune_tree(tree)
+pruned
+```
+
+> The default fit above grows all the way to depth 5 and keeps deep
+> contexts the data barely supports (over-fitting). Pruning keeps a
+> longer history only when it predicts better than its shorter version,
+> so the tree gets much smaller — the banner now reads `pruned by: G2`.
+> The rest of the vignette uses this pruned tree.
+
+# Draw the tree
+
+```{r plot-tree, fig.height = 8}
+plot(pruned)
+```
+
+> The default picture: a left-to-right tree. **Node size** is how often a
+> context occurs, **branch thickness** is the volume flowing down it, and
+> **colour** is the most recent state. The thick branches are the common
+> engagement patterns; the thin twigs are the rarer contexts pruning kept
+> on evidence.
+
+# Most common pathways
+
+```{r common}
+common_pathways(pruned)
+```
+
+> The trajectories the data simply contains the most copies of, ranked by
+> count. `likely_next` and `next_probability` say what tends to come
+> after each — the everyday flow of engagement.
+
+# Most divergent pathways
+
+```{r divergent}
+divergent_pathways(pruned)
+```
+
+```{r plot-divergence}
+plot_divergence(pruned)
+```
+
+> These are the contexts where knowing the longer history **changes the
+> prediction most** (the `divergence` column, drawn as the lollipop).
+> Orange points mark pathways where the extra history actually flips
+> which state is most likely — the genuinely informative histories,
+> as opposed to the merely common ones above.
+
+# Sharpest pathways
+
+```{r sharp}
+sharp_pathways(pruned)
+```
+
+> Ranked by `next_probability`: the contexts whose next state is most
+> nearly certain. High sharpness with a high `count` is a dependable
+> rule; high sharpness on a small `count` is just chance, and the
+> bootstrap section below separates the two.
+
+# Per-context diagnostics
+
+```{r dependence}
+tree_dependence(pruned)
+```
+
+> The information-theoretic view of each context: its `divergence`, its
+> `entropy` (how uncertain its next state is), the parent's
+> `entropy_before`, and `entropy_drop` — how much uncertainty the context
+> removes. A large `entropy_drop` with `changes_prediction = TRUE` is the
+> most valuable kind of context: it both sharpens and redirects.
+
+# Pathway × next-state heatmap
+
+```{r heatmap, fig.height = 7}
+plot_pathways(pruned)
+```
+
+> The same pathways as a grid: each row a context, each column a next
+> state, each cell `P(next | context)`. The bright cells are the strong
+> rules; a `>` prefix marks a context whose history flips the most likely
+> next state.
+
+# Goodness of fit
+
+```{r fit-scalars}
+model_fit(pruned)
+```
+
+> The standard scalars in one row. `perplexity` is the readable one — the
+> effective number of equally-likely next states; against a uniform
+> baseline of three states, the tree's value shows how much the recent
+> history narrows things down. `AIC`/`BIC` penalise the node count and
+> let you weigh two candidate trees.
+
+# Reliability under resampling
+
+```{r bootstrap}
+boot <- bootstrap_pathways(pruned)
+boot
+```
+
+```{r plot-bootstrap, fig.height = 7}
+plot(boot)
+```
+
+> The bootstrap refits the tree on resampled learners and asks which
+> pathways survive *reproducibly*. The forest plot shows each pathway's
+> bootstrap interval against the significance line; a bar entirely to
+> the right is reproducibly informative. The pathways that are both
+> stable and informative are the ones worth building a claim on.
+
+# Other views of the same tree
+
+```{r plot-icicle, fig.height = 7}
+plot(pruned, style = "icicle")
+```
+
+```{r plot-radial, fig.height = 7}
+plot(pruned, style = "dendrogram")
+```
+
+> The same pruned tree as a sunburst and as a radial dendrogram — the
+> encodings (size = count, fill = state, depth = rings or radius) are
+> identical, only the layout changes. There is also
+> `plot(pruned, style = "interactive")` for a draggable version.
+
+# Session info
+
+```{r session}
+sessionInfo()
+```

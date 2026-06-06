@@ -39,9 +39,12 @@ A ggplot object for the three static styles; an
 Renders a fitted transitiontrees in one of four styles:
 \itemize{
   \item \code{"horizontal"} (default) — pure-ggplot2 left-to-right
-    phylogram: root on the left, leaves fanned out vertically on
-    the right with full arrow-notation leaf labels and smooth
-    curved branches.
+    phylogram: root on the left, contexts fanned out vertically to
+    the right. Every non-root node carries its full arrow-notation
+    context and its modal prediction \code{"(state pct\%)"} on a
+    second line beneath the node; node fill is the \emph{most recent}
+    move (rightmost token), so each branch off a depth-1 hub shares a
+    colour. The x-axis is depth (further right = older history).
   \item \code{"dendrogram"} — pure-ggplot2 radial tree: root at the
     centre, leaves on the outer ring.
   \item \code{"icicle"} — circular partition / sunburst via
@@ -55,9 +58,11 @@ Renders a fitted transitiontrees in one of four styles:
     complete next-state distribution.
 }
 
-Across all styles: node fill = last state of the pathway, node size
-= context count, edge thickness = child's count (\dQuote{flow}). The
-interactive style carries the same encoding, plus drag / zoom / hover.
+Common encoding: node size = context count, edge thickness = child's
+count (\dQuote{flow}). Node fill is the most recent move (rightmost
+token of the context) in the \code{"horizontal"} style; the
+\code{"dendrogram"}, \code{"icicle"}, and \code{"interactive"} styles
+colour by the branching (oldest) token.
 }
 \details{
 \code{"icicle"} requires \code{ggraph} + \code{tidygraph};
