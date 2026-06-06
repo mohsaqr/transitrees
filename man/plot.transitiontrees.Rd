@@ -29,7 +29,13 @@ Default \code{c(0.3, 2.5)} for the static styles, \code{c(1, 10)}
 (pixels) for \code{"interactive"}. Ignored by \code{"icicle"}.}
 
 \item{...}{Passed to the chosen backend (e.g. \code{width} /
-\code{height} for \code{"interactive"}).}
+\code{height} for \code{"interactive"}, \code{show_prediction} for
+\code{"horizontal"}).}
+
+\item{show_prediction}{Logical. For \code{style = "horizontal"}, show
+each node's modal prediction \code{"(state pct\%)"} on a second
+label line. Default \code{TRUE}; set \code{FALSE} for context-only
+labels.}
 }
 \value{
 A ggplot object for the three static styles; an
@@ -40,11 +46,12 @@ Renders a fitted transitiontrees in one of four styles:
 \itemize{
   \item \code{"horizontal"} (default) — pure-ggplot2 left-to-right
     phylogram: root on the left, contexts fanned out vertically to
-    the right. Every non-root node carries its full arrow-notation
-    context and its modal prediction \code{"(state pct\%)"} on a
-    second line beneath the node; node fill is the \emph{most recent}
-    move (rightmost token), so each branch off a depth-1 hub shares a
-    colour. The x-axis is depth (further right = older history).
+    the right, each labelled beneath with its full arrow-notation
+    context and (by default) its modal prediction
+    \code{"(state pct\%)"} on a second line. Node fill is the
+    \emph{most recent} move (rightmost token), so each branch off a
+    depth-1 hub shares a colour. Set \code{show_prediction = FALSE}
+    for context-only labels.
   \item \code{"dendrogram"} — pure-ggplot2 radial tree: root at the
     centre, leaves on the outer ring.
   \item \code{"icicle"} — circular partition / sunburst via

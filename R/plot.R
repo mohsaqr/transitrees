@@ -256,6 +256,7 @@
 .plot_horizontal <- function(x,
                               point_size_range = c(4, 14),
                               edge_size_range  = c(0.3, 2.5),
+                              show_prediction  = TRUE,
                               ...) {
   if (length(x$nodes) == 0L)
     stop("Cannot plot an empty tree.", call. = FALSE)
@@ -280,14 +281,17 @@
   body_df  <- layout[!is_root, , drop = FALSE]
   root_df  <- layout[ is_root, , drop = FALSE]
   ## Labels: full pathway in arrow notation drawn UNDER every non-root
-  ## node, with the node's modal prediction "(state pct%)" on a second
-  ## line so the predicted next move and its probability are readable off
-  ## the plot (node size still encodes count).
-  body_df$label <- vapply(body_df$context, function(ctx) {
-    pr   <- x$nodes[[ctx]]$prob
-    best <- which.max(pr)
-    sprintf("%s\n(%s %.0f%%)", ctx, x$alphabet[best], 100 * pr[best])
-  }, character(1))
+  ## node. Simple by default (context only); set show_prediction = TRUE to
+  ## add the modal prediction "(state pct%)" on a second line.
+  body_df$label <- if (isTRUE(show_prediction)) {
+    vapply(body_df$context, function(ctx) {
+      pr   <- x$nodes[[ctx]]$prob
+      best <- which.max(pr)
+      sprintf("%s\n(%s %.0f%%)", ctx, x$alphabet[best], 100 * pr[best])
+    }, character(1))
+  } else {
+    body_df$context
+  }
 
   ggplot2::ggplot() +
     ggplot2::geom_path(
@@ -343,13 +347,9 @@
       panel.grid       = ggplot2::element_blank()
     ) +
     ggplot2::labs(
-      x        = "depth (further right = older history remembered)",
-      title    = "Context tree (horizontal)",
-      subtitle = sprintf(
-        paste0("Read a node's label left->right = oldest->newest move; ",
-               "(  ) = predicted next move.  Colour = most recent move; ",
-               "size = count; line = flow.  %d nodes, depth <= %d."),
-        length(x$nodes), x$max_depth)
+      x        = "depth",
+      title    = "Context tree",
+      subtitle = "colour = most recent move; size = count; ( ) = predicted next move"
     )
 }
 
@@ -360,11 +360,12 @@
 #' \itemize{
 #'   \item \code{"horizontal"} (default) — pure-ggplot2 left-to-right
 #'     phylogram: root on the left, contexts fanned out vertically to
-#'     the right. Every non-root node carries its full arrow-notation
-#'     context and its modal prediction \code{"(state pct\%)"} on a
-#'     second line beneath the node; node fill is the \emph{most recent}
-#'     move (rightmost token), so each branch off a depth-1 hub shares a
-#'     colour. The x-axis is depth (further right = older history).
+#'     the right, each labelled beneath with its full arrow-notation
+#'     context and (by default) its modal prediction
+#'     \code{"(state pct\%)"} on a second line. Node fill is the
+#'     \emph{most recent} move (rightmost token), so each branch off a
+#'     depth-1 hub shares a colour. Set \code{show_prediction = FALSE}
+#'     for context-only labels.
 #'   \item \code{"dendrogram"} — pure-ggplot2 radial tree: root at the
 #'     centre, leaves on the outer ring.
 #'   \item \code{"icicle"} — circular partition / sunburst via
@@ -395,8 +396,13 @@
 #' @param edge_size_range Numeric length-2 vector for edge width.
 #'   Default \code{c(0.3, 2.5)} for the static styles, \code{c(1, 10)}
 #'   (pixels) for \code{"interactive"}. Ignored by \code{"icicle"}.
+#' @param show_prediction Logical. For \code{style = "horizontal"}, show
+#'   each node's modal prediction \code{"(state pct\%)"} on a second
+#'   label line. Default \code{TRUE}; set \code{FALSE} for context-only
+#'   labels.
 #' @param ... Passed to the chosen backend (e.g. \code{width} /
-#'   \code{height} for \code{"interactive"}).
+#'   \code{height} for \code{"interactive"}, \code{show_prediction} for
+#'   \code{"horizontal"}).
 #'
 #' @return A ggplot object for the three static styles; an
 #'   \code{htmlwidget} for \code{"interactive"}.
