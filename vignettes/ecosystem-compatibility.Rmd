@@ -14,12 +14,12 @@ has_tna  <- requireNamespace("tna",       quietly = TRUE)
 has_nest <- requireNamespace("Nestimate", quietly = TRUE)
 ```
 
-`transitiontrees` is built to slot into the wider `mohsaqr` sequence-analysis
-ecosystem (`TraMineR`, `tna`, `Nestimate`, `cograph`). You do **not** have to
-re-export or re-format your data: `context_tree()` accepts a fitted
-state-sequence or transition/network object **directly**, auto-detected by
-its S3 class. It reads the sequences the object already carries and fits the
-suffix tree on exactly those, over the same state set.
+`transitiontrees` is built to slot into the wider `Dynalytics`  
+ecosystem (`tna`, `Nestimate`, `cograph`) as well as `TraMineR`.
+You do **not** have to re-export or re-format your data: `context_tree()` 
+accepts a fitted state-sequence or transition/network object **directly**, 
+auto-detected by its S3 class. It reads the sequences the object already 
+carries and fits the suffix tree on exactly those, over the same state set.
 
 This vignette shows the three hand-offs on one shared dataset and confirms
 they agree. The `tna` and `Nestimate` sections only run if those packages are
