@@ -24,18 +24,15 @@ context_tree(
 \arguments{
 \item{data}{Sequence data in any of these forms: a wide data.frame /
 character matrix (rows = trajectories, columns = time-steps), a
-list of character vectors, a TraMineR \code{stslist}, or a
-\strong{Dynalytics / \code{mohsaqr}-family model object}, taken
-directly: a Nestimate \code{netobject}
-(\code{Nestimate::build_network()}), a \code{cograph} network
-object (\code{cograph::cograph()} / \code{as_cograph()}), or a
-\code{tna} object (the \pkg{tna} package; also what
-\code{codyna::to_tna()} returns). Any other family object that
+list of character vectors, an \code{stslist}, or a
+\strong{supported network/transition model object}, taken
+directly: a fitted network object carrying its sequences, or a
+transition-network object. Any such object that
 follows the same convention (a \code{$data}/\code{$sequences}/
 \code{$seqdata} sequence slot) is detected structurally and works
 with no special-casing. For these objects the sequence frame is
 extracted from wherever the upstream stored it; an integer-coded
-frame (\code{tna}) is decoded through the object's label map
+frame is decoded through the object's label map
 (\code{$nodes} id/label table, positional \code{$labels}, or a
 \code{labels}/\code{alphabet} attribute), and that label set
 becomes the default alphabet so the tree shares the model's
@@ -60,7 +57,7 @@ Methods: \code{"floor"} (default; \code{ymin = 0.001}),
 (\code{discount = 0.75}), \code{"witten_bell"},
 \code{"jelinek_mercer"} (\code{lambda = 0.5}). The \code{"floor"}
 method also takes \code{rule}: \code{"interpolate"} (default, the
-PST-compatible floor — a distribution with a zero-count state is
+interpolating floor — a distribution with a zero-count state is
 shifted toward uniform so each zero lands at exactly \code{ymin})
 or \code{"cap"} (clamp every probability up to \code{ymin} and
 renormalise), e.g. \code{list("floor", ymin = 0.001, rule = "cap")}.}
@@ -71,7 +68,7 @@ training).}
 
 \item{weights}{Numeric vector of per-sequence weights, length equal
 to the number of input rows / list elements. If \code{NULL}
-(default) and \code{data} is a TraMineR \code{stslist} carrying
+(default) and \code{data} is an \code{stslist} carrying
 weights, those are auto-detected.}
 
 \item{group}{Optional grouping for a \strong{batch fit}: a vector with
@@ -79,8 +76,8 @@ one entry per input sequence, a column name of a network object's
 \code{$metadata}, or --- in long-format mode (\code{action} given)
 --- a column name of \code{data} (collapsed to one value per
 sequence). When supplied (or when \code{data} is itself a grouped
-family object such as a Nestimate \code{netobject_group} or a
-\pkg{tna} \code{group_tna}), \code{context_tree()} fits one tree per
+object such as a \code{netobject_group} or a
+\code{group_tna}), \code{context_tree()} fits one tree per
 group over a shared alphabet and returns a \code{transitiontrees_group}
 (a named list of \code{transitiontrees}s). Default \code{NULL} (single
 tree).}
@@ -138,7 +135,7 @@ For a single fit, a \code{transitiontrees} object (described below).
 }
 }
 \description{
-Estimates a variable-depth context tree (PST; Ron, Singer & Tishby
+Estimates a variable-depth context tree (prediction suffix tree; Ron, Singer & Tishby
 1996) from a collection of sequences. Each internal node represents
 a context (string of recent states); each leaf carries a smoothed
 conditional distribution over the next state. The tree is grown to

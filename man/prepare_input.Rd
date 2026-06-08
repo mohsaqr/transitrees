@@ -43,8 +43,8 @@ id within an actor. If supplied, sessions are taken from it directly
 and no time-gap splitting is done.}
 
 \item{time_threshold}{Numeric. Seconds; a gap larger than this starts
-a new session. Default \code{900} (15 minutes), matching
-\code{tna::prepare_data()}.}
+a new session. Default \code{900} (15 minutes), the standard
+session-splitting threshold.}
 
 \item{format}{Character. Optional \code{\link{strptime}} format for a
 character \code{time} column.}
@@ -76,9 +76,8 @@ sequence character frame that \code{\link{context_tree}()} consumes.
 Events are grouped by \code{actor} and ordered by \code{time} (or
 \code{order}); when \code{time} is given, each actor's events are
 split into \strong{sessions} whenever the gap to the previous event
-exceeds \code{time_threshold} seconds. This mirrors the timestamp /
-session logic of \code{tna::prepare_data()} and
-\code{Nestimate::build_network()}, in pure base R.
+exceeds \code{time_threshold} seconds. This mirrors the standard
+timestamp / session-splitting rule, in pure base R.
 }
 \examples{
 long <- data.frame(

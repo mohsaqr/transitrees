@@ -13,8 +13,8 @@ compare_smoothing(
 \arguments{
 \item{data}{Either sequence data in any form accepted by
 \code{\link{context_tree}} (wide matrix / data.frame, list of
-character vectors, TraMineR \code{stslist}, or a
-\code{mohsaqr}-family network object) — fitted afresh under each
+character vectors, an \code{stslist}, or a transition/network
+object) — fitted afresh under each
 scheme — \strong{or} an already-fitted \code{transitiontrees}, which is
 \emph{re-smoothed} under each scheme (topology frozen, no
 re-count; e.g. to sweep smoothers on a pruned tree).}

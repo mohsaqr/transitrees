@@ -90,7 +90,6 @@ prompt it belongs to (`prompt_id`), the move's order within that prompt
 `performance`).
 
 ```{r data-load}
-library(Nestimate)
 raw <- read.csv(
   "/Users/mohammedsaqr/Documents/Documents X/DocumentsX/TNA Work/TNA networks teem data/Seqdatalonged.csv",
   stringsAsFactors = FALSE)
@@ -110,30 +109,33 @@ sort(table(raw$name), decreasing = TRUE)
 > that lens for the rest of the tutorial.
 
 The modelling unit is **one prompt** — `prompt_id` groups a prompt's
-moves into one ordered sequence. Rather than reshape by hand, we let
-`Nestimate::build_network()` do it: `actor = "prompt_id"` makes **each
-prompt one sequence**, `order = "value"` puts its moves in order. The
-returned `netobject` carries everything `transitiontrees` needs — `$data` is
-the wide, trailing-NA-padded character frame (one row per prompt),
-`$nodes$label` is the canonical alphabet (the move set), and
-`$metadata` is row-aligned to `$data` with the prompt-level covariates
-we use for the cohort comparison in §11.
+moves into one ordered sequence. `transitiontrees` ingests a long event
+log natively, so the fit can point straight at the columns: `actor =
+"prompt_id"` makes **each prompt one sequence**, `action = "name"` is the
+move label, and `order = "value"` puts a prompt's moves in order. For the
+few places below that need the prompts as explicit sequences (per-prompt
+scoring in §8, the cohort split in §11), we also reshape the long log
+into a ragged list of sequences and a row-aligned table of prompt-level
+covariates with base R.
 
 ```{r build-network}
-Model <- build_network(raw, actor = "prompt_id", action = "name",
-                       order = "value", method = "relative")
-class(Model)
-dim(Model$data)
-head(Model$data)                        # trailing NAs = end-of-prompt
-Model$nodes$label                       # the alphabet
+seqs <- lapply(split(raw, raw$prompt_id),
+               function(d) d$name[order(d$value)])   # one sequence per prompt
+prompt_meta <- do.call(rbind, lapply(
+  split(raw, raw$prompt_id),
+  function(d) d[1, c("id.x", "assignment", "performance")]))  # row-aligned to seqs
+length(seqs)                            # number of prompts
+str(head(seqs, 3))                      # ragged: each prompt its own length
+alphabet <- sort(unique(raw$name))      # the 6-move symbol space
+alphabet
 ```
 
-```{r netobject-shape}
-AI_data  <- Model$data                  # wide prompt frame, used throughout
-alphabet <- Model$nodes$label           # the 6-move symbol space
-length(unique(Model$metadata$id.x))             # distinct students
-summary(rowSums(!is.na(AI_data)))               # prompt lengths
-sort(Model$initial, decreasing = TRUE)          # OPENING move (netobject slot)
+```{r corpus-shape}
+AI_data  <- seqs                                # ragged prompt sequences, used throughout
+length(unique(prompt_meta$id.x))                # distinct students
+summary(lengths(seqs))                          # prompt lengths
+first_moves <- vapply(seqs, function(s) s[1], character(1))
+sort(prop.table(table(first_moves)), decreasing = TRUE)  # OPENING move distribution
 ```
 
 > **Reading the shape — and the first real finding.** Compare the
@@ -155,17 +157,19 @@ sort(Model$initial, decreasing = TRUE)          # OPENING move (netobject slot)
 
 `context_tree()` is the constructor. It returns an S3 `transitiontrees`: a
 list of nodes keyed by pathway string, an edges table, the alphabet,
-and the hyperparameters. The sibling-package integration: pass the
-**Nestimate `netobject` directly** — it unwraps `$data` and uses
-`$nodes$label` as the alphabet, so the network and the tree share one
-symbol space. Because the deepest prompt is 4 moves, the deepest
-*context* worth asking for is 3 (it predicts the 4th move), so we cap
-`max_depth = 3`; with only a few hundred short prompts we keep `min_count`
-low so depth-2/3 contexts can form at all.
+and the hyperparameters. It accepts the long event log directly —
+`actor`/`action`/`order` name the columns and it reshapes internally —
+so no manual wide-format step is required. Because the deepest prompt is
+4 moves, the deepest *context* worth asking for is 3 (it predicts the
+4th move), so we cap `max_depth = 3`; with only a few hundred short
+prompts we keep `min_count` low so depth-2/3 contexts can form at all.
 
 ```{r fit}
 tree <- context_tree(
-  Model,               # a Nestimate netobject, read natively
+  raw,                 # the long event log, read natively
+  actor  = "prompt_id",# one sequence per prompt
+  action = "name",     # the move label column
+  order  = "value",    # move order within a prompt
   max_depth = 3L,      # longest context the tree may represent
   min_count = 3L,      # a context needs >= 3 occurrences to get its own node
   smoothing = "floor"  # default: floor MLE at ymin=0.001 and renormalise
@@ -205,33 +209,40 @@ query_pathway(tree, "(start)")    # the root marginal = the null model
 
 ## 1.1 Input shapes accepted
 
-The wide matrix above is one of several equivalent front doors. The
-same prompts can arrive as a ragged list, a TraMineR `stslist`, or — to
-connect with the `mohsaqr` network ecosystem — a Nestimate
-`netobject` / cograph network object built with
-`session = "prompt_id"`.
+The long log above is one of several equivalent front doors. The same
+prompts can also arrive as a wide character matrix or a ragged list;
+state-sequence (`stslist`) objects and fitted transition/network objects
+are accepted too, auto-detected by their S3 class.
 
-We fit from the `netobject` above, but `context_tree()` accepts several
-equivalent front doors — all numerically identical:
+For *these* prompts every route below is numerically identical; the
+`stslist` and network-object lines are illustrative of the other input
+shapes `context_tree()` accepts:
 
 ```{r fit-inputs, eval = FALSE}
-context_tree(Model)                        # Nestimate netobject (this doc)
-context_tree(Model$data)                   # the wide character frame
-context_tree(TraMineR::seqdef(Model$data)) # TraMineR stslist
-context_tree(cograph::as_cograph(Model))   # cograph network object
+# Equivalent front doors for THESE prompts (all give the same tree):
+context_tree(raw, actor = "prompt_id", action = "name", order = "value")
+context_tree(seqs)                          # the same prompts as a ragged list
+
+# A state-sequence (stslist) object is read directly too:
+context_tree(engagement, max_depth = 2L)
+
+# transitiontrees also accepts a fitted transition/network object directly,
+# auto-detected by its S3 class:
+# context_tree(my_network_object, max_depth = 2L)
 ```
 
 > **Reading the input rule.** The input shape is a convenience, never a
-> numerical fork — every route above gives the same tree. The Nestimate
-> route is the ecosystem handoff: `build_network(actor = "prompt_id",
-> order = "value")` makes **each prompt one sequence**, hands `transitiontrees`
-> the wide `$data` frame and `$nodes$label` as the alphabet, so the
-> network and the tree share one symbol space. The hard boundary, by
-> design: a **pure graph** object with no `$data` sequences — an
-> aggregated transition network — is *rejected*, because the original
-> move sequences cannot be recovered from edge weights. Numeric matrices
-> are likewise rejected (they mean "transition matrix" elsewhere).
-> *transitiontrees fits on sequences, never on aggregated transitions.*
+> numerical fork — every route to *these* prompts gives the same tree.
+> Reading the long log directly with `actor = "prompt_id"`, `order =
+> "value"` makes **each prompt one sequence**; handing `context_tree()` a
+> fitted transition/network object instead lets the network and the tree
+> share one symbol space, auto-detected from the object's class. The hard
+> boundary, by design: a **pure graph** object with no underlying
+> sequences — an aggregated transition network — is *rejected*, because
+> the original move sequences cannot be recovered from edge weights.
+> Numeric matrices are likewise rejected (they mean "transition matrix"
+> elsewhere). *transitiontrees fits on sequences, never on aggregated
+> transitions.*
 
 ## 1.2 The five smoothing schemes
 
@@ -243,7 +254,7 @@ cells are zero, so this choice is not cosmetic.
 `max_depth`/`min_count` fixed — and returns the comparison in one call:
 
 ```{r fit-smoothing-grid}
-compare_smoothing(Model, max_depth = 3L, min_count = 3L)
+compare_smoothing(seqs, max_depth = 3L, min_count = 3L)
 ```
 
 > **Reading the smoothing grid.** Two things. First, `n_nodes` is
@@ -790,10 +801,10 @@ per cohort** in a single call (over a shared alphabet), returning a
 `max_depth = 2` because each cohort is smaller.
 
 ```{r cohort-split}
-stage   <- ifelse(Model$metadata$assignment %in% c("assignment1", "assignment2"),
+stage   <- ifelse(prompt_meta$assignment %in% c("assignment1", "assignment2"),
                   "early", "late")
 cohorts <- prune_tree(
-  context_tree(Model, max_depth = 2L, min_count = 3L, group = stage),
+  context_tree(seqs, max_depth = 2L, min_count = 3L, group = stage),
   criterion = "G2", alpha = 0.05)
 cohorts
 tree_early <- cohorts$early; tree_late <- cohorts$late
@@ -852,9 +863,10 @@ head(as.data.frame(cmp), 8)
 
 ```{r compare-transitiontreess-contrast}
 ## The same machinery on a split that does NOT separate: grade.
-## group = "performance" reads the cohort straight from $metadata.
+## A per-prompt grouping vector selects the cohort.
 by_grade <- prune_tree(
-  context_tree(Model, max_depth = 2L, min_count = 3L, group = "performance"),
+  context_tree(seqs, max_depth = 2L, min_count = 3L,
+               group = prompt_meta$performance),
   criterion = "G2", alpha = 0.05)
 cmp_perf <- compare_trees(by_grade, iter = 200L, seed = 1L)
 c(early_vs_late_p = cmp$p_value, high_vs_low_p = cmp_perf$p_value)
@@ -1188,7 +1200,7 @@ which is the whole point of a pathway-centric, testable model.
 
 | Function | Role | Section |
 |---|---|---|
-| `context_tree()` | fit a variable-depth tree (wide / list / `stslist` / netobject / tna) | §1 |
+| `context_tree()` | fit a variable-depth tree (long log / wide / list / `stslist` / transition object) | §1 |
 | `context_tree(group=)` | batch-fit one tree per group → `transitiontrees_group` | §11 |
 | `print.transitiontrees_group()` / `as.data.frame.transitiontrees_group()` | inspect / tidy-extract a group | §11 |
 | `smooth_tree()` | re-smooth a fitted tree (or group) | §7 |

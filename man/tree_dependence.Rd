@@ -46,8 +46,8 @@ more step changes the prediction; the \code{changes_prediction}
 column flags contexts where the most likely next state changes
 between the node and its parent.
 
-Renamed from \code{path_dependence()} to avoid collision with
-\code{Nestimate::path_dependence}.
+Renamed from \code{path_dependence()} to avoid a naming collision with
+a sibling package.
 }
 \details{
 This is the \emph{diagnostic} that the tree's pruning rule (under

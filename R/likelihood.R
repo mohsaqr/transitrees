@@ -90,7 +90,7 @@
   )
 }
 
-#' Log-Likelihood of a Pathtree
+#' Log-Likelihood of a context tree
 #'
 #' @description
 #' Returns a \code{logLik} object compatible with \code{stats::AIC()},
@@ -141,22 +141,22 @@ logLik.transitiontrees <- function(object, newdata = NULL, ...) {
             class = "logLik")
 }
 
-#' Number of Observations Used to Fit a Pathtree
+#' Number of Observations Used to Fit a context tree
 #'
 #' @param object A \code{transitiontrees}.
 #' @param ... Ignored.
-#' @return Integer. The total number of state observations recorded
-#'   when the tree was fitted. This training-set count can exceed the
-#'   \code{"nobs"} attribute returned by
-#'   \code{\link{logLik.transitiontrees}()}, which counts only the
-#'   positions actually scored (e.g. excluding states outside the
-#'   tree's alphabet).
+#' @return Integer. The number of state observations the tree was fitted
+#'   on — the (weight-adjusted) token total, equal to the \code{"nobs"}
+#'   attribute of the \emph{in-sample} \code{\link{logLik.transitiontrees}()}.
+#'   (A held-out \code{logLik(newdata)} reports its own \code{"nobs"} —
+#'   the positions actually scored, e.g. excluding states outside the
+#'   tree's alphabet — which can be smaller.)
 #' @export
 nobs.transitiontrees <- function(object, ...) {
   as.integer(object$n_obs)
 }
 
-#' Perplexity of a Pathtree
+#' Perplexity of a context tree
 #'
 #' @description
 #' \code{exp(-mean log-likelihood per observation)}, the standard
@@ -252,6 +252,10 @@ score_sequences <- function(tree, newdata) {
 #' @export
 score_positions <- function(tree, newdata, worst = NULL) {
   stopifnot(inherits(tree, "transitiontrees"))
+  if (!is.null(worst) &&
+      (!is.numeric(worst) || length(worst) != 1L || is.na(worst) ||
+       worst < 1))
+    stop("'worst' must be NULL or a single positive integer.", call. = FALSE)
   out <- .pt_score_walk(tree, newdata)
   if (!is.null(worst) && nrow(out) > 0L) {
     out <- out[order(out$predicted_prob), , drop = FALSE]

@@ -2,7 +2,7 @@
 % Please edit documentation in R/compare.R
 \name{as.data.frame.transitiontrees_comparison}
 \alias{as.data.frame.transitiontrees_comparison}
-\title{Coerce a Pathtree Comparison to a Tidy Data Frame}
+\title{Coerce a context tree Comparison to a Tidy Data Frame}
 \usage{
 \method{as.data.frame}{transitiontrees_comparison}(x, row.names = NULL, optional = FALSE, ...)
 }

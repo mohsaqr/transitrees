@@ -23,9 +23,8 @@ A ggplot object.
 }
 \description{
 Small-multiples bar chart of the full next-state distribution
-\code{P(next | context)}, one panel per context. The bar-chart
-analogue of the per-node probability display in \code{PST::plot()} /
-\code{cplot()}: where \code{\link{plot_pathways}()} renders the same
+\code{P(next | context)}, one panel per context. A per-context
+probability display: where \code{\link{plot_pathways}()} renders the same
 numbers as a heatmap, this shows each context's distribution as its
 own panel, with the modal bar highlighted.
 }

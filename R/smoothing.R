@@ -1,8 +1,8 @@
 # ---- Smoothing schemes for transitiontrees ----
 #
 # Implements:
-#   .smooth_floor          - floor MLE at ymin (PST-compatible "interpolate"
-#                            rule by default; "cap" = original renormalise)
+#   .smooth_floor          - floor MLE at ymin (default "interpolate"
+#                            rule; "cap" = original renormalise)
 #   .smooth_laplace        - additive-alpha
 #   .smooth_kneser_ney     - back-off along suffix path (parent-prob
 #                            approximation; see notes)
@@ -15,12 +15,11 @@
 #'
 #' Two rules:
 #' \itemize{
-#'   \item \code{"interpolate"} (default, PST-compatible): a distribution
+#'   \item \code{"interpolate"} (default): a distribution
 #'     that has at least one zero-count state is shifted toward uniform,
 #'     \eqn{p_i = (1 - k\,y_{min}) p_i + y_{min}} (k = alphabet size), so
 #'     each zero state lands at exactly \code{ymin}. Distributions with
-#'     every state observed are left as the raw MLE. This is the floor
-#'     used by the archived \pkg{PST} package.
+#'     every state observed are left as the raw MLE.
 #'   \item \code{"cap"}: clamp every probability up to \code{ymin} and
 #'     renormalise (\code{pmax(p, ymin) / sum(...)}). transitiontrees's original
 #'     rule; kept available for back-compatibility.
@@ -218,7 +217,7 @@
   }
 }
 
-#' Re-Smooth a Fitted Pathtree
+#' Re-Smooth a Fitted context tree
 #'
 #' @description
 #' Replaces every node's probability vector with a new smoothing
@@ -302,8 +301,8 @@ smooth_tree <- function(tree, smoothing = "floor") {
 #'
 #' @param data Either sequence data in any form accepted by
 #'   \code{\link{context_tree}} (wide matrix / data.frame, list of
-#'   character vectors, TraMineR \code{stslist}, or a
-#'   \code{mohsaqr}-family network object) — fitted afresh under each
+#'   character vectors, an \code{stslist}, or a transition/network
+#'   object) — fitted afresh under each
 #'   scheme — \strong{or} an already-fitted \code{transitiontrees}, which is
 #'   \emph{re-smoothed} under each scheme (topology frozen, no
 #'   re-count; e.g. to sweep smoothers on a pruned tree).

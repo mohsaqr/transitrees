@@ -7,7 +7,10 @@
 
 # Build artefacts
 *.Rcheck/
+..Rcheck/
 *.tar.gz
+*.zip
+Rplots.pdf
 inst/doc
 /doc/
 /Meta/
@@ -23,8 +26,12 @@ TODO.md
 cran-comments.md
 local_testing_and_equivalence/
 audit/
+audit.md
+audit-prompt*
 audit.zip
 codex_docs/
+.codex/
+.claude/
 tmp/
 sidelined/
 

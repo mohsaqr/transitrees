@@ -2,7 +2,7 @@
 % Please edit documentation in R/context_tree.R
 \name{as.data.frame.transitiontrees}
 \alias{as.data.frame.transitiontrees}
-\title{Coerce a Pathtree to a Tidy Data Frame}
+\title{Coerce a context tree to a Tidy Data Frame}
 \usage{
 \method{as.data.frame}{transitiontrees}(x, row.names = NULL, optional = FALSE, ...)
 }

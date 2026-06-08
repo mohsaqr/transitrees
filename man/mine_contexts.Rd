@@ -31,8 +31,8 @@ A data.frame with columns \code{pathway}, \code{depth},
 \description{
 Scan every context in a fitted tree for a chosen next state and
 return those whose predicted probability for that state falls in a
-requested range. The tidy-table analogue of \code{PST::cmine()}:
-"in which histories is the next move \code{state} (un)usually likely?"
+requested range. A tidy context-mining table:
+"in which histories is the next move \code{state} unusually likely or unlikely?"
 }
 \examples{
 seqs <- replicate(60, sample(c("A", "B", "C"), 10, replace = TRUE),

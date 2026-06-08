@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot.R
 \name{plot.transitiontrees_group}
 \alias{plot.transitiontrees_group}
-\title{Plot Each Tree in a Pathtree Group}
+\title{Plot Each Tree in a context tree Group}
 \usage{
 \method{plot}{transitiontrees_group}(x, ...)
 }

@@ -19,7 +19,7 @@ test_that("context_tree returns ctxtree with correct fields", {
   expect_named(tree, c("nodes", "edges", "alphabet",
                        "max_depth", "nmin",
                        "n_seq", "n_obs", "smoothing",
-                       "pruned", "pruning", "data"))
+                       "pruned", "pruning", "data", "weights"))
   expect_setequal(tree$alphabet, c("A", "B"))
   expect_equal(tree$n_seq, 6L)
   expect_false(isTRUE(tree$pruned))
@@ -123,8 +123,8 @@ test_that("as.data.frame.transitiontrees is the canonical tidy view", {
 # ---- Nestimate netobject input ----
 
 .fake_netobject <- function() {
-  ## Mirrors the slots context_tree() reads from a real
-  ## Nestimate::build_network() result: $data is a wide,
+  ## Mirrors the slots context_tree() reads from a real fitted
+  ## transition/network object: $data is a wide,
   ## trailing-NA-padded character frame; $nodes$label is the
   ## network's canonical node set (the default alphabet).
   d <- data.frame(

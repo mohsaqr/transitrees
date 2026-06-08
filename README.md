@@ -2,10 +2,10 @@
 
 Predictive pathway discovery in categorical sequence data.
 
-`transitiontrees` fits a variable-depth pathway tree (prediction suffix tree;
-Ron, Singer & Tishby 1996) from sequences and exposes a tidy,
-pathway-centric API: most common pathways, most predictively divergent
-pathways, modal-flip diagnostics, and next-state predictions.
+`transitiontrees` fits a variable-depth pathway tree (a prediction
+suffix tree; Ron, Singer & Tishby 1996) from sequences and exposes a
+tidy, pathway-centric API: most common pathways, most predictively
+divergent pathways, modal-flip diagnostics, and next-state predictions.
 
 ## Why this package
 
@@ -14,32 +14,28 @@ or fit fixed-order Markov chains (one-size-fits-all memory). Real
 trajectories — student engagement weeks, patient pathways, clickstreams,
 play sequences — usually have memory that varies *by context*: some
 states predict the next state on their own, others only when paired
-with a longer history. `transitiontrees` makes that variable-depth structure
-the central object and reports it as a ranked list of pathways the
-data actually supports.
+with a longer history. `transitiontrees` makes that variable-depth
+structure the central object and reports it as a ranked list of pathways
+the data actually supports.
 
-An earlier R implementation, `PST` 0.94.1 (Gabadinho & Ritschard
-2013, *Journal of Statistical Software* **53**(3)), was archived from
-CRAN on 2025-11-27. `transitiontrees` is an **independent implementation** of
-the same model — not a replacement for, or fork of, any package:
+It is a self-contained, independent implementation of the variable-order
+prediction-suffix-tree model:
 
-- pure base R + ggplot2, no Rcpp, no data.table, no tidyverse;
+- pure base R with a single plotting dependency (ggplot2); no compiled
+  code and no heavy framework dependencies;
 - tidy `data.frame` outputs by default, in one canonical schema so every
   table joins cleanly;
-- validated at machine precision against three external references by
-  other authors — `PST` (counts, node probabilities at all depths,
-  `query`, per-position `predict`, `logLik`, topology), `markovchain`
-  (order-1 transitions), and `tna::prepare_data` (the long → sequence
-  reshaper behind `prepare_input()`); see `PARITY.md`;
+- validated at machine precision against independent external reference
+  implementations of the model (counts, node probabilities at all depths,
+  context queries, per-position prediction, `logLik`, and topology), as
+  documented in `PARITY.md`;
 - a pathway-centric API (`tree_pathways()`, `common_pathways()`,
   `divergent_pathways()`, `sharp_pathways()`) that ranks trajectories
   by frequency, predictive divergence, or modal-flip — the structure
   domain experts actually want to read off the model;
-- naming chosen so `library(transitiontrees)` does not collide with sibling
-  packages in the Dynalytics ecosystem: the exports that would have
-  shadowed `tna::prune` / `Nestimate::pathways` / `Nestimate::path_dependence`
-  are namespaced as `prune_tree()` / `tree_pathways()` /
-  `tree_dependence()`;
+- verbs deliberately namespaced (`prune_tree()`, `tree_pathways()`,
+  `tree_dependence()`) so `library(transitiontrees)` does not shadow
+  common generics;
 - a full predictive-modelling toolchain: `logLik` / `AIC` / `BIC` /
   `perplexity` / `score_sequences` / `score_positions` / `model_fit`,
   five smoothing schemes (`floor`, `laplace`, `kneser_ney`,
@@ -47,21 +43,25 @@ the same model — not a replacement for, or fork of, any package:
   and permutation-tested two-tree `compare_trees()`;
 - sequence tools: `impute_sequences()` fills internal gaps from the
   fitted tree; `mine_contexts()` / `mine_sequences()` scan for contexts
-  where a state is (un)usually likely and for the best/worst-fit
+  where a state is unusually likely or unlikely and for the best/worst-fit
   held-out sequences;
 - flexible ingestion — a wide character matrix/data.frame, a list of
   character vectors, a long event log (via `actor` / `time` / `action` /
-  `order` arguments, or the standalone `prepare_input()`), a TraMineR
-  `stslist`, or a sibling-package network object — plus per-sequence
-  weights for social-science workflows;
-- four plot styles — `horizontal` (default), `dendrogram`, `icicle`,
-  and an `interactive` (visNetwork) view — with count-sized nodes and
-  flow-sized edges.
+  `order` arguments, or the standalone `prepare_input()`), a
+  state-sequence (`stslist`) object, or a compatible transition/network
+  object — plus per-sequence weights for social-science workflows;
+- five plot views — `horizontal` (default), `dendrogram`, `icicle`, an
+  `interactive` HTML-widget tree, and the forward `plot_trajectories()` —
+  with count-sized nodes and flow-sized edges.
 
 ## Installation
 
 ```r
-# GitHub (development version)
+# From CRAN (once released)
+install.packages("transitiontrees")
+
+# Development version from GitHub
+# install.packages("remotes")
 remotes::install_github("mohsaqr/transitiontrees")
 ```
 
@@ -129,8 +129,7 @@ compare_trees(tree_a, tree_b, iter = 200)
 
 # --- Bootstrap pathway reliability ---------------------------------
 boot <- bootstrap_pathways(pruned, iter = 1000, stat = "count")
-summary(boot)[, c("pathway", "p_stability", "stable",
-                  "informative_rate", "informative")]
+summary(boot)        # tidy per-pathway stability + informativeness table
 plot(boot)
 
 # --- Tree introspection --------------------------------------------
@@ -146,11 +145,13 @@ mine_sequences(pruned, test_seqs, which = "surprising")  # worst-fit sequences
 # --- Visualisation --------------------------------------------------
 plot(pruned)                                # horizontal tree (default)
 plot(pruned, style = "dendrogram")          # pure-ggplot dendrogram
-plot(pruned, style = "icicle")              # ggraph partition diagram
-plot(pruned, style = "interactive")         # visNetwork (HTML widget)
+plot(pruned, style = "icicle")              # partition (sunburst) diagram
+plot(pruned, style = "interactive")         # interactive HTML widget
 plot_pathways(pruned)                       # next-move probability heatmap
 plot_divergence(pruned)                     # per-context KL lollipop
 plot_distributions(pruned)                  # per-context next-state bars
+plot_pruning(pruned, "A -> B -> C")         # suffix-chain memory view
+plot_trajectories(pruned, "frequency")      # forward trajectory tree
 plot_predictive(pruned, test_seqs)          # held-out confidence diagnostics
 ```
 
@@ -163,16 +164,14 @@ Four datasets ship with the package for examples and tests:
 | `trajectories` | 138 × 15 wide character matrix | engagement states over time |
 | `group_regulation_long` | long event log, POSIXct time | regulation-of-learning events |
 | `ai_long` | long event log, Unix time + session id | AI-prompting moves |
-| `engagement` | TraMineR `stslist` | weekly engagement sequences |
+| `engagement` | state-sequence (`stslist`) object | weekly engagement sequences |
 
 ## Pathway notation
 
-Pathways are reported in arrow notation (`A -> B -> C`), matching the
-convention used elsewhere in the Dynalytics ecosystem (`Nestimate`,
-`tna`, `cograph`). The leftmost state is the *oldest*; the next-state
-prediction is conditional on the trajectory ending at the rightmost
-state. The root context (the marginal next-state distribution) is shown
-as `(start)`.
+Pathways are reported in arrow notation (`A -> B -> C`). The leftmost
+state is the *oldest*; the next-state prediction is conditional on the
+trajectory ending at the rightmost state. The root context (the marginal
+next-state distribution) is shown as `(start)`.
 
 ## Bootstrap interpretation
 
@@ -198,10 +197,6 @@ Read the two flags together:
 Begleiter, R., El-Yaniv, R., Yona, G. (2004). On prediction using
 variable-order Markov models. *Journal of Artificial Intelligence
 Research*, **22**, 385–421.
-
-Gabadinho, A., Ritschard, G. (2013). Searching for typical life
-trajectories applied to childbirth histories. In: *Gendered Life
-Courses Between Standardization and Individualization*, 287–312.
 
 Ron, D., Singer, Y., Tishby, N. (1996). The power of amnesia: learning
 probabilistic automata with variable memory length. *Machine Learning*,

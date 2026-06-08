@@ -131,6 +131,6 @@ test_that("sharp_pathways returns top n by next_probability", {
 
 test_that("tree_pathways is a plain exported function", {
   expect_true(is.function(tree_pathways))
-  ## The generic was retired to avoid collision with Nestimate::pathways.
+  ## The generic was retired to avoid collision with other packages' pathways().
   expect_false(isTRUE(any(grepl("UseMethod", deparse(body(tree_pathways))))))
 })

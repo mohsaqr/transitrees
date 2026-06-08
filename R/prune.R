@@ -8,8 +8,8 @@
 #' extending its parent's prediction at this context produces less
 #' information / likelihood than the depth penalty allows.
 #'
-#' Renamed from \code{prune()} to avoid collision with
-#' \code{tna::prune}, \code{rpart::prune}, and \code{tree::prune}.
+#' Renamed from \code{prune()} to avoid collision with other
+#' \code{prune()} generics.
 #'
 #' @param tree A \code{transitiontrees}, or a \code{transitiontrees_group}, in
 #'   which case each member is pruned and the group wrapper is
@@ -64,6 +64,12 @@ prune_tree <- function(tree,
   }
   stopifnot(inherits(tree, "transitiontrees"))
   criterion <- match.arg(criterion)
+  if (!is.numeric(alpha) || length(alpha) != 1L || is.na(alpha) ||
+      alpha <= 0 || alpha >= 1)
+    stop("'alpha' must be a single number in (0, 1).", call. = FALSE)
+  if (!is.numeric(threshold) || length(threshold) != 1L || is.na(threshold) ||
+      threshold < 0)
+    stop("'threshold' must be a single non-negative number.", call. = FALSE)
 
   ## Critical value for G2: chi-square at (k-1) df
   k_states <- length(tree$alphabet)

@@ -24,7 +24,7 @@ A data.frame with the \code{\link{score_sequences}} columns
 }
 \description{
 Rank held-out sequences by how well the fitted tree predicts them.
-The tidy-table analogue of \code{PST::pmine()}: surface the
+A tidy pattern-mining table: surface the
 subsequences the model finds most \emph{surprising} (poor fit, high
 perplexity) or most \emph{expected} (good fit, low perplexity).
 }

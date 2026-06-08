@@ -396,13 +396,12 @@
 #' @param edge_size_range Numeric length-2 vector for edge width.
 #'   Default \code{c(0.3, 2.5)} for the static styles, \code{c(1, 10)}
 #'   (pixels) for \code{"interactive"}. Ignored by \code{"icicle"}.
-#' @param show_prediction Logical. For \code{style = "horizontal"}, show
-#'   each node's modal prediction \code{"(state pct\%)"} on a second
-#'   label line. Default \code{TRUE}; set \code{FALSE} for context-only
-#'   labels.
-#' @param ... Passed to the chosen backend (e.g. \code{width} /
-#'   \code{height} for \code{"interactive"}, \code{show_prediction} for
-#'   \code{"horizontal"}).
+#' @param ... Passed to the chosen backend. For
+#'   \code{style = "horizontal"}, \code{show_prediction} (logical, default
+#'   \code{TRUE}) toggles each node's modal prediction
+#'   \code{"(state pct\%)"} on a second label line; set \code{FALSE} for
+#'   context-only labels. For \code{style = "interactive"}, \code{width} /
+#'   \code{height} size the htmlwidget.
 #'
 #' @return A ggplot object for the three static styles; an
 #'   \code{htmlwidget} for \code{"interactive"}.
@@ -419,8 +418,11 @@
 #' tr <- context_tree(m, max_depth = 2L, min_count = 3L)
 #' plot(tr)                           # left-to-right phylogram (default)
 #' plot(tr, style = "dendrogram")     # radial dendrogram
-#' plot(tr, style = "icicle")         # sunburst (needs Suggests)
-#' plot(tr, style = "interactive")    # visNetwork (needs Suggests)
+#' if (requireNamespace("ggraph", quietly = TRUE) &&
+#'     requireNamespace("tidygraph", quietly = TRUE))
+#'   plot(tr, style = "icicle")       # sunburst (needs ggraph + tidygraph)
+#' if (requireNamespace("visNetwork", quietly = TRUE))
+#'   plot(tr, style = "interactive")  # visNetwork htmlwidget (Suggests)
 #' }
 #' @export
 plot.transitiontrees <- function(x,
@@ -459,7 +461,7 @@ plot.transitiontrees <- function(x,
                    ...))
 }
 
-#' Plot Each Tree in a Pathtree Group
+#' Plot Each Tree in a context tree Group
 #'
 #' @description
 #' Draw every member of a \code{transitiontrees_group} in turn via

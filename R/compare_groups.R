@@ -189,6 +189,7 @@ compare_groups <- function(group, iter = 999L, min_count = 1L, seed = 1L,
   grp_names <- names(group)
   K <- length(grp_names)
   if (K < 2L) stop("'group' must contain at least two groups.", call. = FALSE)
+  for (m in group) .pt_assert_unweighted(m, "compare_groups()")
   alphabet <- group[[1L]]$alphabet
   if (!is.null(seed)) set.seed(seed)
 
@@ -338,6 +339,19 @@ compare_groups <- function(group, iter = 999L, min_count = 1L, seed = 1L,
     class = "transitiontrees_group_comparison")
 }
 
+#' Print a Group Comparison
+#'
+#' @description
+#' Print method for a \code{transitiontrees_group_comparison}: a header with
+#' the groups and permutation setup, the omnibus behavioral / usage
+#' statistics, and the top pathways ranked by behavioral divergence.
+#'
+#' @param x A \code{transitiontrees_group_comparison} object.
+#' @param n Integer. Number of top pathways to print. Default 10.
+#' @param digits Integer. Numeric digits for the printed tables.
+#'   Default 3.
+#' @param ... Ignored.
+#' @return \code{x} invisibly.
 #' @export
 print.transitiontrees_group_comparison <- function(x, n = 10L, digits = 3L, ...) {
   cat(sprintf("<transitiontrees_group_comparison>  %d groups, %d %spermutations\n",
@@ -365,6 +379,20 @@ print.transitiontrees_group_comparison <- function(x, n = 10L, digits = 3L, ...)
   invisible(x)
 }
 
+#' Summarise a Group Comparison
+#'
+#' @description
+#' Prints a compact verdict for a \code{transitiontrees_group_comparison}:
+#' the omnibus behavioral and usage permutation p-values, and how many
+#' pathways pass the FDR cutoff on each axis or flip their modal next
+#' state between groups. Returns the per-pathway table invisibly.
+#'
+#' @param object A \code{transitiontrees_group_comparison} object.
+#' @param alpha Numeric. FDR cutoff used when counting significant
+#'   pathways. Default 0.05.
+#' @param ... Ignored.
+#' @return Invisibly, the per-pathway data.frame (\code{object$pathways});
+#'   see \code{\link{compare_groups}} for the column vocabulary.
 #' @export
 summary.transitiontrees_group_comparison <- function(object, alpha = 0.05, ...) {
   p <- object$pathways
@@ -380,6 +408,18 @@ summary.transitiontrees_group_comparison <- function(object, alpha = 0.05, ...) 
   invisible(object$pathways)
 }
 
+#' Coerce a Group Comparison to a Tidy Data Frame
+#'
+#' @description
+#' Uniform tidy-extract: returns the per-pathway comparison table
+#' (\code{object$pathways}) so \code{as.data.frame(cmp)} yields the full
+#' divergence / usage breakdown as a base \code{data.frame}.
+#'
+#' @param x A \code{transitiontrees_group_comparison}.
+#' @param row.names,optional Ignored.
+#' @param ... Ignored.
+#' @return A data.frame of per-pathway results; see
+#'   \code{\link{compare_groups}} for the column vocabulary.
 #' @export
 as.data.frame.transitiontrees_group_comparison <- function(x, row.names = NULL,
                                                        optional = FALSE, ...) {

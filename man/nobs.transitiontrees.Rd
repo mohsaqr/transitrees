@@ -2,7 +2,7 @@
 % Please edit documentation in R/likelihood.R
 \name{nobs.transitiontrees}
 \alias{nobs.transitiontrees}
-\title{Number of Observations Used to Fit a Pathtree}
+\title{Number of Observations Used to Fit a context tree}
 \usage{
 \method{nobs}{transitiontrees}(object, ...)
 }
@@ -12,13 +12,13 @@
 \item{...}{Ignored.}
 }
 \value{
-Integer. The total number of state observations recorded
-  when the tree was fitted. This training-set count can exceed the
-  \code{"nobs"} attribute returned by
-  \code{\link{logLik.transitiontrees}()}, which counts only the
-  positions actually scored (e.g. excluding states outside the
-  tree's alphabet).
+Integer. The number of state observations the tree was fitted
+  on — the (weight-adjusted) token total, equal to the \code{"nobs"}
+  attribute of the \emph{in-sample} \code{\link{logLik.transitiontrees}()}.
+  (A held-out \code{logLik(newdata)} reports its own \code{"nobs"} —
+  the positions actually scored, e.g. excluding states outside the
+  tree's alphabet — which can be smaller.)
 }
 \description{
-Number of Observations Used to Fit a Pathtree
+Number of Observations Used to Fit a context tree
 }

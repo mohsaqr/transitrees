@@ -20,7 +20,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Mohammed Saqr \email{saqr@saqr.me}
+\strong{Maintainer}: Mohammed Saqr \email{saqr@saqr.me} [copyright holder]
 
 }
 \keyword{internal}

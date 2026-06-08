@@ -2,7 +2,7 @@
 % Please edit documentation in R/compare.R
 \name{plot.transitiontrees_comparison}
 \alias{plot.transitiontrees_comparison}
-\title{Plot a Pathtree Comparison}
+\title{Plot a context tree Comparison}
 \usage{
 \method{plot}{transitiontrees_comparison}(x, bins = 30L, ...)
 }

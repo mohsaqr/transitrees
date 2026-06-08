@@ -48,8 +48,8 @@ history. This is the substantive consumer-facing API of a fitted
 tree -- a ranked list of trajectories that the data actually
 supports, with a consistent interpretive frame.
 
-Renamed from \code{pathways()} to avoid collision with
-\code{Nestimate::pathways}.
+Renamed from \code{pathways()} to avoid a naming collision with a
+sibling package.
 }
 \details{
 Each row is a pathway -- a (possibly empty) sequence of states ending

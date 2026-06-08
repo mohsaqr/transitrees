@@ -1,0 +1,139 @@
+---
+title: "3. Ecosystem compatibility: TraMineR, tna, and Nestimate"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{3. Ecosystem compatibility: TraMineR, tna, and Nestimate}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(transitiontrees)
+has_tna  <- requireNamespace("tna",       quietly = TRUE)
+has_nest <- requireNamespace("Nestimate", quietly = TRUE)
+```
+
+`transitiontrees` is built to slot into the wider `mohsaqr` sequence-analysis
+ecosystem (`TraMineR`, `tna`, `Nestimate`, `cograph`). You do **not** have to
+re-export or re-format your data: `context_tree()` accepts a fitted
+state-sequence or transition/network object **directly**, auto-detected by
+its S3 class. It reads the sequences the object already carries and fits the
+suffix tree on exactly those, over the same state set.
+
+This vignette shows the three hand-offs on one shared dataset and confirms
+they agree. The `tna` and `Nestimate` sections only run if those packages are
+installed; the `TraMineR` state-sequence section runs on the bundled data
+with no extra package.
+
+## The shared dataset
+
+The bundled `engagement` object is a `TraMineR` state-sequence (`stslist`):
+1000 weekly engagement sequences over three states.
+
+```{r data}
+data(engagement)
+class(engagement)
+dim(engagement)
+```
+
+## Route A -- a state-sequence (`stslist`) object
+
+Hand the `stslist` straight to `context_tree()`.
+
+```{r stslist-naive}
+tree_sts_raw <- context_tree(engagement, max_depth = 2L, min_count = 5L)
+tree_sts_raw$alphabet
+```
+
+Note the alphabet: a `TraMineR` sequence object encodes gaps/missing with a
+**void code** (here `%`), and taken literally that void looks like a fourth
+state. The clean fix is to pass the object's declared `alphabet` so the void
+is treated as end-of-sequence, not a state:
+
+```{r stslist-clean}
+tree_sts <- context_tree(engagement, max_depth = 2L, min_count = 5L,
+                        alphabet = attr(engagement, "alphabet"))
+tree_sts$alphabet
+n_nodes(tree_sts)
+```
+
+That is the tree to use. The `tna` and `Nestimate` objects below carry the
+clean label set internally, so they decode the void for you automatically --
+the two routes converge on this same tree.
+
+## Route B -- a `tna` transition-network object
+
+A `tna` model carries its underlying sequences in its `$data` slot.
+`context_tree()` reads them and decodes through the model's label set.
+
+```{r tna, eval = has_tna}
+library(tna)
+model_tna <- tna(engagement)
+class(model_tna)
+
+tree_tna <- context_tree(model_tna, max_depth = 2L, min_count = 5L)
+tree_tna
+```
+
+## Route C -- a `Nestimate` network object
+
+`Nestimate::build_tna()` (and the other `build_*()` constructors) return a
+`netobject` that likewise carries the sequence frame and a `$nodes` label
+table. Same hand-off:
+
+```{r nestimate, eval = has_nest}
+library(Nestimate)
+model_nest <- build_tna(engagement)
+class(model_nest)
+
+tree_nest <- context_tree(model_nest, max_depth = 2L, min_count = 5L)
+tree_nest
+```
+
+## They agree
+
+Because all three objects wrap the *same* sequences, the fitted trees are
+identical -- same alphabet, same nodes, same observation count.
+
+```{r agree, eval = has_tna && has_nest}
+identical(tree_sts$nodes, tree_tna$nodes)
+identical(tree_tna$nodes, tree_nest$nodes)
+
+data.frame(
+  route   = c("stslist", "tna", "Nestimate"),
+  n_nodes = c(n_nodes(tree_sts), n_nodes(tree_tna), n_nodes(tree_nest)),
+  nobs    = c(model_fit(tree_sts)$nobs, model_fit(tree_tna)$nobs,
+              model_fit(tree_nest)$nobs))
+```
+
+The tree shares one symbol space with the source model, so the whole
+pathway API -- `common_pathways()`, `divergent_pathways()`,
+`bootstrap_pathways()`, the plots -- composes onto an already-estimated
+network with no conversion step.
+
+## The boundary: sequences, never aggregated transitions
+
+The hand-off works only when the object actually **carries its sequences**. A
+*pure graph* projection -- nodes, edges and weights with the raw sequences
+nulled out (an aggregated transition network) -- is **rejected**, on purpose:
+the original sequences cannot be recovered from edge weights, so fabricating
+them would be silently wrong. The same invariant rejects a bare numeric
+transition matrix.
+
+```{r pure-graph, eval = has_nest, error = TRUE}
+graph_only <- build_tna(engagement)
+graph_only$data <- NULL          # strip the stored sequences
+context_tree(graph_only)         # -> informative error, not a fabricated fit
+```
+
+`transitiontrees` fits on raw sequences. If you have only an aggregated
+network, go back to the sequence data it was built from.
+
+## Group objects
+
+The grouped constructors compose too. `context_tree()` recognises a
+`group_tna` / `netobject_group` (a named list of per-group models) and fits
+one tree per group, returning a `transitiontrees_group` that
+`prune_tree()`, `compare_trees()`, and `compare_groups()` consume directly --
+see the *Advanced analysis* vignette for the group workflow.

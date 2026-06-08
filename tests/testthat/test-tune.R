@@ -14,7 +14,8 @@ test_that("tune_tree returns a sorted transitiontrees_tune data.frame", {
   expect_s3_class(tg, "transitiontrees_tune")
   expect_s3_class(tg, "data.frame")
   expect_named(tg, c("max_depth", "nmin", "smoothing", "prune",
-                     "logLik", "n_scored", "perplexity", "n_nodes_avg"))
+                     "logLik", "n_scored", "perplexity", "n_nodes_avg",
+                     "folds_failed"))
   expect_equal(nrow(tg), 2L * 2L * 1L * 2L)
   expect_equal(order(tg$perplexity, na.last = TRUE), seq_len(nrow(tg)))
   expect_false(is.null(attr(tg, "best")))

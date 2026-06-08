@@ -4,7 +4,7 @@
 \alias{plot_predictive}
 \title{Predictive Diagnostics for Held-Out Scoring}
 \usage{
-plot_predictive(tree, newdata, type = c("position", "ecdf"))
+plot_predictive(tree, newdata, type = c("position", "ecdf", "logloss"))
 }
 \arguments{
 \item{tree}{A \code{transitiontrees}.}
@@ -12,15 +12,15 @@ plot_predictive(tree, newdata, type = c("position", "ecdf"))
 \item{newdata}{Held-out sequence data in any format accepted by
 \code{context_tree()}.}
 
-\item{type}{One of \code{"position"} (default) or \code{"ecdf"}.}
+\item{type}{One of \code{"position"} (default), \code{"ecdf"}, or
+\code{"logloss"}.}
 }
 \value{
 A ggplot object.
 }
 \description{
 Visual diagnostics for how a fitted tree scores held-out sequences,
-built on \code{\link{score_positions}()}. The analogues of
-\code{PST::ppplot()} / \code{pqplot()}:
+built on \code{\link{score_positions}()}:
 \describe{
   \item{\code{type = "position"}}{predicted probability of the
     observed next state against position in the sequence — where the
@@ -29,6 +29,11 @@ built on \code{\link{score_positions}()}. The analogues of
     those predicted probabilities — a calibration-style view of how
     often the model assigns high vs. low probability to what actually
     happened.}
+  \item{\code{type = "logloss"}}{the per-position log-loss
+    \eqn{-\log_2 P(\mathrm{observed})} against position — a
+    per-position log-loss view. Lower is better
+    (0 = certain and correct); the dashed line is the mean log-loss
+    over all scored positions.}
 }
 }
 \examples{
@@ -40,5 +45,6 @@ new  <- replicate(15, sample(c("A", "B", "C"), 10, replace = TRUE),
                   simplify = FALSE)
 plot_predictive(tree, new, type = "position")
 plot_predictive(tree, new, type = "ecdf")
+plot_predictive(tree, new, type = "logloss")
 }
 }

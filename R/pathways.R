@@ -25,8 +25,8 @@
 #' tree -- a ranked list of trajectories that the data actually
 #' supports, with a consistent interpretive frame.
 #'
-#' Renamed from \code{pathways()} to avoid collision with
-#' \code{Nestimate::pathways}.
+#' Renamed from \code{pathways()} to avoid a naming collision with a
+#' sibling package.
 #'
 #' @param tree A \code{transitiontrees} object.
 #' @param min_count Integer. Drop pathways with fewer than this many

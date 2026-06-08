@@ -17,14 +17,13 @@ knitr::opts_chunk$set(
   fig.width = 9, fig.height = 5, dpi = 110, out.width = "100%"
 )
 devtools::load_all(here::here())
-suppressMessages(library(Saqrlab))
 ```
 
 ## What `bootstrap_pathways()` reports
 
 Methodologically built on Saqr, Tikka & López-Pernas (2025)
-[**tna**](https://doi.org/10.1145/3706468.3706513), extending the
-edge-level bootstrap framework to variable-depth pathways.
+(doi:10.1145/3706468.3706513), extending an edge-level bootstrap
+framework to variable-depth pathways.
 
 The bootstrap operates on **raw counts only** — no `nmin` filter,
 no smoothing inside the loop, no extra parameters. Each iteration
@@ -37,8 +36,8 @@ Two complementary measures per pathway:
   `stat` (default `count`) lands in
   `[0.75 × observed, 1.25 × observed]`. **Value reproducibility.**
   A pathway whose count drops to zero in a resample fails the band
-  test automatically — same mechanism `tna::bootstrap` uses for
-  edge weights.
+  test automatically — the same mechanism an edge-level bootstrap
+  uses for edge weights.
 
 - **`informative_rate`** — fraction of resamples where the
   pathway's empirical likelihood-ratio statistic against its parent
@@ -56,8 +55,9 @@ informative_threshold` (default 0.95). The summary sorts
 
 ## Validation: strong, weak, random
 
-Three Markov regimes from `Saqrlab::simulate_sequences()`, same
-sample size (100 sequences × 14 length, alphabet `{A, B, C}`):
+Three Markov regimes from a small inline first-order Markov
+generator, same sample size (100 sequences × 14 length, alphabet
+`{A, B, C}`):
 
 ```{r sim}
 P_strong <- rbind(c(0.05, 0.90, 0.05),
@@ -72,12 +72,27 @@ rownames(P_weak)   <- colnames(P_weak)   <- c("A", "B", "C")
 rownames(P_random) <- colnames(P_random) <- c("A", "B", "C")
 init <- c(A = 1/3, B = 1/3, C = 1/3)
 
+# Inline first-order Markov sequence generator: returns a
+# character matrix (n_sequences rows × seq_length columns).
+simulate_markov <- function(n_sequences, seq_length, trans_matrix,
+                            init_probs, seed) {
+  set.seed(seed)
+  states <- colnames(trans_matrix)
+  step <- function(prev, ignore) {
+    sample(states, 1L, prob = trans_matrix[prev, ])
+  }
+  one_seq <- function(i) {
+    first <- sample(states, 1L, prob = init_probs)
+    Reduce(step, seq_len(seq_length - 1L), accumulate = TRUE,
+           init = first)
+  }
+  do.call(rbind, lapply(seq_len(n_sequences), one_seq))
+}
+
 run_scenario <- function(P, seed) {
-  seqs <- simulate_sequences(
+  seqs <- simulate_markov(
     n_sequences = 100L, seq_length = 14L,
-    trans_matrix = P, init_probs = init,
-    use_learning_states = FALSE, include_na = FALSE,
-    seed = seed)
+    trans_matrix = P, init_probs = init, seed = seed)
   tree <- context_tree(seqs, max_depth = 2L, min_count = 5L)
   bootstrap_pathways(tree, iter = 300L, seed = 1L)
 }
@@ -192,10 +207,10 @@ finite-sample noise produces.
 
 ---
 
-## Real data: `Nestimate::trajectories`
+## Real data: `trajectories`
 
 ```{r real-data}
-data("trajectories", package = "Nestimate")
+data(trajectories)
 dim(trajectories)
 tree <- context_tree(trajectories, max_depth = 3L, min_count = 5L)
 boot <- bootstrap_pathways(tree, iter = 500L, seed = 1L)
@@ -222,8 +237,8 @@ summary(boot)
   smoothing inside the loop, no extra parameters. Pathways tracked
   are exactly the ones in the original tree; their values come
   from per-depth count aggregation.
-- **`stable` answers "does the value reproduce?"** — tna's
-  framing. With enough data, counts reproduce regardless of
+- **`stable` answers "does the value reproduce?"** — the
+  edge-level bootstrap framing. With enough data, counts reproduce regardless of
   whether the underlying structure is informative.
 - **`informative` answers "does the LR test reproducibly clear the
   threshold?"** — the bootstrap analogue of
@@ -236,7 +251,7 @@ summary(boot)
   downstream filter on the bootstrap output, not part of the fit
   replay.
 - **Performance.** Per-sequence `(context, next_state)`
-  pair-index vectors are precomputed once per depth (Nestimate's
+  pair-index vectors are precomputed once per depth (a
   transition fast-path). Bootstrap iterations are one
   `unlist`+`tabulate` per depth followed by per-pathway count
   lookups, with no `data.frame` construction inside the loop.

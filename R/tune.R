@@ -49,7 +49,7 @@
          ")")
 }
 
-#' Cross-Validated Hyperparameter Tuning for Pathtrees
+#' Cross-Validated Hyperparameter Tuning for context trees
 #'
 #' @description
 #' Runs k-fold cross-validation over a grid of fitting and pruning
@@ -86,9 +86,12 @@
 #' @return A \code{transitiontrees_tune} object: a data.frame with one row per
 #'   grid point and columns \code{max_depth}, \code{nmin},
 #'   \code{smoothing}, \code{prune}, \code{logLik}, \code{n_scored},
-#'   \code{perplexity}, \code{n_nodes_avg}, sorted by \code{perplexity}
-#'   ascending. \code{attr(result, "best")} carries the
-#'   minimum-perplexity row.
+#'   \code{perplexity}, \code{n_nodes_avg}, and \code{folds_failed} (the
+#'   number of CV folds that errored for that configuration), sorted by
+#'   \code{perplexity} ascending. \code{attr(result, "best")} carries the
+#'   minimum-perplexity row \strong{among configurations whose every fold
+#'   scored}; it is \code{NULL} if none did. A warning is issued when any
+#'   configuration had a failed fold.
 #'
 #' @examples
 #' \donttest{
@@ -149,6 +152,9 @@ tune_tree <- function(data,
                                   n_nodes = NA_integer_)
       )
     })
+    folds_failed <- sum(vapply(fold_results,
+                               function(fr) is.na(fr$ll) || fr$n == 0L,
+                               logical(1)))
     ll_total    <- sum(vapply(fold_results, `[[`, numeric(1), "ll"),
                        na.rm = TRUE)
     n_total     <- sum(vapply(fold_results, `[[`, numeric(1), "n"),
@@ -156,10 +162,11 @@ tune_tree <- function(data,
     n_nodes_avg <- mean(vapply(fold_results, `[[`, numeric(1), "n_nodes"),
                         na.rm = TRUE)
     pp <- if (n_total > 0) exp(-ll_total / n_total) else NA_real_
-    data.frame(logLik      = ll_total,
-               n_scored    = as.integer(n_total),
-               perplexity  = pp,
-               n_nodes_avg = n_nodes_avg,
+    data.frame(logLik         = ll_total,
+               n_scored       = as.integer(n_total),
+               perplexity     = pp,
+               n_nodes_avg    = n_nodes_avg,
+               folds_failed   = as.integer(folds_failed),
                stringsAsFactors = FALSE)
   })
   metrics <- do.call(rbind, scored)
@@ -176,11 +183,23 @@ tune_tree <- function(data,
   out <- out[ord, , drop = FALSE]
   rownames(out) <- NULL
 
-  best <- out[1L, , drop = FALSE]
+  ## A configuration is only a candidate for "best" if every fold scored
+  ## (finite perplexity, no failed folds) — a failed config must never be
+  ## reported as the winner. Surface failures rather than masking them.
+  n_bad <- sum(out$folds_failed > 0L)
+  if (n_bad > 0L)
+    warning(sprintf(
+      "%d of %d tuning configuration(s) had at least one CV fold that failed; their scores use only the folds that succeeded and they are excluded from 'best'.",
+      n_bad, nrow(out)), call. = FALSE)
+  eligible <- out$folds_failed == 0L & is.finite(out$perplexity)
+  best <- if (any(eligible)) out[which(eligible)[1L], , drop = FALSE] else NULL
+  if (is.null(best))
+    warning("No tuning configuration scored on every fold; 'best' is NULL.",
+            call. = FALSE)
   structure(out, best = best, class = c("transitiontrees_tune", "data.frame"))
 }
 
-#' Plot a Pathtree CV Grid
+#' Plot a context tree CV Grid
 #'
 #' @description
 #' Visualises the held-out perplexity surface returned by
@@ -217,7 +236,7 @@ plot.transitiontrees_tune <- function(x, ...) {
     ggplot2::labs(
       x = "max_depth", y = "held-out perplexity",
       colour = "nmin",
-      title = "Pathtree CV grid",
+      title = "context tree CV grid",
       subtitle = "lower is better; star = minimum-perplexity configuration"
     ) +
     ggplot2::theme_minimal(base_size = 11) +
@@ -229,7 +248,7 @@ plot.transitiontrees_tune <- function(x, ...) {
     )
 }
 
-#' Print a Pathtree Tuning Grid
+#' Print a context tree Tuning Grid
 #'
 #' @param x A \code{transitiontrees_tune} object.
 #' @param n Integer. Number of configurations to print. Default 10.

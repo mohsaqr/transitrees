@@ -11,17 +11,13 @@
 #' @noRd
 .ROOT_LABEL <- "(start)"
 
-#' Is this a Dynalytics / \code{mohsaqr}-family model object?
+#' Is this a supported network/transition model object?
 #'
-#' transitiontrees is a sibling of \code{Nestimate}, \code{cograph},
-#' \code{tna}, \code{codyna}, \code{temporal}, \code{Saqrlab},
-#' \code{Snakeplot}, so it takes their model objects directly. Detected
-#' by known class — \code{netobject} (Nestimate),
-#' \code{cograph_network} (cograph), \code{tna} (tna; also what
-#' \code{codyna::to_tna()} produces) — \emph{or} structurally: any
+#' transitiontrees can take fitted transition/sequence-network objects
+#' directly. Detected by known class, \emph{or} structurally: any
 #' list-like object carrying a 2-D sequence frame in a
 #' \code{$data}/\code{$sequences}/\code{$seqdata} slot. The structural
-#' arm means a new sibling that follows the same convention works with
+#' arm means a new object that follows the same convention works with
 #' no code change here. Whether it can actually be fitted still depends
 #' on a usable sequence frame being present — see
 #' \code{.ct_unwrap_netobject()}.
@@ -42,12 +38,9 @@
   FALSE
 }
 
-#' Unwrap a Nestimate / cograph network object into its sequence frame.
+#' Unwrap a network/transition object into its sequence frame.
 #'
-#' Objects in the \code{mohsaqr} network family
-#' (\code{c("netobject", "cograph_network")} from
-#' \code{Nestimate::build_network()}, or \code{c("cograph_network",
-#' "list")} from \code{cograph::cograph()}) optionally carry a
+#' Network/transition objects optionally carry a
 #' \code{$data} slot: the wide, trailing-NA-padded character data.frame
 #' \code{context_tree()} consumes — one row per session, one column per
 #' step. \code{$nodes$label} holds the canonical alphabet (the network's
@@ -55,16 +48,16 @@
 #' network even when a code never appears within a counted window.
 #'
 #' The sequence frame is extracted "as is" by scanning every place a
-#' \code{mohsaqr} network object is known to keep it — the \code{$data}
+#' network object is known to keep it — the \code{$data}
 #' slot first (the documented handoff), then other plausible
 #' slots/attributes (\code{$sequences}, \code{$seqdata}, an embedded
 #' netobject, or a \code{"data"}/\code{"sequences"} attribute) — so a
-#' caller can hand over any family object without knowing where the
+#' caller can hand over any such object without knowing where the
 #' upstream stashed it.
 #'
 #' A sequence slot may hold an \strong{integer-coded} frame plus a
-#' \code{$nodes} id/label table (this is exactly how \code{tna} stores
-#' sequences, surfaced by \code{cograph::as_cograph(<tna>)}). The
+#' \code{$nodes} id/label table (a common way such objects store
+#' sequences). The
 #' "reject numeric matrices" rule is about disambiguating a
 #' \emph{top-level} square transition matrix — it does \strong{not}
 #' apply here, because a network object's sequence slot is
@@ -75,8 +68,8 @@
 #' cast to character; \code{NA} is preserved as end-of-sequence.
 #'
 #' Only a \emph{pure graph} projection — nodes/edges/weights with the
-#' sequences provably absent everywhere (e.g. the output of
-#' \code{cograph::cograph(<netobject>)}, whose constructor nulls the
+#' sequences provably absent everywhere (e.g. an aggregated transition
+#' network whose constructor nulls the
 #' data slot) — cannot yield a variable-order tree: the original
 #' sequences are unrecoverable from edge weights. Only then does this
 #' error, with explicit guidance, rather than fabricating sequences.
@@ -84,17 +77,17 @@
 #' @noRd
 .ct_seq_frame_ok <- function(d) {
   ## Any non-empty rectangular frame in a contractual sequence slot
-  ## counts — numeric/integer included (tna codes states as integers).
+  ## counts — numeric/integer included (states may be integer-coded).
   (is.data.frame(d) || is.matrix(d)) &&
     length(dim(d)) == 2L && nrow(d) > 0L && ncol(d) > 0L
 }
 
-#' Resolve a code -> label decoder across the family's conventions.
+#' Resolve a code -> label decoder across the supported conventions.
 #'
-#' Sibling packages disagree on where the state-label map lives:
-#' cograph/Nestimate use a \code{$nodes} id/label table; \code{tna}
-#' uses a positional \code{$labels} vector (code k = state k) and also
-#' stamps \code{attr(data, "labels")} / \code{"alphabet")}. We try them
+#' Different objects disagree on where the state-label map lives:
+#' some use a \code{$nodes} id/label table; others
+#' use a positional \code{$labels} vector (code k = state k) and also
+#' stamp \code{attr(data, "labels")} / \code{"alphabet")}. We try them
 #' in that order and fall back to no decoding.
 #' @return list(ids = <codes> or NULL, labels = <character> or NULL).
 #'   \code{ids = NULL} with non-NULL \code{labels} means positional.
@@ -122,7 +115,7 @@
     if (!is.null(lk$labels)) {
       codes <- as.vector(m)
       if (is.null(lk$ids)) {
-        ## Positional: code k = state k, 1-based (the tna convention).
+        ## Positional: code k = state k, 1-based (a common convention).
         ## A 0 (or any out-of-range code) would index labels[0] / past
         ## the end and silently drop or recycle, corrupting the frame.
         bad <- !is.na(codes) &
@@ -178,11 +171,11 @@
          "transition network - and transitiontrees fits on raw sequences, ",
          "not on aggregated transitions: the original sequences ",
          "cannot be recovered from edge weights (the same reason ",
-         "numeric transition matrices are rejected). Pass the ",
-         "sequence-bearing object instead, e.g. the netobject from ",
-         "Nestimate::build_network(..., format = \"wide\") or ",
-         "cograph::as_cograph(<netobject>), or the original wide ",
-         "sequence data.frame.", call. = FALSE)
+         "numeric transition matrices are rejected). Pass a ",
+         "sequence-bearing object instead, e.g. a wide-format ",
+         "transition/network object that still carries its raw ",
+         "sequences, or the original wide sequence data.frame.",
+         call. = FALSE)
 
   d <- .ct_decode_seq_frame(x, hit)
   ## Default alphabet = the object's declared node/label set, so the
@@ -191,13 +184,13 @@
   list(data = d, alphabet = alpha)
 }
 
-#' Is this a grouped family object (a named list of fittable objects)?
+#' Is this a grouped network/transition object (a named list of fittable objects)?
 #'
-#' Recognises Nestimate's \code{netobject_group} and \pkg{tna}'s
-#' \code{group_tna} by class, plus any \emph{named} list whose every
-#' element is itself a single fittable family object (netobject / tna /
-#' cograph network). A bare ragged list of character vectors is
-#' \strong{not} a group (its elements are not family objects), and a
+#' Recognises the \code{netobject_group} and \code{group_tna} classes,
+#' plus any \emph{named} list whose every
+#' element is itself a single fittable network/transition object. A bare
+#' ragged list of character vectors is
+#' \strong{not} a group (its elements are not such objects), and a
 #' single network object is not a group (it is detected as a single).
 #' @noRd
 .ct_is_group <- function(x) {
@@ -316,7 +309,7 @@
 #' @noRd
 .ct_coerce <- function(data) {
   if (.ct_is_netobject(data)) {
-    ## Nestimate netobject / cograph network object: take its $data
+    ## network/transition object: take its $data
     ## sequence frame (errors with guidance if it is a pure graph with
     ## no sequences). context_tree() normally unwraps upstream so
     ## weights/row-count see the frame; this branch keeps the
@@ -324,7 +317,7 @@
     return(.ct_unwrap_netobject(data)$data)
   }
   if (inherits(data, "stslist")) {
-    ## TraMineR sequence object: extract the wide character matrix.
+    ## stslist sequence object: extract the wide character matrix.
     m <- as.matrix(data); storage.mode(m) <- "character"
     return(as.data.frame(m, stringsAsFactors = FALSE))
   }
@@ -337,19 +330,35 @@
   }
   if (is.data.frame(data)) return(data)
   stop("'data' must be a wide data.frame, character/logical matrix, ",
-       "list of character vectors, 'stslist', or a sequence-bearing ",
-       "Nestimate 'netobject' / cograph network object.",
+       "list of character vectors, an 'stslist', or a sequence-bearing ",
+       "transition/network object.",
        call. = FALSE)
 }
 
 #' @noRd
 .ct_data_weights <- function(data) {
-  ## Pull TraMineR-style weights when present; NULL otherwise.
+  ## Pull stslist weights when present; NULL otherwise.
   if (inherits(data, "stslist")) {
     w <- attr(data, "weights")
     if (!is.null(w)) return(as.numeric(w))
   }
   NULL
+}
+
+#' Refuse weighted trees on surfaces that resample/permute raw sequences
+#'
+#' Resampling and permutation rebuild counts from \code{tree$data} without
+#' the per-sequence weights, so a weighted fit would silently become an
+#' unweighted analysis. Rather than return wrong numbers, these surfaces
+#' error.
+#' @noRd
+.pt_assert_unweighted <- function(tree, what) {
+  if (!is.null(tree$weights))
+    stop(what, " does not support weighted trees: resampling rebuilds ",
+         "counts from the raw sequences and would drop the weights. ",
+         "Refit without weights, or expand each sequence by its integer ",
+         "weight, before calling ", what, ".", call. = FALSE)
+  invisible(TRUE)
 }
 
 #' @noRd
@@ -481,10 +490,136 @@
                                                   .Machine$double.eps)))
 }
 
+#' Fit one tree per group and wrap as a transitiontrees_group (internal).
+#'
+#' Handles both a grouped family object and an explicit \code{group =}
+#' (a metadata column name or a per-sequence vector). Shares one alphabet
+#' so the trees are comparable; carries an aligned \code{block} attribute
+#' on each member when supplied.
+#' @noRd
+.ct_fit_grouped <- function(data, group, weights, block, alphabet,
+                            max_depth, min_count, smoothing) {
+  if (.ct_is_group(data)) {
+    if (!is.null(group))
+      stop("Pass either a grouped object or 'group =', not both.",
+           call. = FALSE)
+    if (!is.null(weights))
+      stop("'weights' is not supported with a grouped object; each ",
+           "element carries its own weights (e.g. an 'stslist'), or fit ",
+           "each group separately.", call. = FALSE)
+    elements <- .ct_group_elements(data)
+    alpha    <- .ct_group_alphabet(elements, alphabet)
+    trees <- lapply(elements, function(e)
+      context_tree(e, max_depth = max_depth, min_count = min_count,
+                   smoothing = smoothing, alphabet = alpha))
+    gv <- attr(data, "group")
+    return(.ct_as_group(trees,
+      if (is.character(gv) && length(gv) == 1L) gv else NA_character_))
+  }
+  parts      <- .ct_group_split_by(data, group)
+  alpha      <- if (is.null(alphabet)) parts$alphabet else alphabet
+  ## Split a supplied weights vector across groups by the same row index
+  ## so each per-group fit stays weighted (was silently dropped).
+  w_by_group <- .ct_split_weights(weights, parts)
+  trees <- Map(function(d, w)
+    context_tree(d, max_depth = max_depth, min_count = min_count,
+                 smoothing = smoothing, alphabet = alpha, weights = w),
+    parts$subsets, w_by_group)
+  ## Carry the block id on each member tree, aligned to that member's own
+  ## rows, so compare_groups() can use it after the same row-drop as the fit.
+  if (!is.null(block)) {
+    if (length(block) != parts$n)
+      stop("'block' must have one entry per input sequence (got ",
+           length(block), ", expected ", parts$n, ").", call. = FALSE)
+    trees <- Map(function(tr, ix) { attr(tr, "block") <- block[ix]; tr },
+                 trees, parts$idx)
+  }
+  .ct_as_group(trees, parts$var)
+}
+
+#' Validate and normalise a per-sequence weight vector (internal).
+#'
+#' Returns \code{NULL} (unweighted) when \code{weights} is \code{NULL} or
+#' uniform; otherwise the weights reindexed to the surviving trajectories
+#' (\code{idx}). Errors on the usual invalid shapes.
+#' @noRd
+.ct_validate_weights <- function(weights, n_rows_in, idx) {
+  if (is.null(weights)) return(NULL)
+  if (!is.numeric(weights))
+    stop("'weights' must be a numeric vector.", call. = FALSE)
+  if (length(weights) != n_rows_in)
+    stop("'weights' must have length equal to number of input ",
+         "sequences (got ", length(weights), ", expected ", n_rows_in,
+         ").", call. = FALSE)
+  if (anyNA(weights))
+    stop("'weights' must not contain NA.", call. = FALSE)
+  if (any(weights < 0))
+    stop("'weights' must be non-negative.", call. = FALSE)
+  if (sum(weights) <= 0)
+    stop("'weights' must include at least one positive value; an ",
+         "all-zero weight vector leaves nothing to fit.", call. = FALSE)
+  weights <- weights[idx]
+  ## Uniform weights == an unweighted fit (a global scale cancels in every
+  ## probability), so normalise them away.
+  if (length(weights) && isTRUE(all.equal(weights,
+                                          rep(weights[1L], length(weights)))))
+    return(NULL)
+  weights
+}
+
+#' Build the node list top-down (internal).
+#'
+#' Returns \code{list(nodes, max_depth)}; \code{max_depth} is lowered if a
+#' depth yields no node clearing \code{min_count}.
+#' @noRd
+.ct_build_nodes <- function(trajs, max_depth, min_count, alphabet, sm,
+                            weights) {
+  nodes <- list()
+  for (d in seq.int(0L, max_depth)) {
+    counts_d <- .ct_count_table(trajs, depth = d, alphabet = alphabet,
+                                weights = weights)
+    keep <- vapply(counts_d, sum, numeric(1)) >= min_count
+    if (d == 0L && .ROOT %in% names(counts_d)) keep[.ROOT] <- TRUE
+    counts_d <- counts_d[keep]
+    if (length(counts_d) == 0L) { max_depth <- d - 1L; break }
+    for (ctx in names(counts_d)) {
+      counts      <- counts_d[[ctx]]
+      parent_prob <- if (d == 0L) NULL else .pt_parent_prob(nodes, ctx)
+      nodes[[ctx]] <- list(
+        depth  = d,
+        counts = counts,
+        prob   = .ct_smooth_dispatch(sm, counts, parent_prob),
+        n      = sum(counts))
+    }
+  }
+  list(nodes = nodes, max_depth = max_depth)
+}
+
+#' Build the parent/child edge frame from a node list (internal).
+#'
+#' A node "x1 -> ... -> xk" has parent "x2 -> ... -> xk" (drop the
+#' leftmost / oldest move); the root carries the \code{.ROOT} sentinel.
+#' @noRd
+.ct_build_edges <- function(nodes) {
+  edges <- do.call(rbind, lapply(names(nodes), function(ctx) {
+    if (identical(ctx, .ROOT)) return(NULL)
+    parts  <- strsplit(ctx, " -> ", fixed = TRUE)[[1L]]
+    parent <- if (length(parts) == 1L) .ROOT else
+      paste(parts[-1L], collapse = " -> ")
+    if (!parent %in% names(nodes)) return(NULL)
+    data.frame(parent = parent, child = ctx, symbol = parts[1L],
+               stringsAsFactors = FALSE)
+  }))
+  if (is.null(edges))
+    edges <- data.frame(parent = character(0), child = character(0),
+                        symbol = character(0), stringsAsFactors = FALSE)
+  edges
+}
+
 #' Fit a Prediction Suffix Tree from Categorical Sequence Data
 #'
 #' @description
-#' Estimates a variable-depth context tree (PST; Ron, Singer & Tishby
+#' Estimates a variable-depth context tree (prediction suffix tree; Ron, Singer & Tishby
 #' 1996) from a collection of sequences. Each internal node represents
 #' a context (string of recent states); each leaf carries a smoothed
 #' conditional distribution over the next state. The tree is grown to
@@ -493,18 +628,15 @@
 #'
 #' @param data Sequence data in any of these forms: a wide data.frame /
 #'   character matrix (rows = trajectories, columns = time-steps), a
-#'   list of character vectors, a TraMineR \code{stslist}, or a
-#'   \strong{Dynalytics / \code{mohsaqr}-family model object}, taken
-#'   directly: a Nestimate \code{netobject}
-#'   (\code{Nestimate::build_network()}), a \code{cograph} network
-#'   object (\code{cograph::cograph()} / \code{as_cograph()}), or a
-#'   \code{tna} object (the \pkg{tna} package; also what
-#'   \code{codyna::to_tna()} returns). Any other family object that
+#'   list of character vectors, an \code{stslist}, or a
+#'   \strong{supported network/transition model object}, taken
+#'   directly: a fitted network object carrying its sequences, or a
+#'   transition-network object. Any such object that
 #'   follows the same convention (a \code{$data}/\code{$sequences}/
 #'   \code{$seqdata} sequence slot) is detected structurally and works
 #'   with no special-casing. For these objects the sequence frame is
 #'   extracted from wherever the upstream stored it; an integer-coded
-#'   frame (\code{tna}) is decoded through the object's label map
+#'   frame is decoded through the object's label map
 #'   (\code{$nodes} id/label table, positional \code{$labels}, or a
 #'   \code{labels}/\code{alphabet} attribute), and that label set
 #'   becomes the default alphabet so the tree shares the model's
@@ -526,7 +658,7 @@
 #'   (\code{discount = 0.75}), \code{"witten_bell"},
 #'   \code{"jelinek_mercer"} (\code{lambda = 0.5}). The \code{"floor"}
 #'   method also takes \code{rule}: \code{"interpolate"} (default, the
-#'   PST-compatible floor — a distribution with a zero-count state is
+#'   interpolating floor — a distribution with a zero-count state is
 #'   shifted toward uniform so each zero lands at exactly \code{ymin})
 #'   or \code{"cap"} (clamp every probability up to \code{ymin} and
 #'   renormalise), e.g. \code{list("floor", ymin = 0.001, rule = "cap")}.
@@ -535,15 +667,15 @@
 #'   training).
 #' @param weights Numeric vector of per-sequence weights, length equal
 #'   to the number of input rows / list elements. If \code{NULL}
-#'   (default) and \code{data} is a TraMineR \code{stslist} carrying
+#'   (default) and \code{data} is an \code{stslist} carrying
 #'   weights, those are auto-detected.
 #' @param group Optional grouping for a \strong{batch fit}: a vector with
 #'   one entry per input sequence, a column name of a network object's
 #'   \code{$metadata}, or --- in long-format mode (\code{action} given)
 #'   --- a column name of \code{data} (collapsed to one value per
 #'   sequence). When supplied (or when \code{data} is itself a grouped
-#'   family object such as a Nestimate \code{netobject_group} or a
-#'   \pkg{tna} \code{group_tna}), \code{context_tree()} fits one tree per
+#'   object such as a \code{netobject_group} or a
+#'   \code{group_tna}), \code{context_tree()} fits one tree per
 #'   group over a shared alphabet and returns a \code{transitiontrees_group}
 #'   (a named list of \code{transitiontrees}s). Default \code{NULL} (single
 #'   tree).
@@ -673,48 +805,9 @@ context_tree <- function(data,
   ## group = (a metadata column name or a per-sequence vector) splits a
   ## single dataset. Both share one alphabet so the trees are
   ## comparable, and return a transitiontrees_group.
-  if (.ct_is_group(data)) {
-    if (!is.null(group))
-      stop("Pass either a grouped object or 'group =', not both.",
-           call. = FALSE)
-    if (!is.null(weights))
-      stop("'weights' is not supported with a grouped object; each ",
-           "element carries its own weights (e.g. an 'stslist'), or fit ",
-           "each group separately.", call. = FALSE)
-    elements <- .ct_group_elements(data)
-    alpha    <- .ct_group_alphabet(elements, alphabet)
-    trees <- lapply(elements, function(e)
-      context_tree(e, max_depth = max_depth, min_count = min_count,
-                   smoothing = smoothing, alphabet = alpha))
-    gv <- attr(data, "group")
-    return(.ct_as_group(trees,
-      if (is.character(gv) && length(gv) == 1L) gv else NA_character_))
-  }
-  if (!is.null(group)) {
-    parts      <- .ct_group_split_by(data, group)
-    alpha      <- if (is.null(alphabet)) parts$alphabet else alphabet
-    ## Split a supplied weights vector across groups by the same row
-    ## index so each per-group fit stays weighted (was silently dropped).
-    w_by_group <- .ct_split_weights(weights, parts)
-    trees <- Map(function(d, w)
-      context_tree(d, max_depth = max_depth, min_count = min_count,
-                   smoothing = smoothing, alphabet = alpha, weights = w),
-      parts$subsets, w_by_group)
-    ## Carry the block id on each member tree, aligned to that member's
-    ## own rows. compare_groups() filters it through the same row-drop as
-    ## the fit (.ct_traj), so it stays aligned even when empty sequences
-    ## are dropped, and it survives group subsetting (the attribute lives
-    ## with the tree, not on the list).
-    if (!is.null(block)) {
-      if (length(block) != parts$n)
-        stop("'block' must have one entry per input sequence (got ",
-             length(block), ", expected ", parts$n, ").", call. = FALSE)
-      trees <- Map(function(tr, ix) {
-        attr(tr, "block") <- block[ix]; tr
-      }, trees, parts$idx)
-    }
-    return(.ct_as_group(trees, parts$var))
-  }
+  if (.ct_is_group(data) || !is.null(group))
+    return(.ct_fit_grouped(data, group, weights, block, alphabet,
+                           max_depth, min_count, smoothing))
 
   if (.ct_is_netobject(data)) {
     ## Unwrap before row-count / weight detection so they see the
@@ -733,66 +826,21 @@ context_tree <- function(data,
   if (length(trajs) == 0L)
     stop("No usable sequences after coercion.", call. = FALSE)
 
-  if (!is.null(weights)) {
-    if (!is.numeric(weights))
-      stop("'weights' must be a numeric vector.", call. = FALSE)
-    if (length(weights) != n_rows_in)
-      stop("'weights' must have length equal to number of input ",
-           "sequences (got ", length(weights), ", expected ",
-           n_rows_in, ").", call. = FALSE)
-    if (anyNA(weights))
-      stop("'weights' must not contain NA.", call. = FALSE)
-    if (any(weights < 0))
-      stop("'weights' must be non-negative.", call. = FALSE)
-    weights <- weights[attr(trajs, "idx")]
-  }
+  weights <- .ct_validate_weights(weights, n_rows_in, attr(trajs, "idx"))
 
   alphabet  <- if (is.null(alphabet)) .ct_alphabet(trajs) else alphabet
   max_depth <- as.integer(max_depth)
   min_count <- as.integer(min_count)
   sm        <- .pt_resolve_smoothing(smoothing)
 
-  ## Smooth top-down so each node's parent prob is available when the
-  ## node itself is computed (kneser_ney/witten_bell/jelinek_mercer
-  ## interpolate with the parent).
-  nodes <- list()
-  for (d in seq.int(0L, max_depth)) {
-    counts_d <- .ct_count_table(trajs, depth = d, alphabet = alphabet,
-                                  weights = weights)
-    keep <- vapply(counts_d, sum, numeric(1)) >= min_count
-    if (d == 0L && .ROOT %in% names(counts_d)) keep[.ROOT] <- TRUE
-    counts_d <- counts_d[keep]
-    if (length(counts_d) == 0L) {
-      max_depth <- d - 1L
-      break
-    }
-    for (ctx in names(counts_d)) {
-      counts <- counts_d[[ctx]]
-      parent_prob <- if (d == 0L) NULL else .pt_parent_prob(nodes, ctx)
-      nodes[[ctx]] <- list(
-        depth  = d,
-        counts = counts,
-        prob   = .ct_smooth_dispatch(sm, counts, parent_prob),
-        n      = sum(counts)
-      )
-    }
-  }
-
-  ## Build parent/child relationships:
-  ## a node "x_1 > ... > x_k" has parent "x_2 > ... > x_k" (drop the leftmost).
-  ## The root carries the .ROOT sentinel as its name.
-  edges <- do.call(rbind, lapply(names(nodes), function(ctx) {
-    if (identical(ctx, .ROOT)) return(NULL)
-    parts <- strsplit(ctx, " -> ", fixed = TRUE)[[1L]]
-    parent <- if (length(parts) == 1L) .ROOT else
-      paste(parts[-1L], collapse = " -> ")
-    if (!parent %in% names(nodes)) return(NULL)
-    data.frame(parent = parent, child = ctx, symbol = parts[1L],
-               stringsAsFactors = FALSE)
-  }))
-  if (is.null(edges))
-    edges <- data.frame(parent = character(0), child = character(0),
-                        symbol = character(0), stringsAsFactors = FALSE)
+  ## Smooth top-down so each node's parent prob is available when the node
+  ## itself is computed (kneser_ney/witten_bell/jelinek_mercer interpolate
+  ## with the parent); a depth with no surviving node lowers max_depth.
+  built     <- .ct_build_nodes(trajs, max_depth, min_count, alphabet, sm,
+                               weights)
+  nodes     <- built$nodes
+  max_depth <- built$max_depth
+  edges     <- .ct_build_edges(nodes)
 
   structure(
     list(
@@ -802,17 +850,21 @@ context_tree <- function(data,
       max_depth  = max_depth,
       nmin       = min_count,
       n_seq      = length(trajs),
-      n_obs      = sum(lengths(trajs)),
+      ## Weighted token total (= sum of root counts); equals the
+      ## unweighted token count when no weights are in play, and matches
+      ## the observation count logLik() scores over.
+      n_obs      = sum(nodes[[.ROOT]]$counts),
       smoothing  = sm,
       pruned     = FALSE,
       pruning    = NULL,
-      data       = trajs
+      data       = trajs,
+      weights    = weights
     ),
     class = "transitiontrees"
   )
 }
 
-#' Coerce a Pathtree to a Tidy Data Frame
+#' Coerce a context tree to a Tidy Data Frame
 #'
 #' @description
 #' Returns the canonical tidy node table — identical to
@@ -971,6 +1023,17 @@ summary.transitiontrees <- function(object, ...) {
   )
 }
 
+#' Print a Context-Tree Summary
+#'
+#' @description
+#' Print method for the object returned by
+#' \code{\link{summary.transitiontrees}}: a one-line banner followed by the
+#' leading rows of the canonical pathway table.
+#'
+#' @param x A \code{summary.transitiontrees} object.
+#' @param n Integer. Number of pathway rows to print. Default 10.
+#' @param ... Ignored.
+#' @return \code{x} invisibly.
 #' @export
 print.summary.transitiontrees <- function(x, n = 10L, ...) {
   cat(sprintf("<transitiontrees summary>  %d nodes, depth <= %d, %d states  [%s]\n\n",

@@ -2,7 +2,7 @@
 % Please edit documentation in R/tune.R
 \name{print.transitiontrees_tune}
 \alias{print.transitiontrees_tune}
-\title{Print a Pathtree Tuning Grid}
+\title{Print a context tree Tuning Grid}
 \usage{
 \method{print}{transitiontrees_tune}(x, n = 10L, ...)
 }
@@ -17,5 +17,5 @@
 \code{x} invisibly.
 }
 \description{
-Print a Pathtree Tuning Grid
+Print a context tree Tuning Grid
 }

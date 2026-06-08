@@ -2,7 +2,7 @@
 % Please edit documentation in R/tune.R
 \name{tune_tree}
 \alias{tune_tree}
-\title{Cross-Validated Hyperparameter Tuning for Pathtrees}
+\title{Cross-Validated Hyperparameter Tuning for context trees}
 \usage{
 tune_tree(
   data,
@@ -57,9 +57,12 @@ sequence shape).}
 A \code{transitiontrees_tune} object: a data.frame with one row per
   grid point and columns \code{max_depth}, \code{nmin},
   \code{smoothing}, \code{prune}, \code{logLik}, \code{n_scored},
-  \code{perplexity}, \code{n_nodes_avg}, sorted by \code{perplexity}
-  ascending. \code{attr(result, "best")} carries the
-  minimum-perplexity row.
+  \code{perplexity}, \code{n_nodes_avg}, and \code{folds_failed} (the
+  number of CV folds that errored for that configuration), sorted by
+  \code{perplexity} ascending. \code{attr(result, "best")} carries the
+  minimum-perplexity row \strong{among configurations whose every fold
+  scored}; it is \code{NULL} if none did. A warning is issued when any
+  configuration had a failed fold.
 }
 \description{
 Runs k-fold cross-validation over a grid of fitting and pruning

@@ -2,7 +2,7 @@
 % Please edit documentation in R/bootstrap.R
 \name{print.transitiontrees_bootstrap}
 \alias{print.transitiontrees_bootstrap}
-\title{Print a Pathtree Bootstrap}
+\title{Print a context tree Bootstrap}
 \usage{
 \method{print}{transitiontrees_bootstrap}(x, n = 10L, digits = 3L, ...)
 }
@@ -20,5 +20,5 @@ Default 3.}
 \code{x} invisibly.
 }
 \description{
-Print a Pathtree Bootstrap
+Print a context tree Bootstrap
 }

@@ -27,8 +27,8 @@
 #' column flags contexts where the most likely next state changes
 #' between the node and its parent.
 #'
-#' Renamed from \code{path_dependence()} to avoid collision with
-#' \code{Nestimate::path_dependence}.
+#' Renamed from \code{path_dependence()} to avoid a naming collision with
+#' a sibling package.
 #'
 #' @param tree A \code{transitiontrees}.
 #' @param base Numeric. Logarithm base for the KL divergence. Default

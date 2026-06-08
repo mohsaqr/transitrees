@@ -2,7 +2,7 @@
 % Please edit documentation in R/smoothing.R
 \name{smooth_tree}
 \alias{smooth_tree}
-\title{Re-Smooth a Fitted Pathtree}
+\title{Re-Smooth a Fitted context tree}
 \usage{
 smooth_tree(tree, smoothing = "floor")
 }

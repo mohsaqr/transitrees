@@ -22,7 +22,7 @@ knitr::opts_chunk$set(
 suppressPackageStartupMessages({
   devtools::load_all(here::here())
   library(ggplot2)
-  data(trajectories, package = "Nestimate")
+  data(trajectories)
 })
 set.seed(2026)
 ```
@@ -37,8 +37,8 @@ model "memory length 1, always" or "memory length 2, always".
 **Variable-order context trees** let the data tell you, *for each
 context*, how much history matters.
 
-`transitiontrees` is the modern variable-order Markov / prediction-suffix-
-tree (PST) toolkit for R. It ships the full **fit → prune → tune →
+`transitiontrees` is the modern variable-order Markov /
+prediction-suffix-tree toolkit for R. It ships the full **fit → prune → tune →
 score → bootstrap → compare → simulate** pipeline. This tutorial
 walks the whole surface on a real dataset.
 
@@ -162,7 +162,8 @@ naïve baseline (fully uniform) is 3; perfect prediction is 1.
 
 ### 5.1 Holding out data
 
-Held-out perplexity is the canonical PST evaluation metric. We
+Held-out perplexity is the canonical prediction-suffix-tree
+evaluation metric. We
 split the 138 students into a 70 / 30 train-test partition.
 
 ```{r holdout}
@@ -267,8 +268,7 @@ the full data for downstream use.
 *reproducibly* pass?" — a much stricter test.
 
 `bootstrap_pathways()` is methodologically built on Saqr, Tikka &
-López-Pernas (2025)
-[**tna**](https://doi.org/10.1145/3706468.3706513), extending the
+López-Pernas (2025) (doi:10.1145/3706468.3706513), extending an
 edge-level bootstrap framework to variable-depth pathways. It
 operates **only on raw counts** — no `nmin` filter, no smoothing
 inside the resampling loop, no extra parameters. Each iteration:
@@ -288,7 +288,7 @@ Two complementary measures are reported per pathway:
   `[0.75 × observed, 1.25 × observed]`. **Value
   reproducibility.** A pathway whose count drops to zero in a
   resample fails the band test automatically — the same
-  mechanism `tna::bootstrap` uses for edge weights.
+  mechanism an edge-level bootstrap uses for edge weights.
 - **`informative_rate`** — fraction of resamples where the
   empirical likelihood-ratio statistic G² against the parent
   context exceeds the chi-square critical value at
@@ -358,7 +358,7 @@ happened to fit.
 The two measures answer different questions:
 
 - `stable` asks *"is the count value reproducible under
-  resampling?"* — tna's framing. With enough data, counts
+  resampling?"* — the edge-level bootstrap framing. With enough data, counts
   reproduce regardless of whether the underlying structure is
   meaningful.
 - `informative` asks *"does the LR test against parent
@@ -434,7 +434,7 @@ attr(sub, "local_root")
 
 # 10. Comparing two cohorts
 
-The differentiating PST primitive: **the tree IS the comparison
+The differentiating prediction-suffix-tree primitive: **the tree IS the comparison
 object**. To ask whether two student groups generate
 significantly different pathway dynamics, fit a tree on each and
 compare with a permutation test.
@@ -511,22 +511,32 @@ gen
 
 ------------------------------------------------------------------
 
-# 13. TraMineR `stslist` + per-sequence weights
+# 13. `stslist` input, network objects + per-sequence weights
 
-`context_tree()` accepts TraMineR sequence objects natively and
-honours their per-sequence weights.
+`context_tree()` accepts state-sequence (`stslist`) objects
+natively and honours their per-sequence weights. The bundled
+`engagement` dataset is an `stslist`, so it can be fed in
+directly:
 
-```{r stslist, eval = requireNamespace("TraMineR", quietly = TRUE)}
-suppressMessages(suppressWarnings({
-  sts <- TraMineR::seqdef(trajectories)
-}))
-tr_sts <- context_tree(sts, max_depth = 3L, min_count = 5L)
-identical(sort(tr_sts$alphabet), sort(tree$alphabet))
+```{r stslist}
+class(engagement)
+tr_sts <- context_tree(engagement, max_depth = 2L)
+tr_sts
+```
+
+`context_tree()` also accepts a fitted transition/network object
+directly, auto-detected by its S3 class — useful for slotting a
+pathway tree onto an already-estimated model:
+
+```{r network-object, eval = FALSE}
+# transitiontrees also accepts a fitted transition/network object
+# directly, auto-detected by its S3 class:
+# context_tree(my_network_object, max_depth = 2L)
 ```
 
 Per-sequence weights for the design-weighting case:
 
-```{r weights, eval = requireNamespace("TraMineR", quietly = TRUE)}
+```{r weights}
 w <- runif(nrow(trajectories), 0.5, 2)
 tr_w <- context_tree(trajectories,
                      max_depth = 3L, min_count = 5L,
@@ -538,11 +548,12 @@ length(tr_w$nodes)
 
 # 14. Reference / equivalence
 
-`transitiontrees` was validated to **machine precision** against the
-archived `PST` 0.94.1 (Gabadinho & Ritschard 2013) — counts
-exact, smoothed probabilities max abs error 1.11 × 10⁻¹⁶ across
-30 random configurations. The default `smoothing = "floor"` path
-is byte-identical to the legacy implementation.
+`transitiontrees` was validated to **machine precision** against an
+archived external reference implementation of the prediction-suffix
+tree (Gabadinho & Ritschard 2013) — counts exact, smoothed
+probabilities max abs error 1.11 × 10⁻¹⁶ across 30 random
+configurations. The default `smoothing = "floor"` path is
+byte-identical to that reference.
 
 ------------------------------------------------------------------
 

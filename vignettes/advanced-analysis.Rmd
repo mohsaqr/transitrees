@@ -1,0 +1,237 @@
+---
+title: "4. Advanced analysis: smoothing, tuning, comparison, and mining"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    highlight: tango
+    df_print: paged
+vignette: >
+  %\VignetteIndexEntry{4. Advanced analysis: smoothing, tuning, comparison, and mining}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      fig.width = 8, fig.height = 5, out.width = "100%")
+```
+
+This vignette covers the parts of `transitiontrees` beyond the basic
+fit-prune-predict loop: choosing a smoother and a pruning rule, picking
+hyperparameters by cross-validation, quantifying pathway reliability,
+comparing cohorts with a permutation test, introspecting the fitted tree,
+and mining it for contexts and sequences of interest.
+
+## Setup
+
+We work throughout from one fit on the bundled `trajectories` data and its
+pruned form -- the same starting point as *Getting started*.
+
+```{r setup}
+library(transitiontrees)
+data(trajectories)
+set.seed(1)
+
+tree   <- context_tree(trajectories, max_depth = 4L, min_count = 5L)
+pruned <- prune_tree(tree, criterion = "G2", alpha = 0.05)
+```
+
+## 1. Smoothing schemes
+
+Smoothing decides what probability an *unseen* next state receives. Five
+schemes are implemented (`floor`, `laplace`, `kneser_ney`, `witten_bell`,
+`jelinek_mercer`). `compare_smoothing()` refits under each and reports
+in-sample perplexity in one call.
+
+```{r smoothing-grid}
+compare_smoothing(trajectories, max_depth = 4L, min_count = 5L)
+```
+
+Two things to read. First, `n_nodes` is identical across schemes -- smoothing
+changes *probabilities*, never *which contexts exist*; topology is set by
+`min_count`, not the smoother. Second, do **not** pick a smoother on
+in-sample perplexity (it rewards memorisation); the cross-validation in
+section 3 is the verdict that counts.
+
+Handed a *fitted* tree, `compare_smoothing()` re-smooths it under every
+scheme (via `smooth_tree()`, without re-counting) instead of refitting -- a
+smoothing sweep on the already-pruned model in one call:
+
+```{r resmooth}
+compare_smoothing(pruned)
+```
+
+## 2. Pruning criteria
+
+`prune_tree()` supports four criteria. `compare_pruning()` applies each --
+holding `alpha`/`threshold` fixed -- and reports how hard each one trims.
+
+```{r pruning-grid}
+compare_pruning(tree)
+```
+
+`G2` (the likelihood-ratio test) and `AIC` ask "is the extra depth justified
+given its sample size?"; `BIC` punishes parameters harder (its penalty scales
+with `log n`); `KL` at a lenient absolute `threshold` keeps almost
+everything. Use `G2` (or `AIC`) unless you have a specific reason, and report
+the reduction -- "most grown contexts were unjustified" is itself a finding.
+
+## 3. Cross-validated tuning
+
+`tune_tree()` runs k-fold CV at the **sequence level** over a grid of
+`(max_depth, min_count, smoothing, prune)` and returns a ranked data.frame
+with the winner on `attr(., "best")`.
+
+```{r tune}
+tg <- tune_tree(trajectories, max_depth = 1L:4L, folds = 5L, seed = 42L)
+head(tg, 6)
+attr(tg, "best")
+```
+
+(`min_count` and `prune` are swept by their defaults; add `smoothing =` or a
+wider `min_count =` to grow the grid.)
+
+```{r tune-plot, fig.height = 5}
+plot(tg)
+```
+
+The shape of the curve is as informative as the winning point: if perplexity
+keeps falling with `max_depth` the process has long memory; if it flattens
+early (as engagement data tends to) the useful memory is short and deeper
+trees just overfit. Refit at the chosen configuration on the full data for
+downstream use.
+
+## 4. Bootstrap pathway reliability
+
+`bootstrap_pathways()` resamples whole sequences and reports, per pathway,
+`stability_rate` (the count reproduces) and `informative_rate` (the
+G-squared against the parent reproducibly clears the chi-square bar). Keeping
+the raw resamples lets you also see the full distribution of any statistic.
+
+```{r boot}
+boot <- bootstrap_pathways(pruned, iter = 200L, stat = "count",
+                          seed = 1L, keep_resamples = TRUE)
+boot
+```
+
+`summary()` returns the tidy per-pathway table, sorted so the trustworthy
+(stable *and* informative) pathways come first. Each tracked statistic
+(`count`, `next_probability`, `divergence`, `G2`) carries a symmetric
+`mean / sd / ci_lo / ci_hi` quartet, so you can report a bootstrap CI for any
+pathway statistic rather than a bare point estimate:
+
+```{r boot-cis}
+head(summary(boot))
+```
+
+`plot_pathway_resamples()` draws the full resample distribution per pathway.
+A tight unimodal peak means the estimate is well-determined; a bimodal or
+heavy-tailed panel is the tell that the pathway is *carrier-driven* -- a few
+sequences account for it, and dropping them in a resample collapses it.
+
+```{r boot-resamples, fig.height = 4.5}
+plot_pathway_resamples(boot, stat = "divergence", top = 6L)
+```
+
+## 5. Comparing two cohorts
+
+Name an **external** group column and `context_tree(group = )` fits one tree
+per group in a single call, returning a `transitiontrees_group` that
+`prune_tree()` and `compare_trees()` consume directly -- no manual splitting
+or label-building. We compare high- and low-achieving students on the bundled
+`group_regulation_long` log.
+
+```{r group-fit}
+data(group_regulation_long)
+grp <- prune_tree(context_tree(group_regulation_long,
+                              actor = "Actor", time = "Time", action = "Action",
+                              group = "Achiever", max_depth = 2L, min_count = 10L))
+cmp <- compare_trees(grp, iter = 199L, seed = 1L)
+cmp
+```
+
+The printed comparison reports the observed distance (`pdist`, a
+count-weighted symmetric-KL between the cohorts' pathway distributions) and
+the `p_value` from permuting the sequence-to-cohort labels. A significant
+result says the cohorts generate genuinely different pathway dynamics, not a
+relabelling artefact.
+
+```{r compare-plot, fig.height = 4.5}
+plot(cmp)
+```
+
+For the full per-axis decomposition (behavioural vs usage) and a tidy
+pairwise `distance_matrix`, `compare_groups()` consumes the same
+`group =`-fitted tree -- see the *Complete analysis case* vignette.
+
+## 6. Tree introspection
+
+Three accessors treat the tree as a queryable object.
+
+```{r query}
+query_pathway(pruned, c("Active", "Active"))               # full distribution
+query_pathway(pruned, "Disengaged", next_state = "Disengaged")  # one cell
+pathway_exists(pruned, "Active -> Disengaged")             # membership (no backoff)
+```
+
+By default an unseen context backs off to its longest matching suffix; pass
+`exact = TRUE` to demand the literal node (returns `NA` if it is not one) --
+the tool for auditing *which* contexts the tree actually holds.
+
+```{r query-exact}
+query_pathway(pruned, c("Active", "Average", "Active"), exact = TRUE)
+```
+
+`subtree()` extracts the slice rooted at a context -- the same pathway API
+then runs on the slice:
+
+```{r subtree}
+sub <- subtree(pruned, "Active")   # its banner reads "subtree of: Active"
+sub
+head(tree_pathways(sub), 4)
+```
+
+## 7. Mining contexts and sequences
+
+`mine_contexts()` scans the tree for contexts where a chosen state is
+unusually likely (or unlikely):
+
+```{r mine-contexts}
+mine_contexts(pruned, state = "Disengaged", min_prob = 0.5)
+```
+
+`mine_sequences()` ranks supplied sequences by how well the model predicts
+them -- the `surprising` ones are atypical trajectories worth a closer look:
+
+```{r mine-sequences}
+mine_sequences(pruned, newdata = trajectories, which = "surprising", n = 5L)
+```
+
+## 8. Imputing gaps
+
+`impute_sequences()` fills *internal* missing states from the fitted tree --
+`modal` takes the most likely state at each gap, `prob` samples from the
+predicted distribution:
+
+```{r impute}
+gappy <- list(c("Active", "Active", NA, "Disengaged"),
+              c("Average", NA, "Average"))
+impute_sequences(pruned, gappy, method = "modal")
+```
+
+## 9. Generating sequences
+
+Every fitted tree is also a generative model. `generate_sequences()` samples
+by walking the conditional distributions; `simulate()` is the R-standard
+generic wrapping it with `nsim` and a `seed`.
+
+```{r generate}
+generate_sequences(pruned, n = 4L, length = 10L)
+simulate(pruned, nsim = 4L, seed = 42L, length = 10L)
+```
+
+Generated sequences should look plausibly like the real ones -- a sanity
+check that the model captured the gross dynamics -- and give you a null
+behavioural corpus for stress-testing a downstream pipeline.

@@ -3,24 +3,23 @@
 \docType{data}
 \name{engagement}
 \alias{engagement}
-\title{Student engagement state sequences (TraMineR stslist)}
+\title{Student engagement state sequences (stslist)}
 \format{
-A TraMineR \code{stslist} with 1000 rows (learners) and 25
+A \code{stslist} with 1000 rows (learners) and 25
   columns (time-steps). States \code{"Active"}, \code{"Average"},
   \code{"Disengaged"}; \code{"\%"} marks missing/void positions.
 }
 \source{
-Embedded from \pkg{tna} (Dynalytics ecosystem).
+Bundled example dataset.
 }
 \usage{
 engagement
 }
 \description{
-A wide set of student engagement-state sequences as a TraMineR
+A wide set of student engagement-state sequences as a
 \code{stslist} (the state-sequence object \code{seqdef()} produces).
 Used to demonstrate loading sequence objects directly into
-\code{\link{context_tree}()}. Embedded from the Dynalytics
-ecosystem.
+\code{\link{context_tree}()}. Bundled example dataset.
 }
 \examples{
 data(engagement)

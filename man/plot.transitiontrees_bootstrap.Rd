@@ -2,7 +2,7 @@
 % Please edit documentation in R/bootstrap.R
 \name{plot.transitiontrees_bootstrap}
 \alias{plot.transitiontrees_bootstrap}
-\title{Plot a Pathtree Bootstrap}
+\title{Plot a context tree Bootstrap}
 \usage{
 \method{plot}{transitiontrees_bootstrap}(x, top = 25L, min_stability = NULL, ...)
 }

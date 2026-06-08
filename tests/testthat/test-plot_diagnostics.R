@@ -24,13 +24,97 @@ test_that("plot_distributions errors when no contexts qualify", {
   expect_error(plot_distributions(tree, min_count = 1e6), "No contexts")
 })
 
-test_that("plot_predictive returns a ggplot for both types", {
+test_that("plot_predictive returns a ggplot for all types", {
   tree <- mk_diag_tree()
   set.seed(3)
   new <- replicate(12, sample(c("A", "B", "C"), 10, replace = TRUE),
                    simplify = FALSE)
   expect_s3_class(plot_predictive(tree, new, type = "position"), "ggplot")
   expect_s3_class(plot_predictive(tree, new, type = "ecdf"), "ggplot")
+  expect_s3_class(plot_predictive(tree, new, type = "logloss"), "ggplot")
+})
+
+test_that("plot_predictive(logloss) equals -log2(predicted_prob)", {
+  tree <- mk_diag_tree()
+  set.seed(3)
+  new <- replicate(12, sample(c("A", "B", "C"), 10, replace = TRUE),
+                   simplify = FALSE)
+  sp <- score_positions(tree, new)
+  expect_equal(-sp$log_lik / log(2), -log2(sp$predicted_prob))
+})
+
+test_that("plot_pruning returns a ggplot and renders", {
+  set.seed(5)
+  seqs <- replicate(120, sample(c("A", "B", "C"), 12, replace = TRUE),
+                    simplify = FALSE)
+  tree <- context_tree(seqs, max_depth = 3L, min_count = 3L)
+  p <- plot_pruning(tree, "A -> B -> C")
+  expect_s3_class(p, "ggplot")
+  pdf(NULL); on.exit(dev.off()); expect_silent(print(p))
+})
+
+test_that(".suffix_chain walks full chain to root with correct schema", {
+  set.seed(5)
+  seqs <- replicate(120, sample(c("A", "B", "C"), 12, replace = TRUE),
+                    simplify = FALSE)
+  tree <- context_tree(seqs, max_depth = 3L, min_count = 3L)
+  ch <- transitiontrees:::.suffix_chain(tree, "A -> B -> C")
+  expect_named(ch, c("L", "context", "label", "state", "prob", "count",
+                     "g2", "diverges", "pruned", "retained", "status"))
+  ## one row per (context, state); chain reaches the root
+  expect_true(0L %in% ch$L)
+  expect_setequal(ch$status[ch$L == 0L], "root")
+  ## probabilities at each context sum to 1
+  agg <- tapply(ch$prob, ch$context, sum)
+  expect_true(all(abs(agg - 1) < 1e-8))
+  ## an informative context must diverge; pruned/retained must not
+  nb <- ch[!duplicated(ch$context) & ch$L > 0L, ]
+  expect_true(all(nb$diverges[nb$status == "informative"]))
+  expect_true(all(!nb$diverges[nb$status == "pruned"]))
+  expect_true(all(!nb$diverges[nb$status == "retained"]))
+})
+
+test_that(".suffix_chain separates informative from retained ancestors", {
+  ## A non-diverging ancestor that survives only because a DEEPER context
+  ## diverges must be labelled 'retained', not 'informative'. (Codex review.)
+  set.seed(1)
+  seqs <- replicate(150, sample(c("A", "B", "C"), sample(6:12, 1),
+                                replace = TRUE), simplify = FALSE)
+  tree <- context_tree(seqs, max_depth = 3L, min_count = 3L)
+  keys <- setdiff(names(tree$nodes), "<root>")
+  deep <- keys[lengths(strsplit(keys, " -> ", fixed = TRUE)) == 3L]
+  nb <- NULL
+  for (p in deep) {
+    ch <- transitiontrees:::.suffix_chain(tree, p)
+    cand <- ch[!duplicated(ch$context) & ch$L > 0L, ]
+    if (any(cand$status == "retained") && any(cand$status == "informative")) {
+      nb <- cand; break
+    }
+  }
+  expect_false(is.null(nb))                       # fixture must exhibit both
+  expect_true(all(nb$diverges[nb$status == "informative"]))
+  ## the retained ancestors do NOT themselves diverge — the bug was calling
+  ## them 'kept (adds memory)'.
+  expect_true(all(!nb$diverges[nb$status == "retained"]))
+  expect_true(any(nb$status == "retained" & !nb$diverges))
+})
+
+test_that("plot_pruning errors when the pathway has no fitted context", {
+  tree <- mk_diag_tree()  # max_depth 2
+  expect_error(transitiontrees:::.suffix_chain(tree, "Z"),
+               "not in the tree")
+})
+
+test_that("plot_pruning errors when the requested context is absent but a suffix exists", {
+  ## A depth-1 tree cannot hold the 2-move context 'A -> B', though 'B'
+  ## exists. The chain must NOT silently start at 'B'. (Codex review.)
+  set.seed(3)
+  seqs <- replicate(80, sample(c("A", "B", "C"), 8, replace = TRUE),
+                    simplify = FALSE)
+  tree <- context_tree(seqs, max_depth = 1L, min_count = 3L)
+  expect_error(plot_pruning(tree, "A -> B"), "not in the tree")
+  expect_error(transitiontrees:::.suffix_chain(tree, "A -> B"),
+               "deepest fitted suffix")
 })
 
 test_that("plot_predictive errors when nothing scores", {

@@ -1,6 +1,6 @@
 ---
 title: "transitiontrees: A Complete, Interpreted Tutorial on Student AI-Prompting Pathways"
-subtitle: "Every function explained and every result read, on a Nestimate network of a real AI-prompting log"
+subtitle: "Every function explained and every result read, on a real AI-prompting event log"
 author: "transitiontrees"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
@@ -49,8 +49,7 @@ This document does two things at once:
 
 1. **Walks every exported function** against a real **AI-prompting
    log** — how students prompt an AI assistant while doing
-   network-analysis assignments — read straight from a Nestimate
-   network object.
+   network-analysis assignments — read straight from a long event log.
 2. **Interprets every result.** After each table, test, and plot
    there is a *Reading* block: what the numbers actually say about how
    these students prompt, what the method is doing under the hood,
@@ -86,8 +85,6 @@ One row per prompting *event*: a `student_name`, the prompt `Code`,
 and a `submission_id` identifying one AI session.
 
 ```{r load}
-library(Nestimate)
-library(cograph)
 library(readxl)
 ```
 
@@ -110,36 +107,42 @@ sort(table(WithIDs$Code), decreasing = TRUE)
 > Specification) but "*which contexts overturn that default*". Keep
 > that lens for the rest of the tutorial.
 
-`Nestimate::build_network()` aggregates this long log into a
-first-order transition network. `session = "submission_id"` makes
-**each AI session one sequence** — the unit of memory the tree models.
+`transitiontrees` ingests this long event log natively: name the
+sequence unit (`actor`), the state column (`action`), and the session
+id (`session`), and it reshapes the log into one sequence per AI
+session — the unit of memory the tree models — before fitting. We first
+materialise that wide sequence frame with the package's
+long→sequence reshaper, `prepare_input()`, carrying the `Timing`
+covariate through as per-sequence metadata for the cohort comparison in
+§11. `session = "submission_id"` makes **each AI session one
+sequence**.
 
-```{r build-network}
-Model <- build_network(WithIDs, actor = "student_name", action = "Code",
-                        method = "relative", session = "submission_id")
-Model
+```{r reshape}
+AI_data  <- prepare_input(WithIDs, actor = "student_name", action = "Code",
+                          session = "submission_id", meta = "Timing")
+alphabet <- sort(unique(stats::na.omit(WithIDs$Code)))
 ```
 
-The returned object already carries everything `transitiontrees` needs — no
-reshaping. `$data` is the wide, trailing-NA-padded character frame
-(one row per session); `$nodes$label` is the canonical alphabet (the
-network's node set); `$metadata` is row-aligned with `$data` and
-carries session covariates we use for the cohort comparison in §11;
-`$initial` is the start-state distribution.
+`AI_data` is the wide, trailing-NA-padded character frame (one row per
+session); `alphabet` is the canonical state set (every observed code);
+`attr(AI_data, "meta")` is row-aligned with `AI_data` and carries the
+session covariates. The start-state distribution — how sessions *open* —
+is just the empirical distribution of each session's first move.
 
-```{r netobject-shape}
-class(Model)
-dim(Model$data)
-Model$data[1:5, 1:8]                       # trailing NAs = end-of-session
-Model$nodes$label
-round(sort(Model$initial, decreasing = TRUE), 3)   # how sessions OPEN
-n_obs_per_session <- rowSums(!is.na(Model$data))
+```{r sequence-shape}
+dim(AI_data)
+AI_data[1:5, 1:8]                          # trailing NAs = end-of-session
+alphabet
+timing  <- attr(AI_data, "meta")$Timing
+initial <- prop.table(table(factor(AI_data[, 1], levels = alphabet)))
+round(sort(initial, decreasing = TRUE), 3)         # how sessions OPEN
+n_obs_per_session <- rowSums(!is.na(AI_data))
 summary(n_obs_per_session)
-table(Model$metadata$Timing, useNA = "ifany")
+table(timing, useNA = "ifany")
 ```
 
 > **Reading the shape — and the first real finding.** Compare
-> `$initial` (how sessions *start*) with the corpus frequencies above
+> `initial` (how sessions *start*) with the corpus frequencies above
 > (what students *mostly do*). They disagree sharply: sessions open
 > with **`Instruct` ≈ 49%** of the time and `Specification` opens
 > barely 3% — yet `Specification` is the most frequent code overall.
@@ -153,26 +156,24 @@ table(Model$metadata$Timing, useNA = "ifany")
 > later: deep contexts simply will not have enough sessions behind
 > them.
 
-```{r aidata}
-AI_data  <- Model$data
-alphabet <- Model$nodes$label
-```
-
 # 1. Fitting a context tree: `context_tree()`
 
 `context_tree()` is the constructor. It returns an S3 `transitiontrees`: a
 list of nodes keyed by pathway string, an edges table, the alphabet,
-and the hyperparameters. The sibling-package integration: pass the
-**Nestimate `netobject` directly** — it unwraps `$data` and uses
-`$nodes$label` as the alphabet, so the network and the tree share one
-symbol space.
+and the hyperparameters. It fits directly from the long event log —
+name the sequence unit (`actor`), the state column (`action`), and the
+session id (`session`) and it reshapes and fits in one call, so the
+data and the tree share one symbol space.
 
 ```{r fit}
 tree <- context_tree(
-  Model,              # a Nestimate netobject, read natively
-  max_depth = 4L,     # longest context the tree may represent
-  min_count      = 5L,     # a context needs >= 5 occurrences to get its own node
-  smoothing = "floor" # default: floor MLE at ymin=0.001 and renormalise
+  WithIDs,                       # the long event log, read natively
+  actor     = "student_name",
+  action    = "Code",
+  session   = "submission_id",   # each AI session is one sequence
+  max_depth = 4L,                # longest context the tree may represent
+  min_count = 5L,                # a context needs >= 5 occurrences to get its own node
+  smoothing = "floor"            # default: floor MLE at ymin=0.001 and renormalise
 )
 tree
 ```
@@ -217,28 +218,35 @@ tree$nodes[["<root>"]]
 ```{r fit-inputs, eval = FALSE}
 context_tree(AI_data)                       # wide matrix / data.frame
 context_tree(apply(AI_data, 1L, function(r) r[!is.na(r)]))  # ragged list
-context_tree(TraMineR::seqdef(AI_data))     # TraMineR stslist
-context_tree(Model)                         # Nestimate netobject (this doc)
-context_tree(cograph::as_cograph(Model))    # cograph network object
+context_tree(engagement, max_depth = 2L)    # an stslist state-sequence object
 ```
 
-> **Reading the network-object rule.** transitiontrees accepts the whole
-> `mohsaqr` network family **as is** — a Nestimate `netobject` *or* a
-> `cograph` network object — by class, and pulls sequences from its
-> `$data` slot (`$nodes$label` becomes the default alphabet). The hard
-> boundary: this works only when the object actually *carries
-> sequences*. A **pure graph** cograph object (nodes/edges/weights —
-> an aggregated transition network with no `$data`) is **rejected with
-> an explicit error**, on purpose: the original sequences cannot be
-> recovered from edge weights, so fabricating them would be silently
-> wrong. This is the same invariant as the numeric-matrix rule below —
-> *transitiontrees fits on sequences, never on aggregated transitions.*
-> Numeric matrices are likewise **rejected** (they mean "transition
-> matrix" elsewhere in the ecosystem); cast to character if your states
-> are integer-coded.
+A fitted transition/network object can also be passed straight in:
+`transitiontrees` auto-detects it by its S3 class and pulls the
+sequences it carries, so the network and the tree share one alphabet.
 
-The netobject / cograph path is pure convenience and is
-**numerically identical** to unwrapping by hand:
+```{r fit-inputs-network, eval = FALSE}
+# transitiontrees also accepts a fitted transition/network object directly,
+# auto-detected by its S3 class:
+# context_tree(my_network_object, max_depth = 2L)
+```
+
+> **Reading the network-object rule.** transitiontrees accepts a fitted
+> transition/network object **as is** — by class — and pulls sequences
+> from the object's stored sequence data (its declared node set becomes
+> the default alphabet). The hard boundary: this works only when the
+> object actually *carries sequences*. A **pure graph** object
+> (nodes/edges/weights — an aggregated transition network with no stored
+> sequences) is **rejected with an explicit error**, on purpose: the
+> original sequences cannot be recovered from edge weights, so
+> fabricating them would be silently wrong. This is the same invariant
+> as the numeric-matrix rule below — *transitiontrees fits on sequences,
+> never on aggregated transitions.* Numeric matrices are likewise
+> **rejected** (they mean "transition matrix" elsewhere in the
+> ecosystem); cast to character if your states are integer-coded.
+
+Fitting from the long log is **numerically identical** to reshaping it
+to a wide frame by hand and fitting that:
 
 ```{r fit-equiv}
 tree_manual <- context_tree(AI_data, max_depth = 4L, min_count = 5L,
@@ -246,11 +254,11 @@ tree_manual <- context_tree(AI_data, max_depth = 4L, min_count = 5L,
 identical(tree$nodes, tree_manual$nodes)
 ```
 
-> **Reading the equivalence.** `TRUE` is the point: reading from the
-> network introduces *no* numerical difference versus the manual
-> `$data` + `$nodes$label` route. You get provenance and a shared
-> alphabet for free, with zero modelling cost. Use the netobject form
-> whenever the upstream is a Nestimate network.
+> **Reading the equivalence.** `TRUE` is the point: letting
+> `context_tree()` reshape the long log introduces *no* numerical
+> difference versus the manual reshape-then-fit route. You get the
+> convenience and a shared alphabet for free, with zero modelling cost.
+> Use the long-format form whenever the upstream is an event log.
 
 ## 1.2 The five smoothing schemes
 
@@ -263,7 +271,8 @@ sm_list <- list(floor = "floor", laplace = "laplace",
                 kneser_ney = "kneser_ney", witten_bell = "witten_bell",
                 jelinek_mercer = "jelinek_mercer")
 trees_by_sm <- lapply(sm_list, function(sm)
-  context_tree(Model, max_depth = 3L, min_count = 5L, smoothing = sm))
+  context_tree(AI_data, max_depth = 3L, min_count = 5L, smoothing = sm,
+               alphabet = alphabet))
 data.frame(
   smoothing = names(sm_list),
   n_nodes   = vapply(trees_by_sm, function(t) length(t$nodes), integer(1)),
@@ -831,11 +840,10 @@ plot(tg)
 `compare_trees()` asks whether two cohorts generate *significantly
 different* pathway dynamics: a count-weighted symmetric-KL distance
 plus a permutation null from shuffling session→cohort labels. We split
-on the **`Timing`** covariate the netobject already carries — prompting
-**early** vs **late** in the course.
+on the **`Timing`** covariate carried through the reshape as
+per-sequence metadata — prompting **early** vs **late** in the course.
 
 ```{r cohort-split}
-timing <- Model$metadata$Timing
 table(timing, useNA = "ifany")
 idx_early <- which(timing == "Early"); idx_late <- which(timing == "Late")
 length(idx_early); length(idx_late)
@@ -1191,7 +1199,7 @@ which is the whole point of a pathway-centric, testable model.
 
 | Function | Role | Section |
 |---|---|---|
-| `context_tree()` | fit a variable-depth tree (incl. native Nestimate `netobject`) | §1 |
+| `context_tree()` | fit a variable-depth tree (incl. native long event log) | §1 |
 | `smooth_tree()` | re-smooth a fitted tree | §7 |
 | `prune_tree()` | drop contexts that don't earn their depth | §6 |
 | `tree_pathways()` | canonical 7-col tidy table | §3.1 |

@@ -2,7 +2,7 @@
 % Please edit documentation in R/likelihood.R
 \name{logLik.transitiontrees}
 \alias{logLik.transitiontrees}
-\title{Log-Likelihood of a Pathtree}
+\title{Log-Likelihood of a context tree}
 \usage{
 \method{logLik}{transitiontrees}(object, newdata = NULL, ...)
 }

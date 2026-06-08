@@ -2,7 +2,7 @@
 % Please edit documentation in R/likelihood.R
 \name{perplexity}
 \alias{perplexity}
-\title{Perplexity of a Pathtree}
+\title{Perplexity of a context tree}
 \usage{
 perplexity(tree, newdata = NULL)
 }

@@ -1,7 +1,7 @@
 # ---- Bootstrap pathway uncertainty ----
 #
-# Methodologically built on Saqr, Tikka & López-Pernas (2025), `tna`
-# package: extends the bootstrap-and-stability framework from edges to
+# Methodologically built on Saqr, Tikka & López-Pernas (2025):
+# extends the bootstrap-and-stability framework from edges to
 # variable-depth pathways.
 #
 # Design rules:
@@ -46,7 +46,7 @@
   ## (ctx_idx - 1) * na + next_idx, where ctx_idx indexes the
   ## global context dictionary at depth d. Bootstrap aggregation is
   ## then a single `unlist(pair[idx])` + `tabulate` per depth —
-  ## Nestimate's transition fast-path lifted from edges to
+  ## a transition fast-path lifted from edges to
   ## pathways.
   na <- length(alphabet)
   pair_per_depth     <- vector("list", max_depth + 1L)
@@ -195,7 +195,7 @@
 #' @description
 #' Non-parametric sequence bootstrap for a fitted \code{transitiontrees}.
 #' Methodologically built on Saqr, Tikka & López-Pernas (2025),
-#' \code{tna}, extending the edge-level bootstrap framework to
+#' extending an edge-level bootstrap framework to
 #' variable-depth pathways.
 #'
 #' The bootstrap tracks every pathway in the original tree. Each
@@ -203,8 +203,7 @@
 #' raw counts per depth, and reads each pathway's count vector
 #' directly from the resample. \strong{No smoothing, no \code{nmin}
 #' filter, no extra parameters} inside the loop — the bootstrap
-#' operates on counts the same way \code{tna::bootstrap} operates on
-#' edge weights.
+#' operates on counts analogously to an edge-weight bootstrap.
 #'
 #' Two complementary measures are reported per pathway:
 #' \describe{
@@ -243,7 +242,7 @@
 #'   Default \code{1000}.
 #' @param stat Character. Pathway statistic on which
 #'   \code{p_stability} is measured. One of \code{"count"}
-#'   (default; tna's edge-weight analogue), \code{"next_probability"}
+#'   (default; the edge-weight analogue), \code{"next_probability"}
 #'   (the most-likely next-state probability), or \code{"divergence"}.
 #' @param consistency_range Numeric vector of length 2.
 #'   Multiplicative tolerance band around the observed value.
@@ -319,6 +318,7 @@ bootstrap_pathways <- function(tree,
                                keep_resamples        = TRUE,
                                progress              = FALSE) {
   stopifnot(inherits(tree, "transitiontrees"))
+  .pt_assert_unweighted(tree, "bootstrap_pathways()")
   if (is.null(tree$data))
     stop("tree$data is missing; bootstrap requires the original ",
          "sequences. Refit with context_tree() (>=0.1.1 keeps data).",
@@ -544,7 +544,7 @@ bootstrap_pathways <- function(tree,
   )
 }
 
-#' Print a Pathtree Bootstrap
+#' Print a context tree Bootstrap
 #'
 #' @param x A \code{transitiontrees_bootstrap} object.
 #' @param n Integer. Number of top pathways to print. Default 10.
@@ -590,7 +590,7 @@ print.transitiontrees_bootstrap <- function(x, n = 10L, digits = 3L, ...) {
   invisible(x)
 }
 
-#' Summarise a Pathtree Bootstrap
+#' Summarise a context tree Bootstrap
 #'
 #' @param object A \code{transitiontrees_bootstrap} object.
 #' @param ... Ignored.
@@ -602,7 +602,7 @@ summary.transitiontrees_bootstrap <- function(object, ...) {
   object$summary
 }
 
-#' Coerce a Pathtree Bootstrap to a Tidy Data Frame
+#' Coerce a context tree Bootstrap to a Tidy Data Frame
 #'
 #' @description
 #' Uniform tidy-extract: returns the per-pathway summary table
@@ -620,7 +620,7 @@ as.data.frame.transitiontrees_bootstrap <- function(x, row.names = NULL,
   x$summary
 }
 
-#' Plot a Pathtree Bootstrap
+#' Plot a context tree Bootstrap
 #'
 #' @description
 #' Forest plot of per-pathway \eqn{G^2} (likelihood-ratio against

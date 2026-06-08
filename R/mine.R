@@ -5,8 +5,8 @@
 #' @description
 #' Scan every context in a fitted tree for a chosen next state and
 #' return those whose predicted probability for that state falls in a
-#' requested range. The tidy-table analogue of \code{PST::cmine()}:
-#' "in which histories is the next move \code{state} (un)usually likely?"
+#' requested range. A tidy context-mining table:
+#' "in which histories is the next move \code{state} unusually likely or unlikely?"
 #'
 #' @param tree A \code{transitiontrees}.
 #' @param state Character. The next state to score, one of the tree's
@@ -73,7 +73,7 @@ mine_contexts <- function(tree, state, min_prob = NULL, max_prob = NULL,
 #'
 #' @description
 #' Rank held-out sequences by how well the fitted tree predicts them.
-#' The tidy-table analogue of \code{PST::pmine()}: surface the
+#' A tidy pattern-mining table: surface the
 #' subsequences the model finds most \emph{surprising} (poor fit, high
 #' perplexity) or most \emph{expected} (good fit, low perplexity).
 #'

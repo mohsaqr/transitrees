@@ -19,18 +19,37 @@ devtools::load_all(here::here())
 library(ggplot2)
 ```
 
-This is a short, end-to-end analysis of one real dataset — **not** a tour of
-every function. The data are sequences of *rhetorical moves* students make
-while prompting an LLM (`Order`, `Specify`, `Context`, `Reject`, `Request`,
-`Approve`); one **prompt** is one sequence. The question throughout: *after a
-given short history of moves, what does a student do next, and which contexts
-overturn the corpus-wide default?*
+This is an end-to-end analysis of one real dataset. The data are sequences of
+*rhetorical moves* students make while prompting an LLM (`Order`, `Specify`,
+`Context`, `Reject`, `Request`, `Approve`); one **prompt** is one sequence. The
+question throughout: *after a given short history of moves, what does a student
+do next, and which contexts overturn the corpus-wide default?*
+
+> **Abstract.** We fit a variable-order prediction-suffix tree to 281
+> AI-prompting sequences (726 move-to-move transitions over a six-move
+> alphabet). The fitted model reduces predictive perplexity from the
+> six-move uniform baseline to **2.76** in-sample (**3.22** on held-out
+> prompts) — students follow a recognisable but loose grammar rather than a
+> rigid script. That grammar is **shallow**: almost all predictive signal
+> lives in the *immediately preceding* move, with only three two-move
+> contexts (`Order -> Specify`, `Context -> Specify`, `Reject -> Order`)
+> earning their depth under both a likelihood-ratio test and bootstrap
+> resampling, and *no* three-move context surviving. The corpus opens
+> overwhelmingly with `Order` (62% of prompts) and is organised around a
+> `... -> Specify -> Request` elaboration spine. We also show, repeatedly,
+> that the most eye-catching deep contexts (next-move probabilities of 0.99,
+> divergences above 2.6 bits) rest on three or four prompts and evaporate
+> under pruning and resampling — a standing caution against over-reading the
+> tail of a sequence model.
+
+Throughout, each section first runs the code, then reads the numbers it
+produced and what they mean for the substantive question.
 
 # 1. Load and fit
 
 `context_tree()` reads the long event log directly — give it the sequence id
 (`actor`), the event column (`action`), and the within-sequence order
-(`order`); it reshapes internally (no `Nestimate`/`prepare_input()` step
+(`order`); it reshapes internally (no separate `prepare_input()` step
 needed). Prompts are short, so the deepest context worth asking for is 3
 moves; with only a few hundred prompts we keep `min_count` low.
 
@@ -50,6 +69,14 @@ tree <- context_tree(
 tree
 ```
 
+The fitted tree has 24 contexts at depths of at most three moves, over the six-move rhetorical alphabet, estimated from 281 prompting sequences and 726 move-to-move transitions. Floor smoothing with `ymin = 0.001` prevents zero probabilities and leaves the observed structure unchanged. A minimum count of three excludes any context that fewer than three prompts pass through. The model is small by design. The question is whether the structure it retains reflects real regularities in how students compose prompts, or the accidents of a few short sequences.
+
+Prompt length forces this caution. The mean prompt is 2.58 moves and the maximum is four. A depth-three context predicts the next move from the last three moves, but a prompt must be at least four moves long to provide one such case, and the data reach exactly that length. A three-move history occurs only at the end of the longest prompts, and only a few times each. The `max_depth = 3` ceiling exceeds what the corpus can populate, and the depth-three counts are too small to support strong interpretation.
+
+The capacity reaches three moves; the data mostly speak to one or two. Most repeatable predictive signal is at order one, and less of it at order two. Deeper contexts draw on fewer prompts, so their sharp predictions reflect three or four students rather than a stable pattern. The minimum count of three is the first filter against noise, but three observations is far from reliable.
+
+The diagnostics that follow confirm this. Almost nothing at depth three survives the likelihood-ratio pruning test or the bootstrap. The deep three-move rules with near-certain predictions do not hold up because they rest on few prompts. The tree keeps 24 contexts because 24 cleared the entry threshold. The durable structure is concentrated near the root, and the deeper branches are useful mainly as examples of fragility.
+
 # 2. Inspect the model
 
 The print banner gives depth, node count, and the corpus size. `summary()`
@@ -61,9 +88,13 @@ summary(tree)
 model_fit(tree)
 ```
 
-The in-sample **perplexity** of `r round(perplexity(tree), 2)` says the fitted
-tree is, on average, as uncertain as a fair choice among that many moves —
-well below the 6-move uniform baseline, so history is genuinely informative.
+The tree attains a log-likelihood of -736.198 over 726 transitions, using 120 free probability parameters. The AIC is 1712.40 and the BIC is 2262.90. Both penalize the model's flexibility, BIC more sharply because its per-parameter cost scales with the log of the sample size. The gap between the two criteria indicates that some of the 120 parameters add little, and that a parsimony-minded reading should treat part of the model's complexity with suspicion.
+
+With 120 parameters estimated from 726 transitions, each parameter is supported on average by about 6.05 observations. Six data points is a weak basis for a probability estimate, and this average hides the real problem: the deeper contexts draw on far fewer than six, while order-one contexts near the root carry most of the data. This is a fact about the corpus, and it is why the following sections remove structure rather than add it. Pruning and the bootstrap are the response to a parameter count the corpus cannot support.
+
+In-sample perplexity is 2.757 against a uniform baseline of 6. The baseline equals the alphabet size: a model with no knowledge of prompting faces six equally likely next moves at every step. Conditioning on recent history reduces the average to about 2.8 moves. Knowing what a student has just typed more than halves the effective decision space, from six options to under three. This is a real reduction in uncertainty and evidence of sequential structure.
+
+Perplexity also bounds what the structure can claim. A perplexity of 1 would mean the next move is fully determined by history. At 2.757 the model is closer to the random baseline than to determinism: students prompt with regularities, not a fixed grammar. The same pattern appears at the root. From `(start)`, before any move, the most likely opening move is `Order`, at probability 0.343 — barely a third of prompts begin that way. Even the first move is close to a coin toss among several options. The predictive signal is real and roughly halves uncertainty, but it is shallow, so the next step is to test which parts survive pruning and resampling.
 
 # 3. Pathway tables
 
@@ -78,11 +109,17 @@ divergent_pathways(tree, top = 8)   # by KL from the shorter history
 sharp_pathways(tree, top = 8)       # by how peaked the next-move prediction is
 ```
 
-`common_pathways()` is the backbone (what students mostly do).
-`divergent_pathways()` surfaces the contexts where a longer history *changes*
-the prediction — `changes_prediction = TRUE` flags a modal-move flip. Those
-are the interesting rows: places where knowing the previous move(s) overturns
-the corpus default.
+The common table describes how a prompt unfolds. The most frequent context is the root: from `(start)`, across all 726 transitions, the modal opening move is Order at probability 0.343. Students usually begin with a command, but with no strong consensus on what follows, since a 0.343 modal share over six moves is just above a coin toss. The structure tightens downstream. The `Order` context (n = 194) goes to Specify at 0.549, a flip from the parent's modal move. `Context` (n = 87) goes to Specify at 0.892, also a flip. The two-move context `Order -> Context` (n = 74) goes to Specify at 0.982 with no further flip. The recurring next move is Specify: after commanding, after supplying background, or after commanding then contextualising, students specify next. The dominant pattern is open with Order, qualify with Context, converge on Specify.
+
+The downstream rows show the pattern is not purely linear. `Specify` (n = 63) goes to Request at 0.380 (a flip), where the specified intent is asked for. `Request` (n = 32) goes back to Order at 0.747 (no flip), a follow-up command stacked on a request. `Reject` (n = 56) goes to Specify at 0.551 (a flip): after a rejected output, students re-specify rather than re-order. The one context with a different destination is `Order -> Specify` (n = 24), which goes to Context at 0.705, where students who specified immediately after ordering then add the context they skipped. Specify is the most common destination and the repair move; Order is the opening; Request is the resolution; Context appears both as an up-front qualifier and as a late addition.
+
+The divergent table ranks contexts by how far their next-move distribution departs from their one-shorter parent, and the top is dominated by noise. The three largest divergences are `Specify -> Context` at 3.225 bits (flipping to Order), `Context -> Order` at 2.657 bits (flipping to Request), and `Order -> Request` at 2.641 bits (flipping to Specify). Each KL is computed correctly from the counts, but each rests on n = 3. Three observations cannot estimate a six-way distribution, so most of this divergence is sampling variance. A G² test of these contexts against their parents would not reach the `qchisq(0.95, df = 5) = 11.07` cutoff on three counts, and none of these contexts survive the bootstrap. Their rank is a warning, not a finding.
+
+The reliable divergences sit below. `Specify` (n = 63) diverges from root by 1.110 bits and flips toward Request. `Context` (n = 87) diverges by 1.075 bits and flips toward Specify. These are order-1 contexts with substantial mass, and their divergences reflect a repeatable shift in what students do next. `Order` (n = 194) at 0.882 bits toward Specify is in the same tier. Divergence magnitude and divergence reliability are inversely related here, because the deepest, most distribution-changing contexts are also the rarest. Sorting by bits and reporting the top three would report three accidents.
+
+The sharp table shows the same point from the next-move probability side. Sorting by next-move probability produces a row of 0.995 predictions: `Order -> Context -> Specify` to Request, `Reject -> Request` to Order, `Reject -> Request -> Order` to Specify, `Request -> Order -> Context` to Specify, `Request -> Order -> Specify` to Context, `Request -> Reject` to Order, and `Order -> Request` to Specify. Each looks deterministic with perplexity near 1. The counts are n = 14, 5, 4, 4, 4, 3, 3. A probability of 0.995 on n = 3–5 is the result of a near-empty cell after floor smoothing, where a few identical continuations plus the `ymin = 0.001` floor produce apparent certainty. The 0.995 is a valid point estimate and a poor prediction, because nothing learned here would generalise to the next student.
+
+The last row is the exception. `Order -> Context` (n = 74) predicts Specify at 0.982. It is the only robustly sharp context in the table: a lower probability than the 0.995 rows but far more credible, supported by 74 prompts rather than three or four. It is the single two-move context that is both confident and well-supported, and it also anchors the common table. A peaked prediction and a reliable prediction are different things, and this corpus separates them by count. The spectacular rows — 3.23-bit divergences, 0.995 certainties — cluster at n = 3–5 and fail under testing. The dependable structure — Order opening, Context and Specify qualifying, Specify connecting, Request resolving — lives in the high-count rows with more modest numbers. The model's value is the discipline, through count, divergence, G² pruning, and the bootstrap, with which it identifies which contexts to ignore.
 
 # 4. Per-context diagnostics
 
@@ -97,6 +134,16 @@ head(dep[order(-dep$entropy_drop),
            "likely_before", "likely_next", "changes_prediction")], 8)
 ```
 
+`tree_dependence()` reframes the parent comparison as a gain: how many bits of predictive entropy does the extra history remove? A context can diverge sharply from its parent yet leave the next move nearly as uncertain as before, and a context can firm up the prediction without flipping the modal answer. The `entropy_drop` column measures the reduction in uncertainty about the next move, and `likely_before` / `likely_next` record whether that reduction changes the modal prediction. The ranking shows which contexts are most worth conditioning on, not which are most surprising.
+
+The table is led by a depth-1 context. `Context` alone removes 1.544 bits over n = 87 prompts and flips the modal prediction from Order to Specify. This is the most informative move in the corpus, and 87 prompts is a substantial base, so the gain is trustworthy. After a student supplies background, the prediction shifts from the corpus-default Order to Specify: students go on to specify particulars. Removing over 1.5 bits from a six-symbol alphabet makes this close to a rule rather than a tendency.
+
+The other durable entry is `Order` itself: 0.880 bits over n = 194 prompts, again flipping the prediction to Specify. With 194 observations this is the most heavily evidenced dependency in the set, though its absolute gain is smaller than `Context`'s. After a command, students most often specify; Order then Specify is the most common two-move pattern. Two of the top entropy drops are depth-1 contexts, both pointing at Specify and both backed by large counts. The reliable predictive structure is at order 1.
+
+The middle of the ranking requires strict reading. `Request -> Reject` (1.289 bits) and `Order -> Request` (1.027 bits) post gains that rival or exceed `Order`'s, but each rests on n = 3. `Reject -> Request` (1.027, n = 5) and `Reject -> Specify` (0.873, n = 9) are only slightly better supported. A depth-2 context on three prompts can show a large entropy drop simply because three sequences agree, and the flip is one or two prompts from disappearing. These are the deep contexts the bootstrap does not certify, and their entropy drop should not be over-read. The remaining depth-1 rows, `Approve` (1.132, n = 13, no flip) and `Request` (1.074, n = 32, no flip), sit in between: well enough counted to take seriously, and they sharpen the prediction without changing the modal next move, tightening confidence in an answer the parent already favoured.
+
+The dependence view gives the same verdict as divergence on a decision-relevant scale. Ranked by information gained and weighed by the count behind each gain, the dependencies worth keeping are the depth-1 moves — `Context`, `Order`, and the well-counted `Request` and `Approve` refinements — plus at most a couple of depth-2 contexts that survive scrutiny. The high-bit, low-n deep rows are valid arithmetic on a handful of prompts, not reproducible structure. Stated in bits, this is the case for pruning: most of the tree's deeper machinery buys little durable predictive value, and conditioning on roughly the last move recovers nearly all of the usable signal.
+
 # 5. Prune to the reliable tree
 
 A context that survives fitting can still be over-fit. `prune_tree()` collapses
@@ -108,9 +155,15 @@ pruned <- prune_tree(tree, criterion = "G2", alpha = 0.05)
 pruned
 ```
 
-Pruning takes the model from `r n_nodes(tree)` contexts down to
-`r n_nodes(pruned)` — the deepest, thinnest contexts that could not justify
-their own parameters are folded back into their parents.
+Applying `prune_tree(criterion = "G2", alpha = 0.05)` reduces the fitted tree from 24 contexts to 15, removing 37.5% of nodes. Each removed context failed a G² likelihood-ratio test against its one-shorter parent at the `qchisq(0.95, df = 5) = 11.07` cutoff. The extra history it encoded did not explain enough added variation in the next move to justify keeping it. The surviving tree shows how deep the predictive memory of student prompting actually runs.
+
+The depth-1 layer survives intact. From the root, the corpus default is Order at 0.34; no single move dominates. Conditioning on one prior move sharpens the prediction: after Approve (n = 13) the next move is Order at 0.77; after Context (n = 87) it is Specify at 0.89; after Order (n = 194) it is Specify at 0.55; after Reject (n = 56) it is Specify at 0.55; after Request (n = 32) it is Order at 0.75; and after Specify (n = 63) it is Request at 0.38. All six contexts are well counted, the smallest resting on 13 prompts, so the depth-1 predictions are solid. After setting context students specify; after ordering or rejecting they specify; after specifying they request; after requesting they order. The Context -> Specify edge (n = 87, 0.89) is close to a rule.
+
+Below depth 1 only a few branches survive, with leaf counts in the teens and low tens. Under Context, two children remain: `Order -> Context` predicts Specify at 0.98 (n = 74), and `Specify -> Context` predicts Order at 0.66 (n = 3). Under Order, `Context -> Order` predicts Request at 0.66 (n = 3) and `Reject -> Order` predicts Specify at 0.92 (n = 14). Under Request, `Order -> Request` predicts Specify at 0.99 (n = 3). Under Specify, three children survive: `Context -> Specify` predicts Request at 0.77 (n = 18), `Order -> Specify` predicts Context at 0.71 (n = 24), and `Reject -> Specify` predicts Order at 0.77 (n = 9).
+
+The surviving depth-2 branches split into two groups. The well-counted ones — `Order -> Context` (n = 74, predicting Specify at 0.98), `Order -> Specify` (n = 24), `Context -> Specify` (n = 18), and `Reject -> Order` (n = 14) — are genuine second-order refinements: the two most recent moves sharpen the prediction beyond the last move alone. The thin ones — `Specify -> Context`, `Context -> Order`, and `Order -> Request`, each at n = 3 — pass the per-node test but are the fragile deep contexts the bootstrap does not certify. Their probabilities (0.99, 0.66) rest on three prompts and should not be over-read. The G² test is local, so retaining them does not imply reproducible structure; treat only the well-counted second-order branches as dependable.
+
+After pruning the tree is one move deep with a thin second layer and no surviving three-move context. Student prompting is close to first-order Markov: the last move carries most of the predictive weight, the move before it adds a little in a few well-evidenced cases, and anything deeper is noise. The 37.5% of nodes the test discards are the ones long history does not justify.
 
 # 6. Bootstrap reliability
 
@@ -131,43 +184,203 @@ bs[bs$stable & bs$informative,
      "stability_rate", "informative_rate")]
 ```
 
-These — the single-move backbone plus the handful of depth-2 rules that clear
-the reproducibility bar — are the pathways you can state as findings.
+The bootstrap tests whether a pathway would survive a different sample of students. Resampling 200 times, a pathway is *stable* when its resampled count stays within 0.5–1.5 times the observed count (p < 0.05), and *informative* when its G² clears the 11.07 cutoff in at least 80% of resamples. Of the 15 candidate pathways, 10 are stable, 8 are informative, and 8 satisfy both. The 8 that satisfy both are the reportable findings.
 
-# 7. Plots
+The eight survivors fall into two tiers. Five are single-move contexts. Order has the highest mean bootstrap G² at 244.7 (95% CI 220.6–271.9), then Context at 134.7 (104.1–170.6) and Specify at 100.9 (74.0–127.7); Reject (37.0, CI 26.2–48.5) and Request (32.7, CI 19.4–50.2) are lower but still clear the cutoff. All five have a stability rate and an informative rate of 1.00: across 200 resamples they never failed either test. The predictive structure is real and lives almost entirely at order 1. The single most recent move tells you most of what the tree knows about the next one.
 
-A few of the package's visual outputs on this tree.
+The second tier shows that history beyond the last move adds something, but only three times and by a small margin. The two-move contexts Order -> Specify (mean G² 20.2, CI 11.4–30.0), Context -> Specify (18.6, CI 9.9–27.0), and Reject -> Order (16.5, CI 9.2–24.2) clear the 11.07 cutoff with their full confidence intervals, but by far less than the depth-1 contexts, and their stability and informative rates drop below 1.00 (to 0.970 and 0.905 for Reject -> Order). These are modest but solid: real two-move dependencies a different sample would likely recover, without the dominance of the single-move signal. No depth-3 context survives. Once reproducibility is required, effective memory is two moves deep.
 
-**The tree.** Node size scales with count, edge width with transition flow;
-internal-node labels sit below their circles.
+The diagnostic case is the pathway that fails. Order -> Context is perfectly stable (rate 1.00) but not informative (rate 0.645), with a mean bootstrap G² of 12.9 and an interval (4.6–21.7) that straddles the 11.07 cutoff. On surface metrics it looks like a result: it is the third most common context (n = 74), and conditional on it students go on to Specify with probability 0.98. The bootstrap rejects it. Its parent, the single move Context, already predicts Specify at 0.89. Prepending Order adds almost nothing the shorter context did not supply, and G² measures that marginal gain over the parent, not the peakedness of the distribution or the frequency of the context. With little incremental information to detect, the statistic crosses the threshold inconsistently and the 80% informative rate is not met.
+
+Frequency (n = 74) does not earn a pathway a place in the results, and neither does a near-deterministic next-move probability (0.98). Only reproducible information over and above the parent context does. Order -> Context is common and sharp but adds nothing new, because Context alone already predicts Specify. The bootstrap decides for each candidate whether a longer memory pays for itself. Eight pathways do — five at depth 1, three at depth 2 — and those eight are the defensible account of how these students prompt.
+
+# 7. Structural plots
+
+The package's visual outputs that describe the **fitted corpus**. Each figure
+is read directly underneath it.
 
 ```{r plot-tree, fig.height=6}
 plot(pruned, style = "horizontal")
 ```
 
-**Pathway heatmap.** Each row is a context, each column a next move; the cell
-is the predicted probability, the modal cell highlighted.
+The phylogram shows the fitted suffix tree on its side, with conditioning increasing left to right: the black root at depth 0 is the unconditioned process, the six depth-1 nodes are the single most-recent move, and the depth-2 nodes are two-move histories. Node size is scaled to how often each context occurs in the corpus. Order (green) and Context (gold) are the two largest depth-1 nodes and Approve the smallest, reproducing the raw move weights. Students issue directives and supply background far more often than they signal approval. The thickest edges run from the root into Order and from Order to its children, so most prompting passes through an Order.
+
+The depth-1 labels read as single-move rules. Order predicts Specify at 0.55, Context predicts Specify at 0.89, and Reject predicts Specify at 0.55, so three of the six most-recent moves continue to the same move. Request predicts Order at 0.75 and Approve predicts Order at 0.77. After an order, context, or a walked-back instruction, the most common next move is to specify a detail. Context -> Specify at 0.89 is the sharpest shallow rule; Order -> Specify at 0.55 leaves room for the alternative of more Context. These depth-1 nodes rest on large counts, so their probabilities are solid.
+
+The depth-2 labels are sharper and must be read with caution. Order -> Context -> Specify at 0.98 and Order -> Request -> Specify at 1.00 are near-deterministic, and Reject -> Order -> Specify at 0.92, Context -> Specify -> Request at 0.77, Order -> Specify -> Context at 0.71, and Reject -> Specify -> Order at 0.77 complete a layer of confident two-move rules. At face value, two moves into a recognisable routine the third move is almost fixed. But deeper contexts rest on fewer prompts, and a probability of 1.00 on a thin context is spectacular but thin. The figure does not show the count behind each leaf. The tree stops at depth 2 because the deeper history lacks the data to justify a third conditioning layer.
+
+The exception is Specify -> Request at 0.38, the one prediction that stays soft. A probability below 0.40 means that knowing the most recent move was Specify leaves the next move broadly open. It sits at a high-traffic position rather than on a thin branch, so it is modest but solid. Students reach for Specify constantly, but it does not commit them to any one continuation; it is the corpus's real branch point.
+
+The tree is wide and shallow: a broad fan at depth 1, a thinner spread at depth 2, and nothing beyond. This is the shape of a low-order process. Almost all usable structure lives in the most-recent move and a few two-move routines along the Order and Context branches. The predictive signal in how students prompt is real but concentrated at order 1, and the deep, near-deterministic leaves rest on too few prompts to count as long-range memory.
 
 ```{r plot-pathways, fig.height=6}
 plot_pathways(tree, top = 14)
 ```
 
-**Divergence lollipop.** Per-context KL from the shorter history; orange marks
-contexts whose modal next move flips.
+The heatmap shows the conditional distributions of the suffix tree as a grid. Each of the fourteen most frequent contexts (those clearing the n_min = 5 floor) is a row, the six possible next moves are columns, and each cell is P(next | context) with the modal cell bolded. The leading ">" on a row marks a flip: a context whose modal next move differs from that of its one-shorter parent, the same `changes_prediction` event used in the divergence analysis. The figure shows two things: where the probability mass goes, and whether adding another move of history changes the predicted next move.
+
+Mass concentrates in the Specify column. Many contexts send most of their mass to Specify: Order sends 0.55, Context 0.89, Reject 0.55, Reject -> Order 0.92, Request -> Order 0.76, and Approve -> Order 0.80. (Context -> Specify sends 0.77 to Request.) Specify is the most common continuation across the widest range of histories. This conclusion is supported by many independent contexts pointing to the same move rather than by any single rule.
+
+The single darkest cell is Order -> Context -> Specify, which sends 0.99 of its mass to Request. This is a near-deterministic rule, but it requires the count caveat. It is a three-move context in a corpus that tops out at four moves, and a probability of 0.99 on a long suffix is more likely to be spectacular-but-thin than stable. Cell saturation reflects concentration of probability, not amount of evidence; it does not show how many prompts sit behind the value.
+
+The Specify row is the exception. Where most rows have one dominant cell, Specify spreads its mass across Context 0.35, Order 0.25, and Request 0.38, with no dominant cell. After a Specify, students are split between adding context, issuing another order, or making a request. This row sits far from the deterministic floor of 1 and near the open end of the perplexity scale. It is a solid finding because Specify is a high-frequency context. The abundance of ">" flags shows that conditioning usually changes the modal prediction: ">Order", ">Context", ">Specify", ">Reject", ">Order -> Specify", and ">Reject -> Specify" all mark such shifts. The heatmap shows that a flip occurred but not whether it is reliable. A flip on a well-supported context is a finding; a flip on an n = 3 context is not. Distinguishing the two requires the divergence magnitudes and the bootstrap stability results, which show that only three two-move contexts survive resampling and no three-move context does.
 
 ```{r plot-divergence, fig.height=6}
 plot_divergence(tree, top = 12)
 ```
 
-**Bootstrap forest.** Per-pathway \eqn{G^2} with bootstrap CIs; the dashed line
-is the \eqn{\chi^2} critical value — pathways whose interval sits entirely to
-its right are reproducibly informative.
+The lollipop chart filters out low-count contexts, so it answers which departures from the parent distribution are both large and well-supported. After filtering, the maximum divergence is about 1.11 bits rather than the 3.2 bits in the unfiltered `divergent_pathways()` output. The deep contexts above 2.6 bits rest on three or four prompts and are screened out. What remains is the conditioning that reorganises the next-move distribution on the basis of repeated student behaviour.
+
+Orange stems mark flips, where the modal next move under the context differs from the corpus default. Three stand out. `Specify` diverges 1.11 bits and flips toward `Request` at 38%: after specifying, the most likely follow-up is to ask the model to act. `Context` diverges 1.07 bits and points to `Specify` at 89%, a near-deterministic move from background to detail. The two-move context `Reject -> Specify` diverges about 1.06 bits and flips toward `Order` at 77%: after rejecting an output and re-specifying, students issue a command. These three flips both overturn the default and rest on solid counts.
+
+`Order` diverges about 0.88 bits and carries the largest dot, because dot size encodes count and `Order` is among the most frequent contexts. Its flip toward `Specify` at 55% is the most heavily evidenced flip. It is not the sharpest departure, but it is the most reliable, because it is exercised by many prompts. The steepest stems are not the most reliable; the biggest dots mark where the data are densest.
+
+The blue stems diverge without changing the predicted move. `Reject -> Order` at about 0.77 bits, `Context -> Specify` at about 0.74, `Approve` at about 0.70, and `Request` at about 0.67 sharpen an existing tendency: the history makes the same modal move more certain and lowers local perplexity but does not redirect the student. At the bottom, `Order -> Specify` flips toward `Context` at 71% (0.62 bits, orange), `Reject` flips toward `Specify` at 55% (0.43 bits, orange), and `Reject -> Request` (~0.40) and `Approve -> Order` (~0.39) stay blue. The orange flips here are genuine but smaller. Even the deepest two-move contexts on this filtered chart cap below 0.8 bits. Predictive structure is real but shallow. Once the thin n = 3 contexts are removed, no context delivers a deterministic rewrite of the next move. The supported divergences are the order-1 flips on `Specify`, `Context`, and `Order`, plus a few two-move sharpenings, not the 3.2-bit value from the table.
+
+```{r plot-distributions, fig.height=7}
+plot_distributions(tree, top = 9)
+```
+
+The small-multiples grid shows the full next-move distribution for each context. Each panel is one context, each bar is one of the six possible next moves, and the modal bar is highlighted in dark blue. Across the nine highest-count panels, contexts fall into two groups: peaked contexts, where one bar dominates and the next move is nearly settled, and flat contexts, where two or three comparable bars indicate no clear next move. Conditioning on history helps in some contexts and almost not at all in others.
+
+The peaked contexts are clear. `Context` puts 0.89 of its mass on `Specify`: after supplying background, students move to detail. `Order -> Context` is sharper at 0.98 on `Specify`, effectively deterministic, but this is the kind of deep context the study warns against over-reading, because such two- and three-move contexts rest on few prompts and do not survive bootstrap. `Request -> Order` is 0.75 and `Context -> Specify` is 0.77 toward `Request`. In all of these, local perplexity collapses toward 1.
+
+The flat contexts hold the more informative behaviour. The `Specify` panel spreads mass across `Request` at 0.39, `Context` at 0.35, and `Order` at 0.23, with no clear winner. After specifying, students choose among asking the model to act, adding context, or issuing a command, and one move of history does not resolve the choice. `Order` is mildly flat, splitting 0.55 `Specify` against 0.44 `Context`. These are the decision points, where the modal bar is only slightly taller than the others.
+
+The root `(start)` panel is the baseline for every other panel. It is the flattest: `Order` at 0.34, `Specify` at 0.32, `Context` at 0.16, and the rest small. This is the unconditioned distribution, what you would predict knowing nothing about history. The useful reading rule is how much taller the modal blue bar grows relative to the root. `Context` and `Order -> Context` raise the peak from 0.34 to 0.89 and 0.98; `Reject` (0.55 on `Specify`) and `Order` (0.55) help modestly; `Specify`, whose tallest bar barely exceeds the root, helps little. The peaked panels built on many prompts differ from the deep deterministic panels built on few. `Specify` is frequent, central, and flat, and it is the main locus of student choice in LLM prompting: the context where history does not predict the next move.
 
 ```{r plot-bootstrap, fig.height=6}
 plot(boot)
 ```
 
-# 8. Predicting the next move
+The forest plot shows the 9 of 15 candidate pathways with a bootstrap stability rate of at least 0.95. The horizontal axis is the bootstrap G², each pathway plotted as its mean with a 95% confidence interval, and a dashed vertical line marks the chi-square critical value of 11.07. Blue marks pathways that are both stable and informative; grey marks those that are stable only.
+
+The depth-1 contexts dominate. Order is at the far right near 245 (CI roughly 220–272), Context follows around 135 (104–171) and Specify around 101 (74–128), then Reject (about 37, CI 26–49) and Request (about 33, CI 19–50). All five are blue, and their intervals do not approach 11.07. The single most recent move carries most of the predictive signal.
+
+The three depth-2 survivors sit nearer the line: Order -> Specify (about 20, CI 11–30), Context -> Specify (about 19, CI 10–27), and Reject -> Order (about 16, CI 9–24). They are blue, but their lower confidence bounds sit just clear of the dashed line. These are the modest-but-solid tier: real two-move dependencies that pass the test by a small margin. Each added move of history shifts a pathway leftward toward the cutoff.
+
+Order -> Context is plotted in grey because it is stable but not informative. Its confidence interval (roughly 5–22) straddles the dashed line. It is common and its next-move prediction is sharp, but on the G² axis its interval sits across the threshold, and across the resamples it cleared the cutoff too rarely to count. The contrast between this grey marker and the blue depth-2 points just above it is the key comparison in the figure.
+
+The plot projects every pathway onto one quantity: reproducible information over the parent context. Against that ruler the structure resolves into five dominant single moves on the right, three two-move rules near the cutoff, and one common, sharp deeper context (Order -> Context) shown in grey as adding nothing its shorter parent had not already supplied.
+
+# 8. How much memory does a pathway need?
+
+`plot_pruning()` takes one pathway and walks its **suffix chain** — the full
+context, then the same context with its oldest move dropped, and so on down to
+the root — drawing each context's next-move distribution and marking which ones
+`prune_tree()` keeps (solid) versus prunes (faded). It answers, for that one
+pathway, *how far back the history actually has to reach*.
+
+```{r plot-pruning, fig.width=13, fig.height=5.5}
+plot_pruning(tree, "Order -> Context -> Specify")
+```
+
+This figure walks the suffix chain behind one context, `Order -> Context -> Specify`, one panel per memory length. From left to right the panels run from the deepest context to the root. The leftmost panel conditions on the last three moves (Order, then Context, then Specify), and each subsequent panel drops the oldest move until the rightmost conditions on nothing. Solid bars mark contexts the `prune_tree` test kept; faded bars mark those it discarded. With a six-move alphabet, each context is tested against its one-shorter parent on five degrees of freedom, so its G² statistic must exceed `qchisq(0.95, df = 5) = 11.07` to be kept.
+
+The deepest context is cut. The three-move context `Order -> Context -> Specify` predicts Request with probability 0.99, more peaked than its parent `Context -> Specify`, which sends 0.76 of its mass to Request. The extra move of memory appears to sharpen the prediction. But this panel is faded because its G² is 7.1, short of the 11.07 cutoff. The extra peak is real in the sample but not statistically supported: too few prompts traverse `Order -> Context -> Specify` for the likelihood-ratio test to distinguish 0.99 from the parent. This is a spectacular-but-thin deep context.
+
+The parent passes. The two-move context `Context -> Specify` keeps Request as the modal continuation at probability 0.76, and its G² = 17.5 exceeds 11.07, so the panel is solid. The added move of memory changes the prediction on evidence that survives the test. The effect (0.76) is smaller than the cut panel's (0.99) but is the one worth keeping.
+
+One step shallower, the single-move context `Specify` has G² = 77.9, far past the cutoff. Its next-move distribution is spread across Context, Request, and Order rather than peaked, but knowing only that the previous move was Specify reorganises the prediction relative to the root. The root conditions on no history and is essentially uniform, the baseline for every conditioning gain. The chain justifies about two moves of memory for this pathway. The gain from no history to one move is large and solid, the gain from one move to two is real and solid, and the gain from two moves to three is large in the sample but fails the test for lack of support. Pruning keeps the supported structure and removes the unsupported deep context.
+
+# 9. Held-out predictive quality
+
+The plots above describe the corpus; this asks how well the tree predicts
+```{r holdout}
+ids      <- unique(raw$prompt_id)
+set.seed(1)
+test_ids <- sample(ids, length(ids) %/% 4)
+train    <- raw[!raw$prompt_id %in% test_ids, ]
+test     <- raw[ raw$prompt_id %in% test_ids, ]
+
+tree_trn  <- context_tree(train, actor = "prompt_id", action = "name",
+                          order = "value", max_depth = 3L, min_count = 3L)
+test_seqs <- lapply(split(test, test$prompt_id),
+                    function(d) d$name[order(d$value)])
+
+model_fit(tree_trn, newdata = test_seqs)   # out-of-sample fit scalars
+```
+
+We split the corpus by whole prompt to test whether the tree generalises rather than memorises its training prompts. 211 prompts were used to fit the tree; the remaining 70 were withheld and contributed 170 scored next-move positions the model never saw. Splitting at the prompt level prevents moves from the same sequence from crossing the train/test boundary, so every held-out position is scored by a tree fit on a disjoint set of students.
+
+The held-out fit gives logLik = -198.56 over nobs = 170 positions with df = 105, AIC = 607.12, BIC = 936.38, and held-out perplexity 3.216. Perplexity is the effective number of equally-likely next moves remaining after conditioning on history. Against the uniform baseline of 6, a value of 3.216 means the model retains about half the field of plausible continuations. That is predictive traction, but far from the perplexity of 1 that would indicate a deterministic process.
+
+Held-out perplexity (3.216) exceeds in-sample perplexity (2.757) by about 0.46, roughly half an effective move. An over-fit model padded with deep contexts recording individual training prompts would degrade much more on new data. The small gap shows the captured structure transfers to new students. This is "real but moderate predictability": the signal survives the move to new data, but was never large.
+
+Per-position diagnostics quantify how loose the structure is. Across the 170 held-out moves, the mean probability assigned to the move that actually occurred is 0.426, so the model is typically less than half-confident even on the realised move. The model places probability of at least 0.5 on the correct single move in only 38.2% of positions. On the remaining ~62%, no single continuation holds a majority. The held-out evidence matches the in-sample finding: the regularities are dependable enough to predict but too diffuse to be deterministic.
+
+```{r plot-position, fig.height=5.5}
+plot_predictive(tree_trn, test_seqs, type = "position")
+```
+
+This figure plots, for each held-out move, the probability the model assigned to the continuation that actually occurred against the move's position in the prompt. Colour encodes the same probability: blue for high, orange for low. The points do not spread evenly over the vertical range. They collect into two horizontal bands with a sparse middle.
+
+The upper band sits near 0.8 to 1.0. These are positions where the recent history leaves essentially one likely next move, such as `Context -> Specify` and `Order -> Context -> Specify` transitions. The suffix context narrows the six-move alphabet to a near-certain continuation, and the model concentrates probability on the move that then occurs. These positions account for the predictable part of held-out performance.
+
+The lower band sits near 0.1 to 0.3. These are positions where several continuations are plausible, mainly Specify-type junctures and the rare uncommon prompt openings. The history-conditioned distribution is spread across competing moves, so the realised move receives a small probability. A point is low because the truth at that juncture is diffuse, not because the model learned nothing.
+
+The sparse middle means individual moves are rarely intermediate in predictability. A position is mostly either near-forced or near-open, and the model is correspondingly either confident or clearly unsure. Both bands recur across positions rather than confidence rising or falling with depth into the prompt. Predictability depends on which juncture a student is at, not on how far into the prompt they are.
+
+```{r plot-logloss, fig.height=5.5}
+plot_predictive(tree_trn, test_seqs, type = "logloss")
+```
+
+This figure reports per-move log-loss on the held-out prompts, `-log2 P(observed move)`, in bits against position in the prompt. Each jittered point is one held-out move coloured by its loss; a black line marks the mean loss at each position and a dashed line the overall mean. A model spreading probability evenly over all six moves would pay `log2(6) = 2.585` bits per position. Loss below that line is structure the model exploited.
+
+The opening move is the hardest at 2.332 bits. At position 1 there is no history to condition on, so the model uses the root distribution and stays close to, but below, the uniform ceiling. Prediction reduces to the marginal frequencies of how prompts begin.
+
+Loss drops once history accumulates: position 2 is 1.302 bits and position 3 is the minimum at 1.028 bits, roughly half the opening loss. With one or two moves on record, the suffix context activates the order-1 and limited two-move structure the tree captured. The minimum at position 3 rather than later is consistent with memory beyond two moves adding little reliable signal.
+
+Position 4 rises to 1.821 bits. With a maximum prompt length of 4 and mean of 2.58 moves, few prompts reach a fourth move, so position-4 points are few and idiosyncratic and the model has little evidence for them. The uptick is a sparse-data artifact of sequence length, not a late breakdown of structure.
+
+The mean log-loss over all positions is about 1.685 bits, below the 2.585-bit uniform ceiling. The ~0.9-bit margin restates the perplexity result in additive, position-resolved form: the model removes close to a bit of uncertainty per move on average but leaves over a bit of surprise. Students are least predictable at the opening move, more predictable after one or two moves of context, and appear erratic again only where data run out.
+
+```{r plot-ecdf, fig.height=5}
+plot_predictive(tree_trn, test_seqs, type = "ecdf")
+```
+
+This figure draws the empirical cumulative distribution of the probabilities the model assigned to the move that actually occurred, pooled over all 170 held-out positions. The height of the curve at a probability value is the fraction of positions predicted at or below that confidence. A steep section marks a probability where many positions concentrate; a flat section marks confidence levels the model rarely produces.
+
+The curve rises in two main steps. The first steep step is near p = 0.33, where about half of held-out positions are predicted with probability near one-third. This is the calibration signature of a three-way split: the conditioned distribution divides its mass across three comparable continuations, and the realised move collects its even share. A second step is near p = 0.51, where the model puts a slim majority on the move that then occurs. A final jump near p = 1.0 accounts for the near-certain transitions where the model concentrated probability on the correct move. The stretches between these steps are flatter, so intermediate and high confidences are uncommon.
+
+The median predicted probability is about 0.34, on the lower step. At the typical held-out position the model is about a third sure of what actually happened. This reflects the process: at the median juncture students could go several ways, and the tree reports that openness. The mass near one-third is the large, moderately-predictable set of branch points.
+
+The jump near 1.0 shows a confident minority. Only about the top fifth of positions are predicted with high probability, but these are the transitions where conditioning pins the next move down. The ECDF separates the corpus into a small near-certain set and a large three-way-open set, with little in the middle confidences. A confident minority covers the near-forced transitions; a larger group clusters near one-third at the branch points. The model's predictive value comes from a minority of decisive positions, consistent with the moderate perplexity and small optimism gap seen elsewhere.
+
+# 10. Trajectory trees: where prompts go, and how predictably
+
+The context tree reads *backwards* — a node is a suffix, the most-recent move.
+The same prompts can be drawn *forwards* as a **trajectory tree**: start at the
+left, every path is a sequence of moves unfolding in time. We colour the one
+tree two ways — by **frequency** (how many prompts walk each path) and by
+
+```{r traj-frequency, fig.width=13, fig.height=9}
+plot_trajectories(tree, measure = "frequency")
+```
+
+The forward tree shows how prompts begin and elaborate. Of the 281 prompts, 61.6% open with an Order move. The depth-1 Order node carries n = 173. Node fill and edge width are both scaled to the number of prompts on each path, so this node is the darkest and widest in the figure. Every other opening move — Reject, Request, Context, Approve — leaves the root as a thin, light path used by the minority of prompts.
+
+Substantively, the dominant branch is a canonical opening move: students begin by instructing the model before doing anything else. Order is not only the modal first move; it concentrates most of the opening distribution. The min_count = 3 threshold means the rare peripheral paths shown are retained because each occurs at least three times, not because of noise. They remain small against the Order traffic.
+
+One step deeper, the two heaviest continuations off Order are Order -> Specify (~72 prompts) and Order -> Context (~73 prompts). The split is nearly balanced and together absorbs most Order traffic. Both are darker and wider than any non-Order branch at the same depth. The pattern is: open with an instruction, then qualify it, either by specifying the desired output (Specify) or by supplying background (Context). The near-equal split indicates students use these two elaboration strategies about equally.
+
+Frequency is mapped to colour and width, so the figure reports counts, not predictability. One opening move and its two elaborations account for most of the visual mass; the rare openings, though retained, contribute little to where prompts go. Prompts are short (mean 2.58 moves), so the tree need not be deep to be near-complete, and the dominance near the root reflects most of how a prompt unfolds. Edge width states how many students used a path. It does not state whether the path was predictable or informative beyond its parent. That question requires recolouring the same tree by conditional probability.
+
+```{r traj-predictability, fig.width=13, fig.height=9}
+plot_trajectories(pruned, measure = "predictability")
+```
+
+The second view keeps the same nodes and edges, with edge width still proportional to the number of prompts on each path, but colours each edge by P(move | history) from the pruned model. Where colour shifts relative to the frequency view, how often students take a path and how confidently the model predicts it differ. The figure asks a different question of the same topology.
+
+Some paths are dark because conditional probability is high. After Order -> Context, the next move is Specify with probability about 0.98–0.99, so that deep edge is near-certain. Several short deterministic steps are dark for the same reason. High conditional probability maps to high colour intensity regardless of how many prompts pass through.
+
+The contrast appears at Specify. The step out of Specify is wide — high traffic, inherited from the frequency view — but stays pale, because the next-move distribution after Specify is spread out rather than concentrated. Specify is where the corpus forks: students who have specified continue in several different ways, so conditional probability on any single continuation is low. A wide, pale edge marks a high-traffic, low-predictability transition. Specify is the clearest instance. A frequency-only reading would miss this, since by count Specify is just another busy junction.
+
+Comparing the frequency tree (A) and the predictability tree (B) separates traffic from predictability. Edges bright in A but dull in B are the corpus's decision points: many students arrive, but the next move is open. The Specify fork is the main example — high traffic, low predictability. Edges dark in B regardless of width in A are scripted, low-information continuations where students had little real choice.
+
+For learning analytics the two views together are more useful than either alone. The frequency tree shows where students are; the predictability tree shows where the next move is not foregone. The bright-in-A, dull-in-B forks, above all the Specify fork, are where prompting strategy is decided rather than executed. The deep dark edges should not be over-read: a near-certain continuation is only as reliable as its count, and the next item shows that a 0.98 prediction can rest on a context the model did not keep.
+
+# 11. Predicting the next move
 
 Finally, the point of the model: given a history, predict the next move and its
 probability.
@@ -176,3 +389,25 @@ probability.
 predict(tree, c("Order", "Context"), type = "class")       # most likely next
 predict(tree, c("Order", "Context"), type = "prob")        # full distribution
 ```
+
+Given the history Order -> Context, the model predicts Specify with high confidence. The next-move distribution is Specify at 0.9816, Request at 0.0144, and Approve, Context, Order, and Reject each at the smoothing floor of 0.001. This is the most confident routine prediction in the corpus. Perplexity is just above one effective choice, so conditioned on Order -> Context the model is completing a near-fixed continuation rather than weighing options. A student who has issued an instruction and supplied context almost always specifies what they want next.
+
+The four moves at 0.001 are not estimates of observed behaviour. The floor smoother (ymin = 0.001) keeps unseen moves from taking probability zero, which would make any sequence containing them infinitely surprising. The four moves at the floor were effectively never seen after this context; their values are a reservation, not evidence. Only Specify, and marginally Request, carry empirical weight. The distribution is one option with a thin allowance for Request and a floor for the rest.
+
+Under pruning, Order -> Context was removed. The G² likelihood-ratio test judged it not reproducibly informative over its parent, because the shorter context Context already predicts Specify at about 0.89. Adding the earlier Order move raises the probability from roughly 0.89 to 0.98 but does not change the modal prediction and does not clear the significance cutoff for a distinct distribution. The extra move of history adds no reliable information. The two-move context is common and confident but not informative.
+
+This separates confidence from informativeness. The probability 0.98 answers how sure the model is about the next move given the history. The pruning verdict answers whether the longer history adds anything over the shorter one. Here the answers differ: near-certain, but not informative. A fixed-order model would conflate them, either spending parameters on a redundant context or discarding the confident prediction with the redundancy. The tree keeps the longer context only when it improves on the parent, and Order -> Context did not.
+
+The lesson generalises. A prediction can be correct and uninformative. The most confident-looking deep prediction in this corpus is of that kind: a high-probability call inherited almost entirely from a one-move-shorter context. Prediction confidence and context value should be read separately. The point about Order -> Context is not that Specify follows at 0.98 — that was already knowable from Context alone — but that the second move of history added nothing reproducible.
+
+# 12. Discussion: an overarching reflection
+
+The corpus is patterned but not deterministic. Perplexity falls from the uniform baseline of 6 to 2.76 in-sample and 3.22 on held-out data, so the model reduces an effective six-way choice to under three. The pattern has a clear structure. Order accounts for 62% of all prompts, so students overwhelmingly begin by instructing. Context and Specify then qualify the request, and Specify in turn resolves toward Request. Specify is both the most frequent target in the tree and the point of greatest uncertainty about what comes next: the move everything flows toward is also the move after which the next step is least predictable. That dual role — busiest junction, most open fork — is the central structural feature of how these students prompt.
+
+The methodological theme is the contrast between high-probability low-count results and lower-probability high-count ones. The tree contains next-move probabilities of 0.995 and divergences above 3 bits, and almost all of these rest on n = 3–4 prompts. Read naively they look like the strongest findings; they are the most fragile. The framework adjudicates this directly. A G² pruning pass, testing each context against its one-shorter parent at the qchisq(0.95, 5) = 11.07 cutoff, reduced the tree from 24 contexts to 15, dropping deep contexts that did not improve reliably on their parents. Bootstrapping certified 8 pathways as both stable and informative: five single-move contexts plus three two-move rules — Order -> Specify, Context -> Specify, and Reject -> Order. No three-move context survived. Order -> Context (n = 74, P(Specify) = 0.98) is common and confident yet still not informative over its parent Context: high traffic and high certainty did not earn it a place.
+
+The substantive result is that predictive memory in this corpus is about one move deep with a thin second layer. Most of the signal is order-1 — the current move predicts most of what is knowable about the next — and a first-order Markov model would capture nearly all of the structure the tree recovers. The three surviving two-move rules are real refinements worth keeping, but there is no third layer. The contribution of the variable-order tree here is not that it found deep structure; it is that it demonstrated the absence of deep structure while securing the few real second-order effects. For learning analytics, the trustworthy contexts are few and shallow, and the long tail of deep pathways, whatever their probabilities and divergences, is not yet a defensible basis for claims about how students prompt.
+
+Several caveats bound the result. The prompts are short — mean length 2.58 moves, maximum 4 — so depth-3 contexts were data-starved by construction; the model could not find robust three-move structure because there were rarely three moves of history to condition on. Longer prompts might reveal genuine third-order regularities this data could not test, so "no three-move context survives" is a statement about this corpus, not about prompting in general. The conclusions are also conditioned on the six-category coding scheme: every context, divergence, and pruning decision is defined relative to the Approve/Context/Order/Reject/Request/Specify alphabet, and a different taxonomy could redraw the tree. The generalisation evidence is a single 75/25 held-out partition, and the bootstrap measures within-sample reliability rather than cross-validated fit; the held-out perplexity of 3.22 is one number from one split.
+
+Within these bounds the central finding holds. In short AI-prompting sequences, predictive structure is real, shallow, and concentrated in a small set of contexts: a dominant opening instruction, an elaboration path through Context and Specify, a fork at Specify, and a few certified one- and two-move rules. Separating high-probability low-count results from solid high-count ones is part of the result, not a hedge added to it. The analysis reaches its conclusions by not over-reading the deep tail, and what remains — order-1-dominated, second-order-light structure — is what a researcher can act on.

@@ -10,8 +10,7 @@ A character matrix with 138 rows (learners) and 15 columns
   \code{"Disengaged"}.
 }
 \source{
-Example engagement-trajectory data from the Dynalytics
-  ecosystem.
+Bundled example dataset.
 }
 \usage{
 trajectories

@@ -39,7 +39,7 @@ test_that("Kneser-Ney sums to 1 under fractional (weighted) counts", {
   expect_true(all(kn(c(0.5, 2, 1)) >= 0))
 })
 
-test_that("Kneser-Ney is unchanged on integer counts (PST-path parity)", {
+test_that("Kneser-Ney is unchanged on integer counts (integer-count parity)", {
   parent <- c(0.25, 0.25, 0.25, 0.25)
   counts <- c(5, 1, 2, 0)
   ## Residual back_w must reproduce the closed-form discount * n_pos / n

@@ -1,0 +1,186 @@
+---
+title: "1. Getting started: basic analysis and trajectory trees"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    highlight: tango
+    df_print: paged
+vignette: >
+  %\VignetteIndexEntry{1. Getting started: basic analysis and trajectory trees}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      fig.width = 8, fig.height = 5, out.width = "100%")
+library(transitiontrees)
+```
+
+`transitiontrees` fits a **variable-depth prediction suffix tree** to
+categorical sequence data and reports it as a tidy, pathway-centric set of
+tables and plots. A fixed-order Markov chain assumes memory is the *same
+length everywhere*; a variable-order tree lets the **data decide, per
+context, how much history matters**. This first vignette walks the core
+workflow end to end and finishes with the two **trajectory trees** that
+draw the sequences forward in time.
+
+The other vignettes go further: *Complete analysis case* reads one dataset
+all the way through, *Ecosystem compatibility* shows the `TraMineR` / `tna` /
+`Nestimate` hand-off, *Advanced analysis* covers tuning, bootstrapping and
+comparison, and *Visualization* tours every plot.
+
+## 1. Fit
+
+`context_tree()` accepts a wide character matrix or data.frame, a list of
+character vectors, a state-sequence (`stslist`) object, or a long event
+log. We start with the bundled `trajectories` matrix (138 learners x 15
+time-steps, three engagement states; trailing `NA`s mark dropouts).
+
+```{r fit}
+data(trajectories)
+dim(trajectories)
+
+tree <- context_tree(trajectories, max_depth = 3L, min_count = 5L)
+tree
+```
+
+`max_depth` caps how long a history (context) may be; `min_count` is the
+minimum number of times a context must occur to earn its own node.
+
+A **long event log** is reshaped internally -- just name the columns:
+
+```{r long}
+data(group_regulation_long)
+head(group_regulation_long)
+tree_long <- context_tree(group_regulation_long,
+                          actor = "Actor", time = "Time", action = "Action",
+                          max_depth = 2L, min_count = 5L)
+n_nodes(tree_long)
+```
+
+## 2. Inspect the fit
+
+```{r inspect}
+summary(tree)
+model_fit(tree)   # logLik, df, nobs, AIC, BIC, perplexity
+```
+
+Perplexity is the effective number of equally likely next states; it sits
+below the uniform baseline (the alphabet size, here 3) when history is
+informative.
+
+## 3. The pathway tables
+
+Every accessor returns a plain `data.frame` in one canonical schema, so the
+views join cleanly. Pathways read left-to-right oldest-to-newest
+(`A -> B -> C`); the root context is shown as `(start)`.
+
+```{r tables}
+common_pathways(tree, top = 6)      # by frequency
+divergent_pathways(tree, top = 6)   # by divergence from the shorter history
+sharp_pathways(tree, top = 6)       # by how peaked the next-state prediction is
+```
+
+`changes_prediction = TRUE` flags a context whose single most likely next
+state differs from its parent's -- the histories where memory overturns the
+corpus-wide default. The lesson the tables teach together: **common is not
+the same as informative**. The most frequent pathways are the backbone of
+the corpus; the divergent ones carry the insight.
+
+## 4. Prune to the reliable tree
+
+A context can survive fitting yet not earn its depth. `prune_tree()`
+collapses contexts whose extra history is not a significant gain over their
+parent (default: a likelihood-ratio G-squared test).
+
+```{r prune}
+pruned <- prune_tree(tree, criterion = "G2", alpha = 0.05)
+pruned
+```
+
+The pruned tree's banner reports its node count and the criterion used --
+compare it to the unpruned `tree` printed in section 1 to see how much the
+G-squared test removed.
+
+## 5. Predict
+
+```{r predict}
+predict(pruned, c("Active", "Active"), type = "class")          # most likely next
+round(predict(pruned, c("Active", "Active"), type = "prob"), 3) # full distribution
+```
+
+When an exact context is missing from the tree, prediction backs off to the
+longest matching suffix -- the property that makes a *variable*-order model
+robust: it never refuses to predict, it just uses as much history as it has
+evidence for.
+
+## 6. A first tree plot
+
+Just `plot()` the tree. The default is a horizontal layout: node size is the
+context count, the colour is the most-recent state, and the predicted next
+state sits under each node.
+
+```{r plot, fig.width = 14, fig.height = 8}
+plot(pruned)
+```
+
+`plot()` also takes `style = "dendrogram"`, `"icicle"`, or `"interactive"`
+for the same tree in other layouts -- the *Visualization* vignette tours all
+four.
+
+## 7. Trajectory trees: where sequences go, and how predictably
+
+The context tree reads *backwards* -- a node is a suffix, the most-recent
+state. The same sequences can be drawn *forwards* as a **trajectory tree**:
+start at the left, every path is a run of states unfolding in time. Forward
+trajectories are most informative on a richer alphabet, so we switch to the
+bundled `ai_long` log -- one row per AI-prompting move (eight move types:
+`Execute`, `Investigate`, `Plan`, ...), with a session id. `context_tree()`
+reads it directly.
+
+```{r traj-fit}
+data(ai_long)
+tree_ai   <- context_tree(ai_long, actor = "project", session = "session_id",
+                         action = "code", max_depth = 3L, min_count = 10L)
+pruned_ai <- prune_tree(tree_ai)
+tree_ai
+```
+
+`plot_trajectories()` draws the forward prefix tree and colours the one tree
+two ways. These plots use `ggforce` (a suggested package), so the chunks are
+guarded.
+
+### By frequency -- how many sequences walk each path
+
+```{r traj-frequency, fig.width = 11, fig.height = 7, eval = requireNamespace("ggforce", quietly = TRUE)}
+plot_trajectories(tree_ai, measure = "frequency", min_count = 20L)
+```
+
+Node fill and edge width both scale to the number of sessions on each path,
+so the thick, dark branches are the prompting routines most projects
+actually follow -- the corpus's highways from the opening move outward.
+
+### By predictability -- how confidently the model calls each step
+
+```{r traj-predictability, fig.width = 11, fig.height = 7, eval = requireNamespace("ggforce", quietly = TRUE)}
+plot_trajectories(pruned_ai, measure = "predictability", min_count = 20L)
+```
+
+Same nodes and edges, but each edge is now coloured by `P(state | history)`
+from the model. Reading the two side by side separates **traffic** from
+**predictability**: an edge that is wide (frequency) but pale
+(predictability) is a *decision point* -- many sessions reach it, but the
+next move is genuinely open. Those forks are where behaviour is decided
+rather than executed.
+
+## Where to go next
+
+| You want to... | See vignette |
+|---|---|
+| Read one dataset all the way through | *Complete analysis case* |
+| Feed in a `TraMineR` / `tna` / `Nestimate` object | *Ecosystem compatibility* |
+| Tune, bootstrap, and compare cohorts | *Advanced analysis* |
+| Tour every plot style | *Visualization* |

@@ -2,7 +2,7 @@
 % Please edit documentation in R/bootstrap.R
 \name{as.data.frame.transitiontrees_bootstrap}
 \alias{as.data.frame.transitiontrees_bootstrap}
-\title{Coerce a Pathtree Bootstrap to a Tidy Data Frame}
+\title{Coerce a context tree Bootstrap to a Tidy Data Frame}
 \usage{
 \method{as.data.frame}{transitiontrees_bootstrap}(x, row.names = NULL, optional = FALSE, ...)
 }

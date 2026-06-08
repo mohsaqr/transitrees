@@ -16,8 +16,7 @@ A \code{data.frame} with 27533 rows and 6 columns:
   }
 }
 \source{
-Embedded from \pkg{Nestimate} / \pkg{tna}
-  (Dynalytics ecosystem).
+Bundled example dataset.
 }
 \usage{
 group_regulation_long
@@ -27,7 +26,7 @@ A long, one-row-per-event log of collaborative regulation moves, with
 timestamps. Used to demonstrate long-format loading: reshape with
 \code{\link{prepare_input}()} (or name \code{action =} in
 \code{\link{context_tree}()}) to split each actor's events into
-time-gap sessions. Embedded from the Dynalytics ecosystem.
+time-gap sessions. Bundled example dataset.
 }
 \examples{
 data(group_regulation_long)

@@ -37,8 +37,8 @@ criterion. Pruning is applied bottom-up: a node is dropped when
 extending its parent's prediction at this context produces less
 information / likelihood than the depth penalty allows.
 
-Renamed from \code{prune()} to avoid collision with
-\code{tna::prune}, \code{rpart::prune}, and \code{tree::prune}.
+Renamed from \code{prune()} to avoid collision with other
+\code{prune()} generics.
 }
 \details{
 For each leaf, compute the criterion against its parent. If the

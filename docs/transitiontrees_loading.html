@@ -11,7 +11,7 @@
 
 <meta name="author" content="transitiontrees" />
 
-<meta name="date" content="2026-06-03" />
+<meta name="date" content="2026-06-07" />
 
 <title>Loading data into transitiontrees</title>
 
@@ -2849,34 +2849,33 @@ font-size: 0.95em;
 <h1 class="title toc-ignore">Loading data into transitiontrees</h1>
 <h3 class="subtitle">Every input shape context_tree() accepts</h3>
 <h4 class="author">transitiontrees</h4>
-<h4 class="date">2026-06-03</h4>
+<h4 class="date">2026-06-07</h4>
 
 </div>
 
 
-<p><code>transitiontrees</code> belongs to the <strong>Dynalytics
-ecosystem</strong> and is fully interoperable with its sibling packages
-<strong>tna</strong> and <strong>Nestimate</strong>. A model estimated
-in either of them can be passed <strong>directly</strong> to
-<code>context_tree()</code>: transitiontrees recovers the sequence data
-underlying the fitted model and estimates the suffix tree on it, with no
-re-formatting, re-import, or conversion of any kind — the tree is
-defined over exactly the same state set as the source model. transitiontrees
-also adopts the <strong>same data-preparation conventions</strong> as
-those packages, so reading raw, long-format data (one row per event)
-uses an identical vocabulary: <code>actor</code> identifies the unit a
-sequence belongs to, <code>time</code> (or an explicit
-<code>order</code>) sequences the events, <code>action</code> names the
-state observed at each event, and sessions are delimited either by an
-explicit <code>session</code> column or by a <code>time_threshold</code>
-gap. These are supplied to <code>prepare_input()</code>, or to
-<code>context_tree()</code> directly through the matching arguments.
-Finally, for data that is already organised as sequences,
-<code>context_tree()</code> accepts a wide table (one row per case,
-columns advancing through time), a ragged list of sequences, and a
-TraMineR <code>stslist</code>. The sections below illustrate each of
-these routes on example datasets bundled with the package, so the
-vignette runs without any external data.</p>
+<p><code>transitiontrees</code> is interoperable with fitted
+transition/network objects: a model carrying its underlying sequences
+can be passed <strong>directly</strong> to <code>context_tree()</code>,
+which recovers that sequence data (auto-detected by the object’s S3
+class) and estimates the suffix tree on it, with no re-formatting,
+re-import, or conversion of any kind — the tree is defined over exactly
+the same state set as the source model. transitiontrees also follows the
+<strong>standard long→sequence reshaping vocabulary</strong>, so reading
+raw, long-format data (one row per event) is straightforward:
+<code>actor</code> identifies the unit a sequence belongs to,
+<code>time</code> (or an explicit <code>order</code>) sequences the
+events, <code>action</code> names the state observed at each event, and
+sessions are delimited either by an explicit <code>session</code> column
+or by a <code>time_threshold</code> gap. These are supplied to
+<code>prepare_input()</code>, or to <code>context_tree()</code> directly
+through the matching arguments. Finally, for data that is already
+organised as sequences, <code>context_tree()</code> accepts a wide table
+(one row per case, columns advancing through time), a ragged list of
+sequences, and a state-sequence <code>stslist</code> object. The
+sections below illustrate each of these routes on example datasets
+bundled with the package, so the vignette runs without any external
+data.</p>
 <div id="a-wide-matrix-or-data.frame" class="section level1">
 <h1>1. A wide matrix or data.frame</h1>
 <p>The simplest shape: rows are sequences, columns are time-steps, cells
@@ -2967,12 +2966,11 @@ avoids padding.</p>
 states.</p>
 </blockquote>
 </div>
-<div id="a-traminer-state-sequence-object-stslist" class="section level1">
-<h1>3. A TraMineR state-sequence object (<code>stslist</code>)</h1>
-<p>If your data is already a TraMineR <code>stslist</code> (what
-<code>TraMineR::seqdef()</code> returns), hand it straight over — the
-alphabet and any weights are honoured.</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">data</span>(engagement)         <span class="co"># a TraMineR stslist of engagement states</span></span>
+<div id="a-state-sequence-object-stslist" class="section level1">
+<h1>3. A state-sequence object (<code>stslist</code>)</h1>
+<p>If your data is already a state-sequence <code>stslist</code> object,
+hand it straight over — the alphabet and any weights are honoured.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">data</span>(engagement)         <span class="co"># an stslist of engagement states</span></span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">context_tree</span>(engagement, <span class="at">max_depth =</span> <span class="dv">2</span><span class="dt">L</span>)</span></code></pre></div>
 <pre><code>#&gt; &lt;transitiontrees&gt;  17 nodes, depth &lt;= 2, 4 states  [unpruned]
 #&gt;   alphabet : %, Active, Average, Disengaged
@@ -3095,10 +3093,10 @@ identical.</p>
 #&gt; |-- cohesion  n=1695   -&gt; consensus (0.50) 
 #&gt; ... 445 more nodes (use as.data.frame(x) or summary(x))</code></pre>
 <blockquote>
-<p><code>prepare_input()</code> mirrors
-<code>tna::prepare_data()</code>: a new session starts when the gap to
-the previous event exceeds <code>time_threshold</code> seconds (default
-900). The result is the wide sequence frame from §1.</p>
+<p><code>prepare_input()</code> is a standard long→sequence reshaper: a
+new session starts when the gap to the previous event exceeds
+<code>time_threshold</code> seconds (default 900). The result is the
+wide sequence frame from §1.</p>
 </blockquote>
 </div>
 </div>
@@ -3131,77 +3129,51 @@ takes sessions from a column directly; and with neither,
 <code>order =</code> (or row order) sequences each actor.</p>
 </blockquote>
 </div>
-<div id="from-the-dynalytics-ecosystem" class="section level1">
-<h1>6. From the Dynalytics ecosystem</h1>
-<p><code>context_tree()</code> also takes the sequence-bearing objects
-from the sibling packages directly — it reads their stored sequences, so
-the tree shares one symbol space with the network.</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="fu">library</span>(Nestimate)</span>
-<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>net <span class="ot">&lt;-</span> <span class="fu">build_network</span>(group_regulation_long, <span class="at">actor =</span> <span class="st">&quot;Actor&quot;</span>,</span>
-<span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a>                     <span class="at">action =</span> <span class="st">&quot;Action&quot;</span>, <span class="at">order =</span> <span class="st">&quot;Time&quot;</span>, <span class="at">method =</span> <span class="st">&quot;relative&quot;</span>)</span>
-<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a><span class="fu">context_tree</span>(net, <span class="at">max_depth =</span> <span class="dv">2</span><span class="dt">L</span>)            <span class="co"># a Nestimate netobject</span></span></code></pre></div>
-<pre><code>#&gt; &lt;transitiontrees&gt;  87 nodes, depth &lt;= 2, 9 states  [unpruned]
-#&gt;   alphabet : adapt, cohesion, consensus, coregulate, discuss, emotion, monitor, plan, synthesis
-#&gt;   fit on   : 2000 sequences, 27533 observations
+<div id="from-a-fitted-transitionnetwork-object" class="section level1">
+<h1>6. From a fitted transition/network object</h1>
+<p><code>context_tree()</code> also takes sequence-bearing objects
+directly — it auto-detects them by S3 class, reads their stored
+sequences, and fits on those, so the tree shares one symbol space with
+the source model. A state-sequence <code>stslist</code> is one such
+object, fitted with no external package:</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="fu">context_tree</span>(engagement, <span class="at">max_depth =</span> <span class="dv">2</span><span class="dt">L</span>)     <span class="co"># an stslist of states</span></span></code></pre></div>
+<pre><code>#&gt; &lt;transitiontrees&gt;  17 nodes, depth &lt;= 2, 4 states  [unpruned]
+#&gt;   alphabet : %, Active, Average, Disengaged
+#&gt;   fit on   : 1000 sequences, 25000 observations
 #&gt;   smoothing: floor(ymin=0.001, rule=interpolate)   min_count = 5
-#&gt; (start)   n=27533  -&gt; consensus (0.25)
-#&gt; |-- adapt     n=509    -&gt; consensus (0.47)
-#&gt; |   |-- consensus  n=27     -&gt; cohesion (0.48)
-#&gt; |   |-- coregulate  n=28     -&gt; consensus (0.50)
-#&gt; |   |-- discuss   n=259    -&gt; consensus (0.47)
-#&gt; |   |-- emotion   n=6      -&gt; consensus (0.83)
-#&gt; |   |-- monitor   n=16     -&gt; consensus (0.50)
-#&gt; |   |-- plan      n=6      -&gt; consensus (0.66)
-#&gt; |   `-- synthesis  n=140    -&gt; consensus (0.48)
-#&gt; |-- cohesion  n=1695   -&gt; consensus (0.50)
-#&gt; |   |-- adapt     n=130    -&gt; consensus (0.54)
-#&gt; |   |-- cohesion  n=45     -&gt; consensus (0.42)
-#&gt; |   |-- consensus  n=84     -&gt; consensus (0.51)
-#&gt; |   |-- coregulate  n=61     -&gt; consensus (0.50)
-#&gt; |   |-- discuss   n=173    -&gt; consensus (0.54)
-#&gt; |   |-- emotion   n=843    -&gt; consensus (0.47)
-#&gt; |   |-- monitor   n=71     -&gt; consensus (0.53)
-#&gt; |   |-- plan      n=147    -&gt; consensus (0.52)
-#&gt; |   `-- synthesis  n=20     -&gt; consensus (0.55)
-#&gt; |-- consensus  n=6329   -&gt; plan (0.40)
-#&gt; |   |-- adapt     n=222    -&gt; plan (0.37)
-#&gt; |   |-- cohesion  n=795    -&gt; plan (0.38)
-#&gt; |   |-- consensus  n=483    -&gt; plan (0.39)
-#&gt; |   |-- coregulate  n=252    -&gt; plan (0.40)
-#&gt; |   |-- discuss   n=1180   -&gt; plan (0.41)
-#&gt; |   |-- emotion   n=830    -&gt; plan (0.39) 
-#&gt; ... 61 more nodes (use as.data.frame(x) or summary(x))</code></pre>
-<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="fu">library</span>(tna)</span>
-<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">tna</span>(engagement)</span>
-<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a><span class="fu">context_tree</span>(model, <span class="at">max_depth =</span> <span class="dv">2</span><span class="dt">L</span>)          <span class="co"># a tna object</span></span></code></pre></div>
-<pre><code>#&gt; &lt;transitiontrees&gt;  13 nodes, depth &lt;= 2, 3 states  [unpruned]
-#&gt;   alphabet : Active, Average, Disengaged
-#&gt;   fit on   : 1000 sequences, 24555 observations
-#&gt;   smoothing: floor(ymin=0.001, rule=interpolate)   min_count = 5
-#&gt; (start)   n=24555  -&gt; Active (0.51)
-#&gt; |-- Active    n=11894  -&gt; Active (0.86)
-#&gt; |   |-- Active    n=9766   -&gt; Active (0.86)
-#&gt; |   |-- Average   n=1473   -&gt; Active (0.86)
-#&gt; |   `-- Disengaged  n=312    -&gt; Active (0.85)
-#&gt; |-- Average   n=5063   -&gt; Average (0.55)
-#&gt; |   |-- Active    n=1031   -&gt; Average (0.54)
-#&gt; |   |-- Average   n=2670   -&gt; Average (0.54)
-#&gt; |   `-- Disengaged  n=1043   -&gt; Average (0.57)
-#&gt; `-- Disengaged  n=6598   -&gt; Disengaged (0.79)
-#&gt;     |-- Active    n=581    -&gt; Disengaged (0.82)
-#&gt;     |-- Average   n=719    -&gt; Disengaged (0.73)
-#&gt;     `-- Disengaged  n=4960   -&gt; Disengaged (0.79)</code></pre>
+#&gt; (start)   n=25000  -&gt; Active (0.50)
+#&gt; |-- %         n=145    -&gt; % (1.00)
+#&gt; |   |-- Active    n=88     -&gt; % (1.00)
+#&gt; |   |-- Average   n=15     -&gt; % (1.00)
+#&gt; |   `-- Disengaged  n=42     -&gt; % (1.00)
+#&gt; |-- Active    n=12063  -&gt; Active (0.85)
+#&gt; |   |-- Active    n=9915   -&gt; Active (0.85)
+#&gt; |   |-- Average   n=1490   -&gt; Active (0.85)
+#&gt; |   `-- Disengaged  n=315    -&gt; Active (0.84)
+#&gt; |-- Average   n=5118   -&gt; Average (0.54)
+#&gt; |   |-- Active    n=1044   -&gt; Average (0.53)
+#&gt; |   |-- Average   n=2699   -&gt; Average (0.53)
+#&gt; |   `-- Disengaged  n=1056   -&gt; Average (0.56)
+#&gt; `-- Disengaged  n=6674   -&gt; Disengaged (0.78)
+#&gt;     |-- Active    n=586    -&gt; Disengaged (0.81)
+#&gt;     |-- Average   n=723    -&gt; Disengaged (0.73)
+#&gt;     `-- Disengaged  n=5027   -&gt; Disengaged (0.78)</code></pre>
+<p>A fitted transition/network object that carries its underlying
+sequences works the same way — pass it straight to
+<code>context_tree()</code>:</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="co"># transitiontrees also accepts a fitted transition/network object directly,</span></span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="co"># auto-detected by its S3 class:</span></span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a><span class="co"># context_tree(my_network_object, max_depth = 2L)</span></span></code></pre></div>
 <blockquote>
-<p>A network object is the ecosystem handoff format: its
-<code>$data</code> sequences are read and <code>$nodes$label</code>
-becomes the alphabet. A <em>pure</em> aggregated transition network
-(edges/weights only, no sequences) is rejected — transitiontrees fits on
-sequences, never on aggregated transitions.</p>
+<p>When a fitted object carries its sequences, those are read and its
+node labels become the alphabet. A <em>pure</em> aggregated transition
+network (edges/weights only, no sequences) is rejected — transitiontrees
+fits on sequences, never on aggregated transitions.</p>
 </blockquote>
 </div>
 <div id="session-info" class="section level1">
 <h1>Session info</h1>
-<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
 <pre><code>#&gt; R version 4.5.2 (2025-10-31)
 #&gt; Platform: aarch64-apple-darwin20
 #&gt; Running under: macOS Tahoe 26.3.1
@@ -3220,28 +3192,22 @@ sequences, never on aggregated transitions.</p>
 #&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     
 #&gt; 
 #&gt; other attached packages:
-#&gt; [1] tna_1.2.2       Nestimate_0.6.0 transitiontrees_0.1.0  testthat_3.3.2 
+#&gt; [1] transitiontrees_0.1.2 testthat_3.3.2       
 #&gt; 
 #&gt; loaded via a namespace (and not attached):
-#&gt;  [1] sass_0.4.10         generics_0.1.4      digest_0.6.39      
-#&gt;  [4] magrittr_2.0.4      evaluate_1.0.5      grid_4.5.2         
-#&gt;  [7] RColorBrewer_1.1-3  pkgload_1.4.1       fastmap_1.2.0      
-#&gt; [10] rprojroot_2.1.1     jsonlite_2.0.0      pkgbuild_1.4.8     
-#&gt; [13] sessioninfo_1.2.3   brio_1.1.5          purrr_1.2.1        
-#&gt; [16] scales_1.4.0        jquerylib_0.1.4     cli_3.6.6          
-#&gt; [19] rlang_1.2.0         ellipsis_0.3.2      withr_3.0.2        
-#&gt; [22] remotes_2.5.0       cachem_1.1.0        yaml_2.3.12        
-#&gt; [25] devtools_2.4.6      otel_0.2.0          parallel_4.5.2     
-#&gt; [28] tools_4.5.2         memoise_2.0.1       dplyr_1.2.0        
-#&gt; [31] ggplot2_4.0.2       here_1.0.1          vctrs_0.7.3        
-#&gt; [34] R6_2.6.1            lifecycle_1.0.5     fs_2.0.1           
-#&gt; [37] usethis_3.2.1       pkgconfig_2.0.3     glasso_1.11        
-#&gt; [40] desc_1.4.3          bslib_0.10.0        pillar_1.11.1      
-#&gt; [43] gtable_0.3.6        glue_1.8.0          data.table_1.18.2.1
-#&gt; [46] xfun_0.57           tibble_3.3.1        tidyselect_1.2.1   
-#&gt; [49] rstudioapi_0.18.0   knitr_1.51          farver_2.1.2       
-#&gt; [52] igraph_2.2.2        htmltools_0.5.9     rmarkdown_2.30     
-#&gt; [55] compiler_4.5.2      S7_0.2.1</code></pre>
+#&gt;  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.0        compiler_4.5.2    
+#&gt;  [5] brio_1.1.5         tidyselect_1.2.1   jquerylib_0.1.4    scales_1.4.0      
+#&gt;  [9] yaml_2.3.12        fastmap_1.2.0      here_1.0.1         ggplot2_4.0.2     
+#&gt; [13] R6_2.6.1           generics_0.1.4     knitr_1.51         tibble_3.3.1      
+#&gt; [17] desc_1.4.3         rprojroot_2.1.1    pillar_1.11.1      RColorBrewer_1.1-3
+#&gt; [21] bslib_0.10.0       rlang_1.2.0        cachem_1.1.0       xfun_0.57         
+#&gt; [25] S7_0.2.1           fs_2.0.1           sass_0.4.10        pkgload_1.4.1     
+#&gt; [29] otel_0.2.0         memoise_2.0.1      cli_3.6.6          magrittr_2.0.4    
+#&gt; [33] digest_0.6.39      grid_4.5.2         rstudioapi_0.18.0  remotes_2.5.0     
+#&gt; [37] devtools_2.4.6     lifecycle_1.0.5    vctrs_0.7.3        evaluate_1.0.5    
+#&gt; [41] glue_1.8.0         farver_2.1.2       sessioninfo_1.2.3  pkgbuild_1.4.8    
+#&gt; [45] rmarkdown_2.30     purrr_1.2.1        pkgconfig_2.0.3    tools_4.5.2       
+#&gt; [49] usethis_3.2.1      ellipsis_0.3.2     htmltools_0.5.9</code></pre>
 </div>
 
 

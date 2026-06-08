@@ -1,0 +1,251 @@
+---
+title: "2. A complete analysis case: collaborative-regulation sequences"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{2. A complete analysis case: collaborative-regulation sequences}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      fig.width = 7, fig.height = 4.5)
+library(transitiontrees)
+set.seed(1)
+```
+
+This vignette runs one dataset all the way through and **reads the numbers
+at each step** -- not just *what* to call but *what the output means* and
+*what not to over-read*. The data are the bundled `group_regulation_long`
+event log: students' collaborative regulation-of-learning actions
+(`plan`, `monitor`, `consensus`, `discuss`, ...), one row per action, with
+a `High` / `Low` achievement label per student.
+
+The arc that emerges, stated up front so the sections connect: regulation
+talk has **short memory** -- the immediately preceding action carries most
+of the predictive signal -- a handful of two-action routines reproducibly
+add to it, and **high and low achievers regulate differently**, which the
+permutation test confirms.
+
+## 1. The data
+
+```{r data}
+data(group_regulation_long)
+nrow(group_regulation_long)
+head(group_regulation_long)
+sort(table(group_regulation_long$Action), decreasing = TRUE)
+```
+
+The nine actions are very unevenly used: `consensus` and `plan` dominate,
+`adapt` and `synthesis` are rare. That imbalance is the most important fact
+about the corpus and it echoes through every result -- a model that just
+guesses `consensus` will look deceptively good, so the interesting question
+is never "what is the modal next action" but "*which histories overturn
+that default*".
+
+## 2. Fit
+
+`context_tree()` reads the long log directly: name the unit (`actor`), the
+clock (`time`), and the state (`action`); it reshapes into one sequence per
+session and fits. Sessions are split where the time gap is large.
+
+```{r fit}
+tree <- context_tree(group_regulation_long,
+                     actor = "Actor", time = "Time", action = "Action",
+                     max_depth = 3L, min_count = 10L)
+tree
+```
+
+The banner reports the depth, the node count, the alphabet, and the
+sequence/observation totals. The root line is the **null model**: the next
+action given *no* history. Every deeper context has to beat that to earn its
+place.
+
+## 3. Inspect
+
+```{r inspect}
+summary(tree)
+model_fit(tree)
+```
+
+Perplexity is the readable scalar: the effective number of equally likely
+next actions. The uniform baseline is `r length(tree$alphabet)` (nine
+actions, no knowledge); the fitted tree's
+`r round(model_fit(tree)$perplexity, 2)` says recent history collapses nine
+possibilities to about
+`r round(model_fit(tree)$perplexity, 1)`. Real structure -- but this is
+*in-sample* and the tree is over-grown, so read it as an optimistic bound.
+Sections 6 and 7 give the honest figure.
+
+## 4. The pathway tables
+
+Three named verbs each fix a useful sort over the one canonical schema.
+
+```{r common}
+common_pathways(tree, top = 8)      # the highways
+```
+
+```{r divergent}
+divergent_pathways(tree, top = 8)   # where adding history changes the prediction most
+```
+
+```{r sharp}
+sharp_pathways(tree, top = 8)       # the most peaked next-action predictions
+```
+
+Read the divergent table in two layers. The very top rows can have large
+`divergence` on a small `count` -- a short history seen just over the
+`min_count` floor that happened to resolve one way. Those are small-sample
+mirages; the bootstrap in section 7 exists to disarm them. The rows that
+*also* carry a large `count` are the well-supported redirections worth
+quoting.
+
+The sharp table teaches the same caution from the probability side: a
+`next_probability` near 1 on a low `count` is a near-empty cell after
+smoothing, not a law of behaviour. Sharpness **with** support is a rule;
+sharpness without it is noise.
+
+## 5. Per-context diagnostics
+
+`tree_dependence()` is the information-theoretic decomposition the KL
+pruning rule thresholds: per context, how many **bits** of next-action
+uncertainty the extra history removes (`entropy_drop`), and whether it flips
+the modal prediction.
+
+```{r dependence}
+tree_dependence(tree, sort_by = "entropy_drop", top = 8)
+```
+
+A large `entropy_drop` with `changes_prediction = TRUE` is the most valuable
+kind of context: it both sharpens *and* redirects. Watch for **negative**
+`entropy_drop` -- the longer history left the next action *more* uncertain
+than its parent; that is the textbook signature of a context pruning should
+remove.
+
+## 6. Prune to the reliable tree
+
+```{r prune}
+pruned <- prune_tree(tree, criterion = "G2", alpha = 0.05)
+pruned
+```
+
+The pruned banner reports the surviving node count and criterion; compare it
+to the unpruned `tree` from section 2. Each removed context failed a
+likelihood-ratio G-squared test against its
+one-shorter parent: the extra history did not explain enough added variation
+in the next action to justify keeping it. That the tree collapses so far is
+itself a finding -- most of the grown depth was unsupported, and the durable
+structure lives near the root.
+
+## 7. Held-out predictive quality
+
+The honest, out-of-sample estimate comes from cross-validation, which
+`tune_tree()` runs at the sequence level over a `(max_depth, min_count, ...)`
+grid -- no hand-made train/test split. The in-sample perplexity is the
+optimistic bound; the cross-validated winner is the figure to report.
+
+```{r holdout}
+model_fit(pruned)$perplexity                       # in-sample (optimistic)
+
+tg <- tune_tree(group_regulation_long,
+               actor = "Actor", time = "Time", action = "Action",
+               max_depth = 1L:3L, min_count = 10L, folds = 5L, seed = 1L)
+attr(tg, "best")                                   # cross-validated winner
+```
+
+A cross-validated perplexity close to the in-sample value is the signature of
+a well-pruned model that generalises; a large gap would say *prune harder*.
+
+`mine_sequences()` then surfaces the sessions the fitted model predicts worst
+-- the atypical regulation trajectories worth a closer look -- and
+`score_positions()` the individual moves it is most blindsided by:
+
+```{r scores}
+wide <- prepare_input(group_regulation_long,
+                     actor = "Actor", time = "Time", action = "Action")
+mine_sequences(pruned, newdata = wide, which = "surprising", n = 5L)
+score_positions(pruned, newdata = wide, worst = 5L)
+```
+
+## 8. Bootstrap reliability
+
+`prune_tree()` asked "which contexts pass a criterion *in this dataset*?".
+The bootstrap asks the stricter question -- "which pass *reproducibly* under
+resampling?" -- and reports two flags. **`stable`**: the count reproduces.
+**`informative`**: the G-squared against the parent reproducibly clears the
+chi-square bar. A claim worth making is **both**.
+
+```{r bootstrap}
+boot <- bootstrap_pathways(pruned, iter = 200L, stat = "count", seed = 1L)
+boot
+```
+
+```{r bootstrap-summary}
+head(summary(boot), 10)
+```
+
+`summary()` sorts the trustworthy (stable *and* informative) pathways first,
+so the top rows are the defensible set. The two flags screen different failure
+modes. `stable` alone keeps
+high-count noise pathways; `informative` alone could surface a low-count
+borderline pathway whose sample G-squared is high by chance. Their
+conjunction is the defensible set.
+
+```{r bootstrap-plot, fig.height = 5.5}
+plot(boot)
+```
+
+In the forest plot each bar is a 95% bootstrap interval on G-squared; the
+dashed line is the chi-square critical value. A bar entirely to the right is
+reproducibly informative; a bar straddling the line is not safe to claim.
+
+## 9. Do high and low achievers regulate differently?
+
+Fit **one tree per group** in a single call with `group =`, then test where
+the groups diverge with a permutation null. The grouping variable is an
+*external* student attribute (`Achiever`), not derived from the actions
+themselves -- otherwise the comparison would be circular.
+
+```{r groups}
+grp <- context_tree(group_regulation_long,
+                    actor = "Actor", time = "Time", action = "Action",
+                    group = "Achiever", max_depth = 2L, min_count = 10L)
+cmp <- compare_groups(grp, iter = 199L, seed = 1L)
+cmp$omnibus
+```
+
+The omnibus table reports two axes. **behavioral** is the count-weighted
+Jensen-Shannon divergence (bits) between the groups' next-action
+distributions, summed over shared contexts -- "given the same history, do
+the groups do different things next?". **usage** is the summed G-squared
+homogeneity statistic -- "do they reach the same contexts at the same
+rates?". Each `p_value` comes from permuting the group labels.
+
+```{r groups-plot, fig.height = 5}
+plot_difference(grp, depth = 1L)
+```
+
+The per-context residual map shows *where* the groups differ: red and blue
+cells are the contexts a high achiever and a low achiever resolve toward
+different next actions. `depth = 1L` restricts it to the single-action
+contexts so the rows stay readable; drop it (or raise it) to inspect deeper
+histories.
+
+## Synthesis
+
+Pulling the thread through every section:
+
+1. **The action alphabet is imbalanced** -- frequency is a misleading lens
+   and modal predictions are trivially `consensus`/`plan`.
+2. **Memory is short** -- pruning collapses the tree to a small set of
+   contexts, and held-out perplexity confirms the shallow model generalises.
+3. **The insight is in the divergent, well-counted contexts** -- not the
+   common ones, and not the spectacular low-count tail.
+4. **Only the stable-and-informative pathways are claimable** -- the
+   bootstrap is the trust filter between an eyeballed table and a finding.
+5. **High and low achievers regulate measurably differently** -- the
+   permutation test licenses the claim that the omnibus statistic is real,
+   not a relabelling artefact.
+
+Each claim is anchored to a function whose output you can re-run -- the whole
+point of a pathway-centric, testable model.

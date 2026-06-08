@@ -147,7 +147,7 @@ generate_sequences <- function(tree, n = 5L, length = 10L,
   out
 }
 
-#' Simulate Sequences from a Fitted Pathtree
+#' Simulate Sequences from a Fitted context tree
 #'
 #' @description
 #' S3 \code{simulate()} method for \code{transitiontrees} objects. Wraps

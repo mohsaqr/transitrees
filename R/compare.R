@@ -60,14 +60,14 @@
                  threshold = pr$threshold %||% 0.005)
 }
 
-#' Symmetric KL Distance Between Two Pathtrees
+#' Symmetric KL Distance Between Two context trees
 #'
 #' @description
 #' Bare-metal scalar: a count-weighted average of per-context symmetric
 #' Kullback-Leibler divergence over the union of pathways present in
 #' either tree. No null distribution.
 #'
-#' @param tree_a,tree_b Pathtrees with matching alphabets.
+#' @param tree_a,tree_b context trees with matching alphabets.
 #' @param symmetric Logical. \code{TRUE} (default) returns
 #'   \eqn{0.5(D_{KL}(A\|B) + D_{KL}(B\|A))}; \code{FALSE} returns
 #'   \eqn{D_{KL}(A\|B)} only.
@@ -97,7 +97,7 @@ tree_distance <- function(tree_a, tree_b, symmetric = TRUE) {
   sum(per[msk] * w[msk]) / total
 }
 
-#' Compare Two Pathtrees by Symmetric Divergence with Permutation Test
+#' Compare Two context trees by Symmetric Divergence with Permutation Test
 #'
 #' @description
 #' Computes the count-weighted symmetric Kullback-Leibler divergence
@@ -107,7 +107,7 @@ tree_distance <- function(tree_a, tree_b, symmetric = TRUE) {
 #' Use this to ask: do two cohorts (group A vs. group B, baseline vs.
 #' intervention) generate significantly different pathway dynamics?
 #'
-#' @param tree_a,tree_b Pathtrees fit on data subsets A and B.
+#' @param tree_a,tree_b context trees fit on data subsets A and B.
 #'   Alternatively, pass a two-element \code{transitiontrees_group} (from
 #'   \code{context_tree(..., group =)}) as \code{tree_a} and leave
 #'   \code{tree_b = NULL}; its two trees are compared in key order.
@@ -154,6 +154,8 @@ compare_trees <- function(tree_a, tree_b = NULL, iter = 200L,
          "the first argument).", call. = FALSE)
   stopifnot(inherits(tree_a, "transitiontrees"),
             inherits(tree_b, "transitiontrees"))
+  .pt_assert_unweighted(tree_a, "compare_trees()")
+  .pt_assert_unweighted(tree_b, "compare_trees()")
   if (!is.numeric(iter) || length(iter) != 1L ||
       is.na(iter) || iter < 1)
     stop("'iter' must be a single positive integer.", call. = FALSE)
@@ -201,7 +203,7 @@ compare_trees <- function(tree_a, tree_b = NULL, iter = 200L,
   )
 }
 
-#' Plot a Pathtree Comparison
+#' Plot a context tree Comparison
 #'
 #' @description
 #' Visualises the permutation-test result. Histogram of the null
@@ -228,7 +230,7 @@ plot.transitiontrees_comparison <- function(x, bins = 30L, ...) {
                        size = 3.6, fontface = "bold") +
     ggplot2::labs(
       x = "symmetric KL between trees", y = "permutations",
-      title = "Pathtree comparison: observed vs. null distribution",
+      title = "context tree comparison: observed vs. null distribution",
       subtitle = sprintf("permutation p-value = %.3f  (n = %d)",
                           x$p_value, length(x$null_dist))) +
     ggplot2::theme_minimal(base_size = 11) +
@@ -240,7 +242,7 @@ plot.transitiontrees_comparison <- function(x, bins = 30L, ...) {
     )
 }
 
-#' Coerce a Pathtree Comparison to a Tidy Data Frame
+#' Coerce a context tree Comparison to a Tidy Data Frame
 #'
 #' @description
 #' Uniform tidy-extract: returns the per-pathway divergence breakdown
@@ -259,7 +261,7 @@ as.data.frame.transitiontrees_comparison <- function(x, row.names = NULL,
   x$pathways
 }
 
-#' Print a Pathtree Comparison
+#' Print a context tree Comparison
 #'
 #' @param x A \code{transitiontrees_comparison} object.
 #' @param digits Integer. Numeric digits for the printed table.

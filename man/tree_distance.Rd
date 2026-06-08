@@ -2,12 +2,12 @@
 % Please edit documentation in R/compare.R
 \name{tree_distance}
 \alias{tree_distance}
-\title{Symmetric KL Distance Between Two Pathtrees}
+\title{Symmetric KL Distance Between Two context trees}
 \usage{
 tree_distance(tree_a, tree_b, symmetric = TRUE)
 }
 \arguments{
-\item{tree_a, tree_b}{Pathtrees with matching alphabets.}
+\item{tree_a, tree_b}{context trees with matching alphabets.}
 
 \item{symmetric}{Logical. \code{TRUE} (default) returns
 \eqn{0.5(D_{KL}(A\|B) + D_{KL}(B\|A))}; \code{FALSE} returns

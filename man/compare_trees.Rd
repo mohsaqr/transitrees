@@ -2,12 +2,12 @@
 % Please edit documentation in R/compare.R
 \name{compare_trees}
 \alias{compare_trees}
-\title{Compare Two Pathtrees by Symmetric Divergence with Permutation Test}
+\title{Compare Two context trees by Symmetric Divergence with Permutation Test}
 \usage{
 compare_trees(tree_a, tree_b = NULL, iter = 200L, seed = 1L, symmetric = TRUE)
 }
 \arguments{
-\item{tree_a, tree_b}{Pathtrees fit on data subsets A and B.
+\item{tree_a, tree_b}{context trees fit on data subsets A and B.
 Alternatively, pass a two-element \code{transitiontrees_group} (from
 \code{context_tree(..., group =)}) as \code{tree_a} and leave
 \code{tree_b = NULL}; its two trees are compared in key order.}

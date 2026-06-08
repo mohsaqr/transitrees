@@ -2,7 +2,7 @@
 % Please edit documentation in R/bootstrap.R
 \name{summary.transitiontrees_bootstrap}
 \alias{summary.transitiontrees_bootstrap}
-\title{Summarise a Pathtree Bootstrap}
+\title{Summarise a context tree Bootstrap}
 \usage{
 \method{summary}{transitiontrees_bootstrap}(object, ...)
 }
@@ -17,5 +17,5 @@ The per-pathway summary \code{data.frame}
   for the full column vocabulary.
 }
 \description{
-Summarise a Pathtree Bootstrap
+Summarise a context tree Bootstrap
 }

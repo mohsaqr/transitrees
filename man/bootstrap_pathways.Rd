@@ -26,7 +26,7 @@ Default \code{1000}.}
 
 \item{stat}{Character. Pathway statistic on which
 \code{p_stability} is measured. One of \code{"count"}
-(default; tna's edge-weight analogue), \code{"next_probability"}
+(default; the edge-weight analogue), \code{"next_probability"}
 (the most-likely next-state probability), or \code{"divergence"}.}
 
 \item{consistency_range}{Numeric vector of length 2.
@@ -89,7 +89,7 @@ A \code{transitiontrees_bootstrap} object: a list with
 \description{
 Non-parametric sequence bootstrap for a fitted \code{transitiontrees}.
 Methodologically built on Saqr, Tikka & López-Pernas (2025),
-\code{tna}, extending the edge-level bootstrap framework to
+extending an edge-level bootstrap framework to
 variable-depth pathways.
 
 The bootstrap tracks every pathway in the original tree. Each
@@ -97,8 +97,7 @@ iteration resamples whole sequences with replacement, aggregates
 raw counts per depth, and reads each pathway's count vector
 directly from the resample. \strong{No smoothing, no \code{nmin}
 filter, no extra parameters} inside the loop — the bootstrap
-operates on counts the same way \code{tna::bootstrap} operates on
-edge weights.
+operates on counts analogously to an edge-weight bootstrap.
 
 Two complementary measures are reported per pathway:
 \describe{

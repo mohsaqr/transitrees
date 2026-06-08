@@ -1,8 +1,8 @@
 # ---- prepare_input(): long-format -> wide sequence frame ----
 #
-# Base-R reimplementation of the long->sequence reshaping done by
-# tna::prepare_data() / Nestimate::build_network(). transitiontrees stays pure
-# base R, so the dplyr/tidyr machinery of those packages is replaced by
+# Base-R reimplementation of standard long->sequence reshaping.
+# transitiontrees stays pure
+# base R, so the usual dplyr/tidyr machinery is replaced by
 # order() / ave() / matrix-indexing, but the session-splitting logic is
 # identical: within each actor, a new session begins when the gap to the
 # previous timestamp exceeds `time_threshold` seconds.
@@ -39,9 +39,8 @@
 #' Events are grouped by \code{actor} and ordered by \code{time} (or
 #' \code{order}); when \code{time} is given, each actor's events are
 #' split into \strong{sessions} whenever the gap to the previous event
-#' exceeds \code{time_threshold} seconds. This mirrors the timestamp /
-#' session logic of \code{tna::prepare_data()} and
-#' \code{Nestimate::build_network()}, in pure base R.
+#' exceeds \code{time_threshold} seconds. This mirrors the standard
+#' timestamp / session-splitting rule, in pure base R.
 #'
 #' @param data A long-format \code{data.frame}, one row per event.
 #' @param actor Character. Column(s) naming the unit each sequence
@@ -61,8 +60,8 @@
 #'   id within an actor. If supplied, sessions are taken from it directly
 #'   and no time-gap splitting is done.
 #' @param time_threshold Numeric. Seconds; a gap larger than this starts
-#'   a new session. Default \code{900} (15 minutes), matching
-#'   \code{tna::prepare_data()}.
+#'   a new session. Default \code{900} (15 minutes), the standard
+#'   session-splitting threshold.
 #' @param format Character. Optional \code{\link{strptime}} format for a
 #'   character \code{time} column.
 #' @param is_unix_time Logical. Force \code{time} to be read as Unix
@@ -130,7 +129,7 @@ prepare_input <- function(data, actor = NULL, time = NULL, action = NULL,
   ord <- if (is.null(order)) seq_len(n) else data[[order]]
 
   if (!is.null(session)) {
-    ## Explicit session column (Nestimate-style): order within
+    ## Explicit session column: order within
     ## actor+session, take the session id directly.
     sess <- paste0(actor_vec, " | ", as.character(data[[session]]))
     o    <- order(actor_vec, sess, ord)
@@ -138,7 +137,7 @@ prepare_input <- function(data, actor = NULL, time = NULL, action = NULL,
     act_s      <- act[o]
   } else if (!is.null(time)) {
     ## Timestamp logic: sort within actor by (time, order), then split
-    ## into sessions on gaps > time_threshold (tna::prepare_data rule).
+    ## into sessions on gaps > time_threshold (the standard rule).
     tt <- .pt_parse_time(data[[time]], format, is_unix_time, unix_time_unit)
     o  <- order(actor_vec, tt, ord)
     actor_s <- actor_vec[o]; tt_s <- tt[o]; act_s <- act[o]
@@ -160,8 +159,8 @@ prepare_input <- function(data, actor = NULL, time = NULL, action = NULL,
   ## Position within each session, then scatter into a wide matrix.
   seqpos   <- stats::ave(seq_along(session_id), session_id,
                          FUN = seq_along)
-  ## rows sorted by session id as a string, matching tna::prepare_data's
-  ## arrange(.session_id) (so "session10" precedes "session2").
+  ## rows sorted by session id as a string, matching the standard
+  ## reshaping order (so "session10" precedes "session2").
   sessions <- sort(unique(session_id))
   max_len  <- max(seqpos)
   wide <- matrix(NA_character_, length(sessions), max_len,

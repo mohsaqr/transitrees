@@ -7,8 +7,8 @@ Initial CRAN release.
 * `context_tree()` fits a variable-depth pathway tree (prediction
   suffix tree; Ron, Singer & Tishby 1996) from a wide character
   matrix / data.frame, a list of character vectors, a long event log
-  (`actor` / `time` / `action` / `order` / `session` arguments), a
-  TraMineR `stslist`, or a sibling-package network object.
+  (`actor` / `time` / `action` / `order` / `session` arguments), an
+  `stslist` state-sequence object, or a transition/network object.
 * `prepare_input()` reshapes a long event log to a wide sequence frame
   (timestamp / session logic), and can carry per-sequence metadata
   through the reshape via `meta`.
@@ -42,7 +42,7 @@ Initial CRAN release.
   evaluation toolchain.
 * `impute_sequences()` fills internal gaps in incomplete sequences.
 * `mine_contexts()` / `mine_sequences()` scan for contexts where a
-  state is (un)usually likely and for the best/worst-fit held-out
+  state is unusually likely or unlikely and for the best/worst-fit held-out
   sequences.
 
 ## Resampling and group comparison
@@ -81,8 +81,9 @@ Initial CRAN release.
 
 ## Validation
 
-* Equivalence-tested at machine precision against the archived `PST`
-  package (Gabadinho & Ritschard 2013) --- counts exact,
-  probabilities within 1.11e-16 --- and cross-checked against
-  `markovchain` (order-1) and `tna::prepare_data` (reshaping). The
-  equivalence suite lives outside the package and is run locally.
+* Equivalence-tested at machine precision against an independent
+  external reference implementation of the model --- counts exact,
+  probabilities within 1.11e-16 --- and cross-checked against an
+  independent first-order Markov reference and a standard long-to-sequence
+  reshaper. The equivalence suite lives outside the package and is run
+  locally.

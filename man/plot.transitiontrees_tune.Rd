@@ -2,7 +2,7 @@
 % Please edit documentation in R/tune.R
 \name{plot.transitiontrees_tune}
 \alias{plot.transitiontrees_tune}
-\title{Plot a Pathtree CV Grid}
+\title{Plot a context tree CV Grid}
 \usage{
 \method{plot}{transitiontrees_tune}(x, ...)
 }

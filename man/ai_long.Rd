@@ -11,7 +11,7 @@ A \code{data.frame} with 8551 rows and 9 columns, including
   \code{code_order} / \code{order_in_session} (within-sequence order).
 }
 \source{
-Embedded from \pkg{Nestimate} (Dynalytics ecosystem).
+Bundled example dataset.
 }
 \usage{
 ai_long
@@ -19,8 +19,8 @@ ai_long
 \description{
 A long, one-row-per-message log from an AI-assisted collaboration
 study, with Unix timestamps and an explicit session id. Used to
-demonstrate long-format loading with Unix time and sessions. Embedded
-from the Dynalytics ecosystem.
+demonstrate long-format loading with Unix time and sessions. Bundled
+example dataset.
 }
 \examples{
 data(ai_long)

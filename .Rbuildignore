@@ -19,3 +19,16 @@
 ^PARITY\.md$
 ^\.playwright-mcp$
 ^.*\.tar\.gz$
+^.*\.zip$
+^.*\.Rcheck$
+^\.\.Rcheck$
+^Rplots\.pdf$
+^\.DS_Store$
+^audit\.md$
+^audit$
+^audit\.zip$
+^audit-prompt.*$
+^codex_docs$
+^\.codex$
+^[^/]+\.html$
+^sidelined$

@@ -2,7 +2,7 @@
 % Please edit documentation in R/compare.R
 \name{print.transitiontrees_comparison}
 \alias{print.transitiontrees_comparison}
-\title{Print a Pathtree Comparison}
+\title{Print a context tree Comparison}
 \usage{
 \method{print}{transitiontrees_comparison}(x, digits = 3L, n = 6L, ...)
 }
@@ -21,5 +21,5 @@ Default 6.}
 \code{x} invisibly.
 }
 \description{
-Print a Pathtree Comparison
+Print a context tree Comparison
 }

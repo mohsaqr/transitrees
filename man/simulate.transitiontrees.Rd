@@ -2,7 +2,7 @@
 % Please edit documentation in R/predict.R
 \name{simulate.transitiontrees}
 \alias{simulate.transitiontrees}
-\title{Simulate Sequences from a Fitted Pathtree}
+\title{Simulate Sequences from a Fitted context tree}
 \usage{
 \method{simulate}{transitiontrees}(object, nsim = 5L, seed = NULL, length = 10L, start = NULL, ...)
 }
