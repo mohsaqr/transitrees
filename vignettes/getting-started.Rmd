@@ -78,6 +78,11 @@ Every accessor returns a plain `data.frame` in one canonical schema, so the
 views join cleanly. Pathways read left-to-right oldest-to-newest
 (`A -> B -> C`); the root context is shown as `(start)`.
 
+ - `common_pathways`:Returns the top n pathways by occurrence count – the trajectories the data actually contains many copies of.
+ - `divergent_pathways`: Returns the top n pathways by Kullback-Leibler divergence from their (k-1)-suffix. These are the pathways whose extended history adds the most predictive information over the shorter one. Pathways whose most likely next state actually flips between orders are marked in the changes_prediction column.
+ - `sharp_pathways`: Returns the top n pathways by predictive sharpness – the probability mass on their modal next state. High values indicate strongly deterministic continuations; low values indicate ambiguous next-state distributions.
+
+
 ```{r tables}
 common_pathways(tree, top = 6)      # by frequency
 divergent_pathways(tree, top = 6)   # by divergence from the shorter history
